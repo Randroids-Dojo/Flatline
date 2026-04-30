@@ -204,6 +204,74 @@ button {
   color: var(--ink);
 }
 
+.settings-panel {
+  display: grid;
+  gap: 10px;
+  max-width: 360px;
+  margin: 0 auto 18px;
+  padding: 10px;
+  border: 1px solid rgba(244, 241, 232, 0.18);
+  border-radius: 6px;
+  background: rgba(10, 10, 10, 0.62);
+}
+
+.settings-panel label {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 8px;
+  align-items: center;
+  color: rgba(244, 241, 232, 0.8);
+  font-size: 13px;
+  text-align: left;
+}
+
+.settings-panel input[type="range"] {
+  width: 100%;
+}
+
+.audio-toggle {
+  grid-template-columns: 20px 1fr;
+}
+
+.leaderboard {
+  max-width: 360px;
+  margin: 0 auto 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.leaderboard li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(244, 241, 232, 0.12);
+  color: rgba(244, 241, 232, 0.84);
+  font-size: 13px;
+}
+
+.pause-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(6, 6, 6, 0.72);
+}
+
+.pause-panel-inner {
+  width: min(420px, 100%);
+  text-align: center;
+}
+
+.pause-panel h2 {
+  margin: 0 0 14px;
+  font-size: 44px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
 .start-button {
   min-width: 190px;
   padding: 12px 18px;

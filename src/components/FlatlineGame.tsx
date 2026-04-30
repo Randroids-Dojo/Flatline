@@ -10,6 +10,8 @@ import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, tickDirector, type DirectorState } from '@/game/spawnDirector'
 import { frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
+import { dailySeed } from '@/lib/dailySeed'
+import { insertLeaderboardEntry, readLeaderboard, writeLeaderboard, type LeaderboardEntry } from '@/lib/leaderboard'
 
 const cameraHeight = 1.7
 const initialPlayerPosition: Vec3 = { x: 0, y: cameraHeight, z: -5.5 }
@@ -42,6 +44,12 @@ type RunSummary = {
   bestCombo: number
 }
 
+type Settings = {
+  sensitivity: number
+  fov: number
+  audio: boolean
+}
+
 export function FlatlineGame() {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const runtimeRef = useRef<RuntimeRefs | null>(null)
@@ -52,6 +60,8 @@ export function FlatlineGame() {
   const pitchRef = useRef<number>(0)
   const keysRef = useRef<MovementInput>({ forward: false, backward: false, left: false, right: false })
   const runningRef = useRef<boolean>(false)
+  const pausedRef = useRef<boolean>(false)
+  const settingsRef = useRef<Settings>({ sensitivity: 1, fov: 75, audio: true })
   const enemyRef = useRef<EnemyModel>(createGrunt('grunt-1', { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition))
   const playerHealthRef = useRef<number>(100)
   const directorRef = useRef<DirectorState>(createDirectorState())
@@ -60,6 +70,7 @@ export function FlatlineGame() {
   const healthPickupCooldownRef = useRef<number>(0)
   const atlasRef = useRef<SpriteAtlas | null>(null)
   const [running, setRunning] = useState(false)
+  const [paused, setPaused] = useState(false)
   const [hits, setHits] = useState(0)
   const [playerHealth, setPlayerHealth] = useState(100)
   const [enemyHealth, setEnemyHealth] = useState(3)
@@ -68,6 +79,11 @@ export function FlatlineGame() {
   const [runMs, setRunMs] = useState(0)
   const [healthPickupReady, setHealthPickupReady] = useState(true)
   const [summary, setSummary] = useState<RunSummary | null>(null)
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
+    typeof window === 'undefined' ? [] : readLeaderboard(window.localStorage)
+  )
+  const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
+  const [seed] = useState(() => dailySeed())
   const [debug, setDebug] = useState<{ angle: BillboardAngle; bucket: number; animation: AnimationName }>({
     angle: 'front',
     bucket: 0,
@@ -98,6 +114,7 @@ export function FlatlineGame() {
     )
 
     runtimeRef.current.muzzleLight.intensity = 4.5
+    playCue(180, settingsRef.current.audio)
 
     scoreRef.current = recordShot(scoreRef.current, Boolean(hit))
 
@@ -111,6 +128,9 @@ export function FlatlineGame() {
         scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs)
         setScore(scoreRef.current.score)
         setKills(scoreRef.current.kills)
+        playCue(90, settingsRef.current.audio)
+      } else {
+        playCue(320, settingsRef.current.audio)
       }
 
       setStatus(enemyRef.current.state === 'dead' ? 'Billboard enemy dropped.' : 'Billboard enemy hurt.')
@@ -131,7 +151,9 @@ export function FlatlineGame() {
     healthPickupReadyRef.current = true
     healthPickupCooldownRef.current = 0
     runningRef.current = true
+    pausedRef.current = false
     setRunning(true)
+    setPaused(false)
     setSummary(null)
     setHits(0)
     setPlayerHealth(100)
@@ -142,6 +164,54 @@ export function FlatlineGame() {
     setHealthPickupReady(true)
     setStatus('WASD moves. Mouse aims. Left click fires.')
     requestPointerLock(runtimeRef.current?.renderer.domElement)
+  }, [])
+
+  const finishRun = useCallback(() => {
+    const runSummary = {
+      score: finalScore(scoreRef.current, directorRef.current.runMs),
+      survivalMs: directorRef.current.runMs,
+      kills: scoreRef.current.kills,
+      accuracy: accuracy(scoreRef.current),
+      bestCombo: scoreRef.current.bestCombo
+    }
+    setSummary(runSummary)
+
+    if (typeof window !== 'undefined') {
+      const nextLeaderboard = insertLeaderboardEntry(
+        readLeaderboard(window.localStorage),
+        {
+          playerInitials: 'YOU',
+          ...runSummary,
+          createdAt: new Date().toISOString()
+        }
+      )
+      writeLeaderboard(window.localStorage, nextLeaderboard)
+      setLeaderboard(nextLeaderboard)
+    }
+
+    playerHealthRef.current = 0
+    setPlayerHealth(0)
+    runningRef.current = false
+    pausedRef.current = false
+    setRunning(false)
+    setPaused(false)
+    setStatus('Flatlined.')
+  }, [])
+
+  const resumeRun = useCallback(() => {
+    pausedRef.current = false
+    setPaused(false)
+    setStatus('Run resumed.')
+    requestPointerLock(runtimeRef.current?.renderer.domElement)
+  }, [])
+
+  const updateSettings = useCallback((nextSettings: typeof settings) => {
+    settingsRef.current = nextSettings
+    setSettings(nextSettings)
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('flatline.settings.v1', JSON.stringify(nextSettings))
+    }
   }, [])
 
   useEffect(() => {
@@ -242,6 +312,9 @@ export function FlatlineGame() {
       setStatus('Sprite atlas failed to load.')
     })
 
+    camera.fov = settingsRef.current.fov
+    camera.updateProjectionMatrix()
+
     function resize() {
       if (!mount || !runtimeRef.current) {
         return
@@ -265,7 +338,7 @@ export function FlatlineGame() {
       const delta = Math.min((time - lastTimeRef.current) / 1000 || 0, 0.05)
       lastTimeRef.current = time
 
-      if (runningRef.current) {
+      if (runningRef.current && !pausedRef.current) {
         positionRef.current = updatePlayerPosition(
           positionRef.current,
           yawRef.current,
@@ -298,6 +371,7 @@ export function FlatlineGame() {
             setPlayerHealth(playerHealthRef.current)
             setHealthPickupReady(false)
             setStatus('Health pickup collected.')
+            playCue(520, settingsRef.current.audio)
           }
 
           const result = tickEnemy(
@@ -332,17 +406,7 @@ export function FlatlineGame() {
           }
 
           if (result.player.health === 0) {
-            const summaryScore = finalScore(scoreRef.current, directorRef.current.runMs)
-            setSummary({
-              score: summaryScore,
-              survivalMs: directorRef.current.runMs,
-              kills: scoreRef.current.kills,
-              accuracy: accuracy(scoreRef.current),
-              bestCombo: scoreRef.current.bestCombo
-            })
-            runningRef.current = false
-            setRunning(false)
-            setStatus('Flatlined.')
+            finishRun()
           }
 
           const activePressure = enemyRef.current.state === 'dead' ? 0 : 1
@@ -413,7 +477,7 @@ export function FlatlineGame() {
       mount.removeChild(renderer.domElement)
       runtimeRef.current = null
     }
-  }, [])
+  }, [finishRun])
 
   useEffect(() => {
     function updateKey(event: KeyboardEvent, pressed: boolean) {
@@ -433,6 +497,11 @@ export function FlatlineGame() {
         event.preventDefault()
         fire()
       }
+      if (event.code === 'Escape' && pressed && runningRef.current) {
+        pausedRef.current = !pausedRef.current
+        setPaused(pausedRef.current)
+        setStatus(pausedRef.current ? 'Paused.' : 'Run resumed.')
+      }
     }
 
     function onKeyDown(event: KeyboardEvent) {
@@ -450,8 +519,12 @@ export function FlatlineGame() {
         return
       }
 
-      yawRef.current -= event.movementX * 0.0024
-      pitchRef.current = clamp(pitchRef.current - event.movementY * 0.002, -1.25, 1.25)
+      yawRef.current -= event.movementX * 0.0024 * settingsRef.current.sensitivity
+      pitchRef.current = clamp(
+        pitchRef.current - event.movementY * 0.002 * settingsRef.current.sensitivity,
+        -1.25,
+        1.25
+      )
     }
 
     function onPointerLockChange() {
@@ -479,18 +552,7 @@ export function FlatlineGame() {
         return
       }
 
-      setSummary({
-        score: finalScore(scoreRef.current, directorRef.current.runMs),
-        survivalMs: directorRef.current.runMs,
-        kills: scoreRef.current.kills,
-        accuracy: accuracy(scoreRef.current),
-        bestCombo: scoreRef.current.bestCombo
-      })
-      playerHealthRef.current = 0
-      setPlayerHealth(0)
-      runningRef.current = false
-      setRunning(false)
-      setStatus('Flatlined.')
+      finishRun()
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -508,7 +570,19 @@ export function FlatlineGame() {
       window.removeEventListener('flatline:force-death', onForceDeath)
       document.removeEventListener('pointerlockchange', onPointerLockChange)
     }
-  }, [fire])
+  }, [fire, finishRun])
+
+  useEffect(() => {
+    const runtime = runtimeRef.current
+
+    if (!runtime) {
+      return
+    }
+
+    runtime.camera.fov = settings.fov
+    runtime.camera.updateProjectionMatrix()
+    settingsRef.current = settings
+  }, [settings])
 
   return (
     <main className="game-shell">
@@ -566,14 +640,28 @@ export function FlatlineGame() {
                 <p>Best combo {summary.bestCombo}</p>
               </div>
             ) : (
-              <p>One room. Endless pressure. Move fast, aim clean, and stay alive.</p>
+              <p>Daily seed {seed}. One room. Endless pressure. Move fast, aim clean, and stay alive.</p>
             )}
+            <SettingsPanel settings={settings} onChange={updateSettings} />
+            {leaderboard.length > 0 ? <Leaderboard entries={leaderboard} /> : null}
             <button className="start-button" type="button" onClick={startRun}>
               {summary ? 'Restart run' : 'Start run'}
             </button>
           </div>
         </section>
       )}
+      {paused ? (
+        <section className="pause-panel" data-testid="pause-menu">
+          <div className="pause-panel-inner">
+            <h2>Paused</h2>
+            <SettingsPanel settings={settings} onChange={updateSettings} />
+            {leaderboard.length > 0 ? <Leaderboard entries={leaderboard} /> : null}
+            <button className="start-button" type="button" onClick={resumeRun}>
+              Resume
+            </button>
+          </div>
+        </section>
+      ) : null}
       <div className="crosshair" data-testid="crosshair" />
       <div className="weapon" aria-hidden="true" />
       <div className="status-line" data-testid="status-line">
@@ -660,6 +748,81 @@ function createRoom() {
   return group
 }
 
+function SettingsPanel({
+  settings,
+  onChange
+}: {
+  settings: Settings
+  onChange: (settings: Settings) => void
+}) {
+  return (
+    <div className="settings-panel" data-testid="settings-panel">
+      <label>
+        Sensitivity
+        <input
+          type="range"
+          min="0.5"
+          max="2"
+          step="0.1"
+          value={settings.sensitivity}
+          onChange={(event) => onChange({ ...settings, sensitivity: Number(event.target.value) })}
+        />
+      </label>
+      <label>
+        FOV
+        <input
+          type="range"
+          min="65"
+          max="95"
+          step="1"
+          value={settings.fov}
+          onChange={(event) => onChange({ ...settings, fov: Number(event.target.value) })}
+        />
+      </label>
+      <label className="audio-toggle">
+        <input
+          type="checkbox"
+          checked={settings.audio}
+          onChange={(event) => onChange({ ...settings, audio: event.target.checked })}
+        />
+        Audio
+      </label>
+    </div>
+  )
+}
+
+function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
+  return (
+    <ol className="leaderboard" data-testid="leaderboard">
+      {entries.map((entry, index) => (
+        <li key={`${entry.createdAt}-${index}`}>
+          <span>{entry.playerInitials}</span>
+          <strong>{entry.score}</strong>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function loadInitialSettings(): Settings {
+  if (typeof window === 'undefined') {
+    return { sensitivity: 1, fov: 75, audio: true }
+  }
+
+  const savedSettings = window.localStorage.getItem('flatline.settings.v1')
+
+  if (!savedSettings) {
+    return { sensitivity: 1, fov: 75, audio: true }
+  }
+
+  try {
+    return JSON.parse(savedSettings) as Settings
+  } catch {
+    window.localStorage.removeItem('flatline.settings.v1')
+    return { sensitivity: 1, fov: 75, audio: true }
+  }
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
@@ -681,6 +844,25 @@ function formatTime(ms: number): string {
   const minutes = Math.floor(seconds / 60).toString()
   const remainder = (seconds % 60).toString().padStart(2, '0')
   return `${minutes}:${remainder}`
+}
+
+function playCue(frequency: number, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.frequency.value = frequency
+  gain.gain.value = 0.025
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start()
+  oscillator.stop(context.currentTime + 0.06)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
 }
 
 async function loadGruntAtlas() {

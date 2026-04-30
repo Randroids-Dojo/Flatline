@@ -16,8 +16,19 @@ test('starts a walk and shoot run', async ({ page }, testInfo) => {
 
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('flatline:force-death')))
   await expect(page.getByTestId('run-summary')).toBeVisible()
+  await expect(page.getByTestId('leaderboard')).toBeVisible()
   await page.getByRole('button', { name: 'Restart run' }).click()
   await expect(page.getByTestId('hud')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('pause-menu')).toBeVisible()
+  await expect(page.getByTestId('settings-panel')).toBeVisible()
+  await page.getByRole('button', { name: 'Resume' }).click()
+  await expect(page.getByTestId('pause-menu')).toBeHidden()
+})
+
+test('daily route loads the deterministic daily seed', async ({ page }) => {
+  await page.goto('/arena/daily')
+  await expect(page.getByText(/Daily seed flatline-/)).toBeVisible()
 })
 
 async function canvasHasPixels(page: import('@playwright/test').Page) {

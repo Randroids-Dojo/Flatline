@@ -4,11 +4,11 @@ Resolved questions are marked `answered` or `obsolete`. Do not delete them.
 
 ### Q-001: Should MVP use mostly grayscale with accent colors?
 
-- Status: open
+- Status: answered
 - Date: 2026-04-30
 - Context: GDD section 7 recommends mostly grayscale with one interactable accent and one danger color, but section 27 asks whether the game should be pure black-and-white or mostly grayscale.
 - Recommendation: Use mostly grayscale for MVP with one interactable accent and one danger color.
-- Decision:
+- Decision: Use mostly grayscale for MVP with teal interactable accents and red danger feedback.
 
 ### Q-002: Should MVP enemy art use 5 angles or 8 angles first?
 
@@ -20,11 +20,11 @@ Resolved questions are marked `answered` or `obsolete`. Do not delete them.
 
 ### Q-003: Should first public leaderboard be local-only or server-backed?
 
-- Status: open
+- Status: answered
 - Date: 2026-04-30
 - Context: GDD section 20 says basic leaderboard, section 20.2 says local first is acceptable, and section 3.2 lists optional Upstash Redis.
 - Recommendation: Ship local personal best and local leaderboard first. Add server leaderboard after the run loop is fun.
-- Decision:
+- Decision: Ship local leaderboard persistence for MVP. Server-backed leaderboard remains out of scope until explicitly approved.
 
 ### Q-004: Should the MVP room be authored manually or generated from a seed?
 
@@ -36,8 +36,8 @@ Resolved questions are marked `answered` or `obsolete`. Do not delete them.
 
 ### Q-005: Should weapons reload in MVP?
 
-- Status: open
+- Status: answered
 - Date: 2026-04-30
 - Context: GDD section 10.3 recommends no reloads in MVP unless required by weapon fantasy.
 - Recommendation: Do not implement reloads in MVP.
-- Decision:
+- Decision: Do not implement reloads in MVP. The current pistol remains infinite ammo.
