@@ -28,11 +28,11 @@ Resolved questions are marked `answered` or `obsolete`. Do not delete them.
 
 ### Q-004: Should the MVP room be authored manually or generated from a seed?
 
-- Status: open
+- Status: answered
 - Date: 2026-04-30
 - Context: GDD section 27 leaves room authoring unresolved, while section 9 defines a concrete MVP room.
 - Recommendation: Use one manually authored MVP room, then add seeded daily configuration later.
-- Decision:
+- Decision: Use one manually authored MVP room for slice 1 and defer seeded daily configuration to the later daily mode slice.
 
 ### Q-005: Should weapons reload in MVP?
 
@@ -41,4 +41,3 @@ Resolved questions are marked `answered` or `obsolete`. Do not delete them.
 - Context: GDD section 10.3 recommends no reloads in MVP unless required by weapon fantasy.
 - Recommendation: Do not implement reloads in MVP.
 - Decision:
-
