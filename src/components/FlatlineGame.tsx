@@ -5,7 +5,9 @@ import * as THREE from 'three'
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
 import { createGrunt, damageEnemy, gruntConfig, tickEnemy, type EnemyModel } from '@/game/enemies'
 import { updatePlayerPosition } from '@/game/movement'
+import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
+import { createDirectorState, tickDirector, type DirectorState } from '@/game/spawnDirector'
 import { frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
 
@@ -32,6 +34,14 @@ type RuntimeRefs = {
   muzzleLight: THREE.PointLight
 }
 
+type RunSummary = {
+  score: number
+  survivalMs: number
+  kills: number
+  accuracy: number
+  bestCombo: number
+}
+
 export function FlatlineGame() {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const runtimeRef = useRef<RuntimeRefs | null>(null)
@@ -44,11 +54,20 @@ export function FlatlineGame() {
   const runningRef = useRef<boolean>(false)
   const enemyRef = useRef<EnemyModel>(createGrunt('grunt-1', { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition))
   const playerHealthRef = useRef<number>(100)
+  const directorRef = useRef<DirectorState>(createDirectorState())
+  const scoreRef = useRef<ScoreState>(createScoreState())
+  const healthPickupReadyRef = useRef<boolean>(true)
+  const healthPickupCooldownRef = useRef<number>(0)
   const atlasRef = useRef<SpriteAtlas | null>(null)
   const [running, setRunning] = useState(false)
   const [hits, setHits] = useState(0)
   const [playerHealth, setPlayerHealth] = useState(100)
   const [enemyHealth, setEnemyHealth] = useState(3)
+  const [score, setScore] = useState(0)
+  const [kills, setKills] = useState(0)
+  const [runMs, setRunMs] = useState(0)
+  const [healthPickupReady, setHealthPickupReady] = useState(true)
+  const [summary, setSummary] = useState<RunSummary | null>(null)
   const [debug, setDebug] = useState<{ angle: BillboardAngle; bucket: number; animation: AnimationName }>({
     angle: 'front',
     bucket: 0,
@@ -80,10 +99,20 @@ export function FlatlineGame() {
 
     runtimeRef.current.muzzleLight.intensity = 4.5
 
+    scoreRef.current = recordShot(scoreRef.current, Boolean(hit))
+
     if (hit) {
+      const wasAlive = enemyRef.current.state !== 'dead'
       enemyRef.current = damageEnemy(enemyRef.current, 1)
       setEnemyHealth(enemyRef.current.health)
       setHits((value) => value + 1)
+
+      if (wasAlive && enemyRef.current.state === 'dead') {
+        scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs)
+        setScore(scoreRef.current.score)
+        setKills(scoreRef.current.kills)
+      }
+
       setStatus(enemyRef.current.state === 'dead' ? 'Billboard enemy dropped.' : 'Billboard enemy hurt.')
       runtimeRef.current.enemyMaterial.color.set('#f05a4f')
     } else {
@@ -92,8 +121,25 @@ export function FlatlineGame() {
   }, [])
 
   const startRun = useCallback(() => {
+    positionRef.current = { ...initialPlayerPosition }
+    yawRef.current = 0
+    pitchRef.current = 0
+    playerHealthRef.current = 100
+    directorRef.current = createDirectorState()
+    scoreRef.current = createScoreState()
+    enemyRef.current = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)
+    healthPickupReadyRef.current = true
+    healthPickupCooldownRef.current = 0
     runningRef.current = true
     setRunning(true)
+    setSummary(null)
+    setHits(0)
+    setPlayerHealth(100)
+    setEnemyHealth(3)
+    setScore(0)
+    setKills(0)
+    setRunMs(0)
+    setHealthPickupReady(true)
     setStatus('WASD moves. Mouse aims. Left click fires.')
     requestPointerLock(runtimeRef.current?.renderer.domElement)
   }, [])
@@ -229,6 +275,31 @@ export function FlatlineGame() {
         )
 
         if (playerHealthRef.current > 0) {
+          directorRef.current.runMs += delta * 1000
+          setRunMs(directorRef.current.runMs)
+
+          if (!healthPickupReadyRef.current) {
+            healthPickupCooldownRef.current = Math.max(0, healthPickupCooldownRef.current - delta * 1000)
+
+            if (healthPickupCooldownRef.current === 0) {
+              healthPickupReadyRef.current = true
+              setHealthPickupReady(true)
+            }
+          }
+
+          if (
+            healthPickupReadyRef.current &&
+            playerHealthRef.current < 100 &&
+            Math.hypot(positionRef.current.x, positionRef.current.z) <= 1.35
+          ) {
+            playerHealthRef.current = Math.min(100, playerHealthRef.current + 15)
+            healthPickupReadyRef.current = false
+            healthPickupCooldownRef.current = 9000
+            setPlayerHealth(playerHealthRef.current)
+            setHealthPickupReady(false)
+            setStatus('Health pickup collected.')
+          }
+
           const result = tickEnemy(
             enemyRef.current,
             {
@@ -261,9 +332,36 @@ export function FlatlineGame() {
           }
 
           if (result.player.health === 0) {
+            const summaryScore = finalScore(scoreRef.current, directorRef.current.runMs)
+            setSummary({
+              score: summaryScore,
+              survivalMs: directorRef.current.runMs,
+              kills: scoreRef.current.kills,
+              accuracy: accuracy(scoreRef.current),
+              bestCombo: scoreRef.current.bestCombo
+            })
             runningRef.current = false
             setRunning(false)
-            setStatus('Flatlined. Refresh to restart this prototype.')
+            setStatus('Flatlined.')
+          }
+
+          const activePressure = enemyRef.current.state === 'dead' ? 0 : 1
+          const directorTick = tickDirector(
+            directorRef.current,
+            0,
+            activePressure,
+            positionRef.current
+          )
+          directorRef.current = directorTick.state
+
+          if (directorTick.spawn && enemyRef.current.state === 'dead' && enemyRef.current.animationTimeMs > 800) {
+            enemyRef.current = createGrunt(
+              `grunt-${directorRef.current.spawnCount}`,
+              directorTick.spawn.door.position,
+              positionRef.current
+            )
+            setEnemyHealth(enemyRef.current.health)
+            setStatus(`Spawn door ${directorTick.spawn.door.id} opened.`)
           }
         }
       }
@@ -288,6 +386,9 @@ export function FlatlineGame() {
       runtime.enemyFacingArrow.setDirection(new THREE.Vector3(Math.cos(enemy.facingAngle), 0, Math.sin(enemy.facingAngle)))
       dummyMarker.position.set(enemy.position.x, 0.04, enemy.position.z)
       dummyMarker.rotation.z += delta * 1.4
+      dummyMarker.visible = enemy.state !== 'dead'
+      runtime.enemyMesh.visible = enemy.state !== 'dead' || enemy.animationTimeMs < 1000
+      runtime.enemyFacingArrow.visible = runningRef.current
       setDebug((current) => {
         if (current.angle === angle && current.bucket === bucket && current.animation === animation) {
           return current
@@ -373,10 +474,30 @@ export function FlatlineGame() {
       fire()
     }
 
+    function onForceDeath() {
+      if (!runningRef.current) {
+        return
+      }
+
+      setSummary({
+        score: finalScore(scoreRef.current, directorRef.current.runMs),
+        survivalMs: directorRef.current.runMs,
+        kills: scoreRef.current.kills,
+        accuracy: accuracy(scoreRef.current),
+        bestCombo: scoreRef.current.bestCombo
+      })
+      playerHealthRef.current = 0
+      setPlayerHealth(0)
+      runningRef.current = false
+      setRunning(false)
+      setStatus('Flatlined.')
+    }
+
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('flatline:force-death', onForceDeath)
     document.addEventListener('pointerlockchange', onPointerLockChange)
 
     return () => {
@@ -384,6 +505,7 @@ export function FlatlineGame() {
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('flatline:force-death', onForceDeath)
       document.removeEventListener('pointerlockchange', onPointerLockChange)
     }
   }, [fire])
@@ -402,6 +524,18 @@ export function FlatlineGame() {
             <strong>Inf</strong>
           </div>
           <div className="hud-pill">
+            Score
+            <strong>{score}</strong>
+          </div>
+          <div className="hud-pill">
+            Kills
+            <strong>{kills}</strong>
+          </div>
+          <div className="hud-pill">
+            Time
+            <strong>{formatTime(runMs)}</strong>
+          </div>
+          <div className="hud-pill">
             Enemy
             <strong>{enemyHealth}</strong>
           </div>
@@ -414,14 +548,28 @@ export function FlatlineGame() {
             <strong>{debug.angle}</strong>
             <span>{debug.animation}</span>
           </div>
+          <div className="hud-pill">
+            Health
+            <strong>{healthPickupReady ? 'Ready' : 'Wait'}</strong>
+          </div>
         </div>
       ) : (
         <section className="start-panel">
           <div className="start-panel-inner">
             <h1>Flatline</h1>
-            <p>One room. One target. Move fast, aim clean, and prove the first loop feels right.</p>
+            {summary ? (
+              <div className="summary" data-testid="run-summary">
+                <p>Score {summary.score}</p>
+                <p>Kills {summary.kills}</p>
+                <p>Time {formatTime(summary.survivalMs)}</p>
+                <p>Accuracy {Math.round(summary.accuracy * 100)}%</p>
+                <p>Best combo {summary.bestCombo}</p>
+              </div>
+            ) : (
+              <p>One room. Endless pressure. Move fast, aim clean, and stay alive.</p>
+            )}
             <button className="start-button" type="button" onClick={startRun}>
-              Start run
+              {summary ? 'Restart run' : 'Start run'}
             </button>
           </div>
         </section>
@@ -526,6 +674,13 @@ function animationForEnemyState(state: EnemyModel['state']): AnimationName {
   }
 
   return 'idle'
+}
+
+function formatTime(ms: number): string {
+  const seconds = Math.floor(ms / 1000)
+  const minutes = Math.floor(seconds / 60).toString()
+  const remainder = (seconds % 60).toString().padStart(2, '0')
+  return `${minutes}:${remainder}`
 }
 
 async function loadGruntAtlas() {
