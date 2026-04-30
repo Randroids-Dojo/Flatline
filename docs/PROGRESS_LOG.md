@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-04-30: Slice: Deterministic daily room V2
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/daily-room-v2`
 - Dot: `Flatline-new-8e878312`
 - GDD sections: 5, 20, 29
@@ -20,7 +20,11 @@ Newest entries go first.
   - `npm run verify` passed with 14 test files, 50 unit tests, and 4 browser smoke checks.
   - `npm audit --audit-level=moderate` found 0 vulnerabilities.
 - Review:
-  - No PR yet.
+  - PR #18 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
+- Deploy:
+  - Production Vercel deployment for merge commit `c4a4fed` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/arena/daily`: loaded the daily seed and daily leaderboard.
 - GDD edits:
   - None.
 - Followups:
