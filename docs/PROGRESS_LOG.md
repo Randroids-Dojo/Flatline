@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-04-30: Slice: Weapon set V1
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/weapon-set-v1`
 - Dot: `Flatline-new-bc692035`
 - GDD sections: 10, 20, 29
@@ -24,7 +24,11 @@ Newest entries go first.
   - `npm run verify` passed with 12 test files, 42 unit tests, and 4 browser smoke checks.
   - `npm audit --audit-level=moderate` found 0 vulnerabilities.
 - Review:
-  - No PR yet.
+  - PR #12 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
+- Deploy:
+  - Production Vercel deployment for merge commit `41178c2` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`: switched to Boomstick, fired, saw `Boomstick dropped the enemy.`, switched to Inkblaster, fired, and saw `Inkblaster projectile launched.`.
 - GDD edits:
   - None.
 - Followups:
