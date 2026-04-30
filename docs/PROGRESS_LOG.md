@@ -2,6 +2,32 @@
 
 Newest entries go first.
 
+## 2026-04-30: Slice: Deterministic daily room V2
+
+- Status: In progress
+- Branch: `feat/daily-room-v2`
+- Dot: `Flatline-new-8e878312`
+- GDD sections: 5, 20, 29
+- Done:
+  - Added deterministic daily arena config derived from the daily seed.
+  - Added daily hazard timing offset, spawn role offset, and supply cooldown variation.
+  - Wired `/arena/daily` to run in daily arena mode while keeping daily leaderboard as the default scope.
+  - Added unit tests for daily config stability and seed variation.
+- Verification:
+  - `npm run test -- dailyArena dailySeed` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run verify` passed with 14 test files, 50 unit tests, and 4 browser smoke checks.
+  - `npm audit --audit-level=moderate` found 0 vulnerabilities.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-04-30: Slice: Room states and hazards V1
 
 - Status: Complete
