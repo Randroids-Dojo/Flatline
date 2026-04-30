@@ -2,9 +2,35 @@
 
 Newest entries go first.
 
-## 2026-04-30: Slice: First Billboard Enemy
+## 2026-04-30: Slice: Enemy AI
 
 - Status: In progress
+- Branch: `feat/slice-3-enemy-ai`
+- Dot: `Flatline-implement-slice-3-c0d80db8`
+- GDD sections: 8, 11, 17, 18, 20, 21, 22
+- Done:
+  - Added pure enemy state logic for chase, melee windup, release, hurt recovery, damage, and death.
+  - Added player damage handling and enemy health display to the playable prototype.
+  - Connected the billboard enemy position, facing angle, animation, and hit state to the enemy simulation.
+  - Added deterministic unit tests for chase movement, circle collision safety, melee hit and miss transitions, and damage states.
+- Verification:
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test` passed with 5 files and 18 tests.
+  - `npm run verify` passed.
+  - `npm audit --audit-level=moderate` passed.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
+## 2026-04-30: Slice: First Billboard Enemy
+
+- Status: Merged
 - Branch: `feat/slice-2-billboard-enemy`
 - Dot: `Flatline-implement-slice-2-b073353e`
 - GDD sections: 6, 7, 8, 18, 20, 21, 22, 25
@@ -24,7 +50,7 @@ Newest entries go first.
   - `npm run verify` passed.
   - `npm audit --audit-level=moderate` passed.
 - Review:
-  - No PR yet.
+  - PR #3 merged after no review threads and CodeQL passed.
 - GDD edits:
   - None.
 - Followups:
