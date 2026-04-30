@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
 import { updatePlayerPosition } from '@/game/movement'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
+import { frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
 
 const cameraHeight = 1.7
@@ -21,7 +23,10 @@ type RuntimeRefs = {
   renderer: THREE.WebGLRenderer
   camera: THREE.PerspectiveCamera
   scene: THREE.Scene
-  dummyMaterial: THREE.MeshStandardMaterial
+  enemyMaterial: THREE.MeshBasicMaterial
+  enemyTexture: THREE.Texture | null
+  enemyMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+  enemyFacingArrow: THREE.ArrowHelper
   muzzleLight: THREE.PointLight
 }
 
@@ -35,8 +40,17 @@ export function FlatlineGame() {
   const pitchRef = useRef<number>(0)
   const keysRef = useRef<MovementInput>({ forward: false, backward: false, left: false, right: false })
   const runningRef = useRef<boolean>(false)
+  const enemyAnimationRef = useRef<AnimationName>('idle')
+  const enemyAnimationTimeRef = useRef<number>(0)
+  const enemyHealthRef = useRef<number>(3)
+  const atlasRef = useRef<SpriteAtlas | null>(null)
   const [running, setRunning] = useState(false)
   const [hits, setHits] = useState(0)
+  const [debug, setDebug] = useState<{ angle: BillboardAngle; bucket: number; animation: AnimationName }>({
+    angle: 'front',
+    bucket: 0,
+    animation: 'idle'
+  })
   const [status, setStatus] = useState('Start a run to lock the pointer and enter the room.')
 
   const fire = useCallback(() => {
@@ -61,12 +75,14 @@ export function FlatlineGame() {
     runtimeRef.current.muzzleLight.intensity = 4.5
 
     if (hit) {
+      enemyHealthRef.current = Math.max(0, enemyHealthRef.current - 1)
+      enemyAnimationRef.current = enemyHealthRef.current === 0 ? 'death' : 'hurt'
+      enemyAnimationTimeRef.current = 0
       setHits((value) => value + 1)
-      setStatus('Dummy hit. Keep moving and shooting.')
-      runtimeRef.current.dummyMaterial.color.set('#f05a4f')
+      setStatus(enemyHealthRef.current === 0 ? 'Billboard enemy dropped.' : 'Billboard enemy hurt.')
+      runtimeRef.current.enemyMaterial.color.set('#f05a4f')
     } else {
       setStatus('Shot missed. Aim at the target dummy.')
-      runtimeRef.current.dummyMaterial.color.set('#f4f1e8')
     }
   }, [])
 
@@ -113,16 +129,17 @@ export function FlatlineGame() {
 
     scene.add(createRoom())
 
-    const dummyMaterial = new THREE.MeshStandardMaterial({
-      color: '#f4f1e8',
-      roughness: 0.82,
-      metalness: 0.05
+    const enemyMaterial = new THREE.MeshBasicMaterial({
+      color: '#ffffff',
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false
     })
-    const dummy = new THREE.Mesh(new THREE.CapsuleGeometry(0.55, 1.2, 8, 16), dummyMaterial)
-    dummy.name = 'debug-target-dummy'
-    dummy.position.set(0, 1.1, 3.5)
-    dummy.castShadow = true
-    scene.add(dummy)
+    const enemyMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), enemyMaterial)
+    enemyMesh.name = 'debug-billboard-enemy'
+    enemyMesh.position.set(0, 1.05, 3.5)
+    enemyMesh.renderOrder = 2
+    scene.add(enemyMesh)
 
     const dummyMarker = new THREE.Mesh(
       new THREE.TorusGeometry(0.82, 0.025, 8, 40),
@@ -132,7 +149,47 @@ export function FlatlineGame() {
     dummyMarker.rotation.x = Math.PI / 2
     scene.add(dummyMarker)
 
-    runtimeRef.current = { renderer, camera, scene, dummyMaterial, muzzleLight }
+    const blobShadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.72, 24),
+      new THREE.MeshBasicMaterial({ color: '#050505', transparent: true, opacity: 0.55 })
+    )
+    blobShadow.position.set(0, 0.015, 3.5)
+    blobShadow.rotation.x = -Math.PI / 2
+    scene.add(blobShadow)
+
+    const enemyFacingArrow = new THREE.ArrowHelper(
+      new THREE.Vector3(0, 0, -1),
+      new THREE.Vector3(0, 0.08, 3.5),
+      1.15,
+      '#f05a4f'
+    )
+    scene.add(enemyFacingArrow)
+
+    runtimeRef.current = {
+      renderer,
+      camera,
+      scene,
+      enemyMaterial,
+      enemyTexture: null,
+      enemyMesh,
+      enemyFacingArrow,
+      muzzleLight
+    }
+
+    loadGruntAtlas().then(({ atlas, texture }) => {
+      const runtime = runtimeRef.current
+
+      if (!runtime) {
+        return
+      }
+
+      atlasRef.current = atlas
+      runtime.enemyTexture = texture
+      runtime.enemyMaterial.map = texture
+      runtime.enemyMaterial.needsUpdate = true
+    }).catch(() => {
+      setStatus('Sprite atlas failed to load.')
+    })
 
     function resize() {
       if (!mount || !runtimeRef.current) {
@@ -171,11 +228,29 @@ export function FlatlineGame() {
       runtime.camera.rotation.set(pitchRef.current, yawRef.current, 0)
       runtime.muzzleLight.position.copy(runtime.camera.position)
       runtime.muzzleLight.intensity = Math.max(0, runtime.muzzleLight.intensity - delta * 22)
-      dummy.rotation.y = Math.atan2(
-        runtime.camera.position.x - dummy.position.x,
-        runtime.camera.position.z - dummy.position.z
-      )
+      enemyAnimationTimeRef.current += delta * 1000
+
+      if (enemyAnimationRef.current === 'hurt' && enemyAnimationTimeRef.current > 180) {
+        enemyAnimationRef.current = 'idle'
+        enemyAnimationTimeRef.current = 0
+        runtime.enemyMaterial.color.set('#ffffff')
+      }
+
+      const enemyPosition = { x: 0, y: 1.05, z: 3.5 }
+      const enemyFacingAngle = -Math.PI / 2
+      const bucket = angleToPlayerBucket(enemyPosition, enemyFacingAngle, positionRef.current)
+      const angle = angleToPlayerName(enemyPosition, enemyFacingAngle, positionRef.current)
+      applyEnemyFrame(runtime, atlasRef.current, enemyAnimationRef.current, angle, enemyAnimationTimeRef.current)
+      runtime.enemyMesh.lookAt(runtime.camera.position)
+      runtime.enemyFacingArrow.setDirection(new THREE.Vector3(0, 0, -1))
       dummyMarker.rotation.z += delta * 1.4
+      setDebug((current) => {
+        if (current.angle === angle && current.bucket === bucket && current.animation === enemyAnimationRef.current) {
+          return current
+        }
+
+        return { angle, bucket, animation: enemyAnimationRef.current }
+      })
       runtime.renderer.render(runtime.scene, runtime.camera)
     }
 
@@ -286,6 +361,11 @@ export function FlatlineGame() {
             Hits
             <strong>{hits}</strong>
           </div>
+          <div className="hud-pill debug-pill" data-testid="billboard-debug">
+            Bucket {debug.bucket}
+            <strong>{debug.angle}</strong>
+            <span>{debug.animation}</span>
+          </div>
         </div>
       ) : (
         <section className="start-panel">
@@ -386,6 +466,37 @@ function createRoom() {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
+}
+
+async function loadGruntAtlas() {
+  const atlasResponse = await fetch('/assets/enemies/grunt/grunt.atlas.json')
+  const atlas = await atlasResponse.json() as SpriteAtlas
+  const texture = await new THREE.TextureLoader().loadAsync(`/assets/enemies/grunt/${atlas.image}`)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.magFilter = THREE.NearestFilter
+  texture.minFilter = THREE.NearestFilter
+  texture.wrapS = THREE.ClampToEdgeWrapping
+  texture.wrapT = THREE.ClampToEdgeWrapping
+
+  return { atlas, texture }
+}
+
+function applyEnemyFrame(
+  runtime: RuntimeRefs,
+  atlas: SpriteAtlas | null,
+  animationName: AnimationName,
+  angle: BillboardAngle,
+  timeMs: number
+) {
+  if (!atlas || !runtime.enemyTexture) {
+    return
+  }
+
+  const clip = selectAnimationClip(atlas, animationName, angle)
+  const frame = selectSpriteFrame(clip, timeMs)
+  const transform = frameToUvTransform(frame, atlas.imageWidth, atlas.imageHeight)
+  runtime.enemyTexture.repeat.set(transform.repeatX, transform.repeatY)
+  runtime.enemyTexture.offset.set(transform.offsetX, transform.offsetY)
 }
 
 function requestPointerLock(canvas: HTMLCanvasElement | undefined) {
