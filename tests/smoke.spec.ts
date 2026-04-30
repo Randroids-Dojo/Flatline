@@ -29,6 +29,9 @@ test('starts a walk and shoot run', async ({ page }, testInfo) => {
   await expect(page.getByTestId('crosshair')).toBeVisible()
   await expect(page.getByTestId('billboard-debug')).toContainText('front')
   await expect(page.getByTestId('status-line')).toContainText('WASD')
+  await page.mouse.click(960, 540)
+  await expect(page.getByTestId('status-line')).toContainText(/hurt|dropped/)
+  await expect(page.getByText('Hits').locator('..')).toContainText('1')
   await page.screenshot({ path: testInfo.outputPath('walk-and-shoot.png'), fullPage: true })
 
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('flatline:force-death')))

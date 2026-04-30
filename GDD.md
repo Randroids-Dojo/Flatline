@@ -1477,3 +1477,128 @@ First prove:
 - The single-room survival loop is fun for 3 minutes.
 
 Once that works, expand the art.
+
+---
+
+## 29. Post-MVP Product Plan
+
+The MVP proves that Flatline can boot, move, shoot, spawn enemies, score a run, and submit leaderboards. The next goal is to make it feel like a real arcade shooter rather than a technical prototype.
+
+### 29.1 Immediate Feel Pass
+
+Fix the verbs before adding breadth:
+
+- WASD must always match the camera direction.
+- Every shot needs readable feedback: muzzle flash, visible bolt or tracer, hit flash, miss feedback, and audio.
+- The first enemy should be centered in the starting view so the player can shoot within the first second.
+- Movement should feel fast but controllable around pillars.
+- The player should understand enemy damage range without reading text.
+
+Done when a fresh player can start a run, move, shoot, kill the first enemy, and understand what happened without instruction.
+
+### 29.2 Weapon Set V1
+
+The first real weapon set should include three clear roles:
+
+- Peashooter: infinite ammo, precise hitscan fallback, visible tracer.
+- Boomstick: limited ammo, short range burst, wide pellet spread, strong knockback.
+- Inkblaster: slow projectile, splash damage, strong area denial, self-risk at close range.
+
+Ammo pickups should matter only after the Boomstick and Inkblaster exist. Until then, the pistol remains infinite.
+
+### 29.3 Enemy Roster V1
+
+Add enemy types by combat job, not by art novelty:
+
+- Grunt: current baseline chaser and melee attacker.
+- Skitter: fast low-health pressure enemy that forces tracking and movement.
+- Brute: slow high-health blocker that soaks damage and creates pathing pressure.
+
+Each new enemy needs:
+
+- Pure state tests.
+- Distinct silhouette.
+- Distinct speed and attack timing.
+- Clear hurt and death feedback.
+- Spawn director budget cost.
+
+### 29.4 Room State V1
+
+The room should change during a run without becoming a maze:
+
+- Door states: closed, warning, open, cooling down.
+- Lighting intensity tied to pressure.
+- One moving cover element that cycles predictably.
+- Breakable or reactive props for juice, not tactics at first.
+- More visible landmarks on each wall.
+
+The room must remain readable at high pressure. Add one state change at a time and smoke it in browser.
+
+### 29.5 Hazard Set V1
+
+Hazards should be simple, telegraphed, and score-relevant:
+
+- Flame vent lane: line hazard from wall to center.
+- Ink pool: circular floor hazard that slows and damages.
+- Falling light: delayed impact marker with burst damage.
+
+Hazard rules:
+
+- Telegraph before damage.
+- Never spawn directly under the player without warning.
+- Scale frequency with director pressure.
+- Reward kills or movement that happen near active hazards.
+
+### 29.6 Scoring V2
+
+Keep the scoreboard arcade-readable:
+
+- Survival time remains baseline score.
+- Kills remain primary score.
+- Combo grows from quick consecutive kills.
+- Close-range kills add risk bonus.
+- Weapon variety adds small bonus.
+- No-damage streak adds survival mastery bonus.
+- Accuracy remains summary data and a small bonus, not the main score.
+
+Leaderboard rows should eventually display score, time, kills, and accuracy.
+
+### 29.7 Daily Room V2
+
+Daily mode should become deterministic beyond the date string:
+
+- Seeded spawn sequence.
+- Seeded pickup schedule.
+- Seeded hazard schedule.
+- Fixed room state pattern.
+- Daily leaderboard uses the same seed for everyone.
+
+The daily route should show the seed and submit only to the daily board by default.
+
+### 29.8 Practice Mode
+
+Practice mode should not submit scores.
+
+Required controls:
+
+- Enemy type selection.
+- Spawn rate selection.
+- Damage on or off.
+- Infinite ammo toggle.
+- Billboard debug overlays.
+- Room state freeze.
+
+This mode is for tuning and art validation, not the default player experience.
+
+### 29.9 Content Completion Target
+
+The first version beyond MVP is ready when it has:
+
+- 3 weapons.
+- 3 enemy types.
+- 3 hazard types.
+- 1 room with changing states.
+- Shared all-time and daily leaderboards.
+- Practice mode.
+- Production smoke checks after deploy.
+- Enough browser-visible feedback that the game reads as intentional, not placeholder-only.
