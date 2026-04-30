@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { circlesOverlap, createGrunt, damageEnemy, gruntConfig, tickEnemy } from './enemies'
+import { circlesOverlap, createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, gruntConfig, tickEnemy } from './enemies'
 
 const player = {
   position: { x: 0, y: 1.7, z: 0 },
@@ -8,6 +8,23 @@ const player = {
 }
 
 describe('enemy AI', () => {
+  it('creates distinct enemy roles', () => {
+    const skitter = createEnemy('skitter', 'skitter-1', { x: 0, y: 1.05, z: 3 }, player.position)
+    const brute = createEnemy('brute', 'brute-1', { x: 0, y: 1.05, z: 3 }, player.position)
+
+    expect(skitter.health).toBe(enemyConfigs.skitter.maxHealth)
+    expect(brute.health).toBe(enemyConfigs.brute.maxHealth)
+    expect(skitter.radius).toBeLessThan(brute.radius)
+    expect(enemyConfigs.skitter.speed).toBeGreaterThan(enemyConfigs.grunt.speed)
+    expect(enemyConfigs.brute.speed).toBeLessThan(enemyConfigs.grunt.speed)
+  })
+
+  it('rotates spawn types by pressure role', () => {
+    expect(enemyTypeForSpawn(1)).toBe('grunt')
+    expect(enemyTypeForSpawn(3)).toBe('skitter')
+    expect(enemyTypeForSpawn(7)).toBe('brute')
+  })
+
   it('chases toward the player without overlapping the player circle', () => {
     const enemy = createGrunt('grunt-1', { x: 0, y: 1, z: 5 }, player.position)
     const result = tickEnemy(enemy, player, 1000, gruntConfig)

@@ -2,6 +2,33 @@
 
 Newest entries go first.
 
+## 2026-04-30: Slice: Enemy roster V1
+
+- Status: In progress
+- Branch: `feat/enemy-roster-v1`
+- Dot: `Flatline-new-eae2c1f1`
+- GDD sections: 8, 11, 20, 29
+- Done:
+  - Added enemy types for Grunt, Skitter, and Brute.
+  - Added distinct health, speed, attack timing, pressure cost, scale, and tint configs.
+  - Added deterministic spawn-type rotation so Skitters and Brutes enter future waves.
+  - Updated the HUD and spawn status to show enemy role names.
+  - Added unit tests for role stats and spawn rotation.
+- Verification:
+  - `npm run test -- enemies` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run verify` passed with 12 test files, 44 unit tests, and 4 browser smoke checks.
+  - `npm audit --audit-level=moderate` found 0 vulnerabilities.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-04-30: Slice: Weapon set V1
 
 - Status: Complete

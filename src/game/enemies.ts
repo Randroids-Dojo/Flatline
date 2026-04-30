@@ -1,9 +1,11 @@
 import type { Vec3 } from './types'
 
 export type EnemyState = 'chase' | 'attackWindup' | 'attackRelease' | 'hurt' | 'dead'
+export type EnemyType = 'grunt' | 'skitter' | 'brute'
 
 export type EnemyModel = {
   id: string
+  type: EnemyType
   position: Vec3
   velocity: Vec3
   radius: number
@@ -29,6 +31,10 @@ export type EnemyConfig = {
   attackCooldownMs: number
   hurtDurationMs: number
   contactPadding: number
+  maxHealth: number
+  pressureCost: number
+  scale: number
+  tint: string
 }
 
 export type EnemyTickResult = {
@@ -51,21 +57,76 @@ export const gruntConfig: EnemyConfig = {
   attackReleaseMs: 180,
   attackCooldownMs: 760,
   hurtDurationMs: 180,
-  contactPadding: 0.08
+  contactPadding: 0.08,
+  maxHealth: 3,
+  pressureCost: 1,
+  scale: 1,
+  tint: '#ffffff'
 }
 
-export function createGrunt(id: string, position: Vec3, playerPosition: Vec3): EnemyModel {
+export const enemyConfigs: Record<EnemyType, EnemyConfig> = {
+  grunt: gruntConfig,
+  skitter: {
+    speed: 3.45,
+    attackRange: 0.95,
+    attackDamage: 6,
+    attackWindupMs: 260,
+    attackReleaseMs: 140,
+    attackCooldownMs: 520,
+    hurtDurationMs: 120,
+    contactPadding: 0.06,
+    maxHealth: 1,
+    pressureCost: 0.75,
+    scale: 0.72,
+    tint: '#c9fff6'
+  },
+  brute: {
+    speed: 1.28,
+    attackRange: 1.45,
+    attackDamage: 18,
+    attackWindupMs: 620,
+    attackReleaseMs: 240,
+    attackCooldownMs: 980,
+    hurtDurationMs: 260,
+    contactPadding: 0.12,
+    maxHealth: 6,
+    pressureCost: 1.75,
+    scale: 1.35,
+    tint: '#f7d0c9'
+  }
+}
+
+export function createEnemy(type: EnemyType, id: string, position: Vec3, playerPosition: Vec3): EnemyModel {
+  const config = enemyConfigs[type]
+
   return {
     id,
+    type,
     position,
     velocity: { x: 0, y: 0, z: 0 },
-    radius: 0.55,
-    health: 3,
+    radius: 0.55 * config.scale,
+    health: config.maxHealth,
     state: 'chase',
     facingAngle: angleBetween(position, playerPosition),
     animationTimeMs: 0,
     attackCooldownMs: 0
   }
+}
+
+export function createGrunt(id: string, position: Vec3, playerPosition: Vec3): EnemyModel {
+  return createEnemy('grunt', id, position, playerPosition)
+}
+
+export function enemyTypeForSpawn(spawnCount: number): EnemyType {
+  if (spawnCount > 0 && spawnCount % 7 === 0) {
+    return 'brute'
+  }
+
+  if (spawnCount > 0 && spawnCount % 3 === 0) {
+    return 'skitter'
+  }
+
+  return 'grunt'
 }
 
 export function tickEnemy(
