@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-04-30: Slice: Enemy roster V1
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/enemy-roster-v1`
 - Dot: `Flatline-new-eae2c1f1`
 - GDD sections: 8, 11, 20, 29
@@ -21,7 +21,11 @@ Newest entries go first.
   - `npm run verify` passed with 12 test files, 44 unit tests, and 4 browser smoke checks.
   - `npm audit --audit-level=moderate` found 0 vulnerabilities.
 - Review:
-  - No PR yet.
+  - PR #14 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
+- Deploy:
+  - Production Vercel deployment for merge commit `a3efdd3` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`: started a run and confirmed the HUD shows the Grunt enemy role.
 - GDD edits:
   - None.
 - Followups:
