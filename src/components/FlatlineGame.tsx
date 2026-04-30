@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel } from '@/game/enemies'
+import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { updatePlayerPosition } from '@/game/movement'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
@@ -42,12 +43,15 @@ type RuntimeRefs = {
   renderer: THREE.WebGLRenderer
   camera: THREE.PerspectiveCamera
   scene: THREE.Scene
+  overhead: THREE.PointLight
   enemyMaterial: THREE.MeshBasicMaterial
   enemyTexture: THREE.Texture | null
   enemyMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
   enemyFacingArrow: THREE.ArrowHelper
   muzzleLight: THREE.PointLight
   shotGroup: THREE.Group
+  hazardMeshes: Record<HazardKind, THREE.Mesh>
+  movingCover: THREE.Mesh
 }
 
 type ShotBolt = {
@@ -106,6 +110,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
   const scoreRef = useRef<ScoreState>(createScoreState())
   const healthPickupReadyRef = useRef<boolean>(true)
   const healthPickupCooldownRef = useRef<number>(0)
+  const hazardDamageCooldownRef = useRef<number>(0)
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const atlasRef = useRef<SpriteAtlas | null>(null)
@@ -239,6 +244,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
     enemyRef.current = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)
     healthPickupReadyRef.current = true
     healthPickupCooldownRef.current = 0
+    hazardDamageCooldownRef.current = 0
     selectedWeaponRef.current = 'peashooter'
     weaponAmmoRef.current = createWeaponAmmo()
     clearShotBolts(runtimeRef.current, shotBoltsRef.current)
@@ -428,6 +434,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
     shotGroup.name = 'shot-bolts'
     scene.add(shotGroup)
 
+    const hazardMeshes = createHazardMeshes()
+    Object.values(hazardMeshes).forEach((mesh) => scene.add(mesh))
+
+    const movingCover = new THREE.Mesh(
+      new THREE.BoxGeometry(2.2, 1.35, 0.32),
+      new THREE.MeshStandardMaterial({ color: '#565248', roughness: 0.86 })
+    )
+    movingCover.position.set(0, 0.68, 1.35)
+    movingCover.castShadow = true
+    movingCover.receiveShadow = true
+    scene.add(movingCover)
+
     scene.add(createRoom())
 
     const enemyMaterial = new THREE.MeshBasicMaterial({
@@ -470,12 +488,15 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
       renderer,
       camera,
       scene,
+      overhead,
       enemyMaterial,
       enemyTexture: null,
       enemyMesh,
       enemyFacingArrow,
       muzzleLight,
-      shotGroup
+      shotGroup,
+      hazardMeshes,
+      movingCover
     }
 
     loadGruntAtlas().then(({ atlas, texture }) => {
@@ -531,6 +552,23 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
         if (playerHealthRef.current > 0) {
           directorRef.current.runMs += delta * 1000
           setRunMs(directorRef.current.runMs)
+          hazardDamageCooldownRef.current = Math.max(0, hazardDamageCooldownRef.current - delta * 1000)
+          const hazards = hazardStatesForRunMs(directorRef.current.runMs)
+          applyHazardMeshes(runtime, hazards)
+          runtime.overhead.intensity = 55 + roomPressureIntensity(directorRef.current.runMs) * 35
+          runtime.movingCover.position.x = Math.sin(directorRef.current.runMs / 1800) * 2.2
+
+          if (hazardDamageCooldownRef.current === 0) {
+            const hazardDamage = hazardDamageAtPosition(positionRef.current, hazards)
+
+            if (hazardDamage > 0) {
+              playerHealthRef.current = Math.max(0, playerHealthRef.current - hazardDamage)
+              hazardDamageCooldownRef.current = 900
+              setPlayerHealth(playerHealthRef.current)
+              setStatus(`Hazard hit for ${hazardDamage}.`)
+              playCue(70, settingsRef.current.audio)
+            }
+          }
 
           if (!healthPickupReadyRef.current) {
             healthPickupCooldownRef.current = Math.max(0, healthPickupCooldownRef.current - delta * 1000)
@@ -1004,6 +1042,54 @@ function createRoom() {
   group.add(furnaceRight)
 
   return group
+}
+
+function createHazardMeshes(): Record<HazardKind, THREE.Mesh> {
+  const flameLane = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5, 0.035, 17),
+    new THREE.MeshBasicMaterial({ color: '#f05a4f', transparent: true, opacity: 0 })
+  )
+  flameLane.position.set(0, 0.035, 0)
+
+  const inkPool = new THREE.Mesh(
+    new THREE.CircleGeometry(1.45, 32),
+    new THREE.MeshBasicMaterial({ color: '#50d1c0', transparent: true, opacity: 0 })
+  )
+  inkPool.position.set(2.8, 0.045, -1.8)
+  inkPool.rotation.x = -Math.PI / 2
+
+  const fallingLight = new THREE.Mesh(
+    new THREE.RingGeometry(0.72, 1.1, 32),
+    new THREE.MeshBasicMaterial({ color: '#f4f1e8', transparent: true, opacity: 0 })
+  )
+  fallingLight.position.set(-2.4, 0.055, 2.1)
+  fallingLight.rotation.x = -Math.PI / 2
+
+  return {
+    flameLane,
+    inkPool,
+    fallingLight
+  }
+}
+
+function applyHazardMeshes(runtime: RuntimeRefs, hazards: HazardState[]) {
+  hazards.forEach((hazard) => {
+    const material = runtime.hazardMeshes[hazard.kind].material as THREE.MeshBasicMaterial
+    material.opacity = opacityForHazardPhase(hazard.phase)
+    runtime.hazardMeshes[hazard.kind].visible = hazard.phase !== 'idle'
+  })
+}
+
+function opacityForHazardPhase(phase: HazardPhase): number {
+  if (phase === 'active') {
+    return 0.58
+  }
+
+  if (phase === 'warning') {
+    return 0.22
+  }
+
+  return 0
 }
 
 function spawnShotBolt(

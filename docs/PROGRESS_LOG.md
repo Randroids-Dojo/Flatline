@@ -2,6 +2,34 @@
 
 Newest entries go first.
 
+## 2026-04-30: Slice: Room states and hazards V1
+
+- Status: In progress
+- Branch: `feat/room-hazards-v1`
+- Dot: `Flatline-new-e560593f`
+- GDD sections: 9, 20, 29
+- Done:
+  - Added deterministic hazard timing for flame lane, ink pool, and falling light.
+  - Added pure hazard tests for warning, activation, damage shapes, and pressure intensity.
+  - Added browser-visible hazard telegraphs and active overlays.
+  - Added pressure-linked overhead lighting.
+  - Added a moving cover panel cycle in the arena.
+  - Added player hazard damage with cooldown and HUD status feedback.
+- Verification:
+  - `npm run test -- hazards` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run verify` passed with 13 test files, 47 unit tests, and 4 browser smoke checks.
+  - `npm audit --audit-level=moderate` found 0 vulnerabilities.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-04-30: Slice: Enemy roster V1
 
 - Status: Complete
