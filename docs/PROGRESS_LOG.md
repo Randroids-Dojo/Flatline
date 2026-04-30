@@ -2,9 +2,34 @@
 
 Newest entries go first.
 
-## 2026-04-30: Slice: Web Game Polish
+## 2026-04-30: Slice: MVP loop closure
 
 - Status: In progress
+- Branch: `docs/finalize-mvp-loop`
+- Dot: `Flatline-research-asset-pipeline-9b9a2cba`, `Flatline-research-leaderboard-7c91cf9a`
+- GDD sections: 20, 25, 27, 28
+- Done:
+  - Closed the asset pipeline research dot as resolved by the shipped placeholder grunt atlas, SVG sheet, 8-angle engine support, and debug HUD.
+  - Closed the leaderboard research dot as resolved by `Q-003` and shipped local leaderboard persistence.
+  - Confirmed no `blocks-release` followups remain open.
+  - Confirmed all open questions are answered.
+- Verification:
+  - Main CodeQL passed after PR #6.
+  - `npm run verify` passed.
+  - `npm audit --audit-level=moderate` passed.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - `F-002` remains high priority for future hosting because no deploy target exists.
+  - `F-003` remains later backlog.
+- Open questions:
+  - None.
+
+## 2026-04-30: Slice: Web Game Polish
+
+- Status: Merged
 - Branch: `feat/slice-5-web-polish`
 - Dot: `Flatline-implement-slice-5-0b00421a`
 - GDD sections: 5, 10, 15, 16, 20, 21, 22, 24
@@ -19,7 +44,7 @@ Newest entries go first.
   - `npm run verify` passed with 9 unit test files, 29 unit tests, and 4 browser smoke checks.
   - `npm audit --audit-level=moderate` passed.
 - Review:
-  - No PR yet.
+  - PR #6 merged after no review threads and CodeQL passed.
 - GDD edits:
   - None.
 - Followups:
