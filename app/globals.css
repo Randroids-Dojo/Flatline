@@ -72,6 +72,18 @@ button {
   font-size: 18px;
 }
 
+.hud-pill span {
+  display: block;
+  margin-top: 2px;
+  color: rgba(244, 241, 232, 0.72);
+  font-size: 12px;
+  text-transform: none;
+}
+
+.debug-pill {
+  min-width: 126px;
+}
+
 .crosshair {
   position: absolute;
   left: 50%;

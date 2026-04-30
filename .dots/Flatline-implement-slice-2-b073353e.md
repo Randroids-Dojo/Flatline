@@ -1,9 +1,9 @@
 ---
 title: "implement: slice 2 first billboard enemy"
-status: open
+status: active
 priority: 1
 issue-type: task
-created-at: "2026-04-30T00:04:29.875334-05:00"
+created-at: "\"2026-04-30T00:04:29.875334-05:00\""
 blocks:
   - Flatline-implement-slice-1-c57819d8
 ---

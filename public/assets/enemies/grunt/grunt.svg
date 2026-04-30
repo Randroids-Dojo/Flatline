@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="384" viewBox="0 0 1024 384">
+  <defs>
+    <style>
+      .cell { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 1; }
+      .ink { fill: #171717; stroke: #f4f1e8; stroke-width: 6; stroke-linejoin: round; }
+      .hurt { stroke: #f05a4f; }
+      .dead { opacity: 0.7; transform-origin: center; }
+      .eye { fill: #50d1c0; }
+      .label { fill: #f4f1e8; font: 14px monospace; text-anchor: middle; }
+    </style>
+    <g id="grunt-front">
+      <path class="ink" d="M64 15 C38 15 24 40 28 70 L36 112 L92 112 L100 70 C104 40 90 15 64 15 Z"/>
+      <circle class="eye" cx="51" cy="53" r="5"/>
+      <circle class="eye" cx="77" cy="53" r="5"/>
+      <path d="M47 78 Q64 88 81 78" fill="none" stroke="#f4f1e8" stroke-width="4"/>
+    </g>
+    <g id="grunt-side">
+      <path class="ink" d="M42 18 C24 34 25 76 41 111 L92 111 C83 87 91 45 71 24 C63 16 51 13 42 18 Z"/>
+      <circle class="eye" cx="70" cy="54" r="5"/>
+      <path d="M56 78 Q69 85 84 76" fill="none" stroke="#f4f1e8" stroke-width="4"/>
+    </g>
+    <g id="grunt-back">
+      <path class="ink" d="M64 14 C37 14 24 39 27 72 L35 112 L93 112 L101 72 C104 39 91 14 64 14 Z"/>
+      <path d="M43 42 Q64 30 85 42" fill="none" stroke="#f4f1e8" stroke-width="4"/>
+      <path d="M42 68 H86" fill="none" stroke="#f4f1e8" stroke-width="4"/>
+    </g>
+  </defs>
+  <rect width="1024" height="384" fill="transparent"/>
+  <g id="row-idle">
+    <g transform="translate(0 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-front"/><text class="label" x="64" y="124">front</text></g>
+    <g transform="translate(128 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side"/><text class="label" x="64" y="124">frontRight</text></g>
+    <g transform="translate(256 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side"/><text class="label" x="64" y="124">right</text></g>
+    <g transform="translate(384 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side"/><text class="label" x="64" y="124">backRight</text></g>
+    <g transform="translate(512 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-back"/><text class="label" x="64" y="124">back</text></g>
+    <g transform="translate(640 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" transform="scale(-1 1) translate(-128 0)"/><text class="label" x="64" y="124">backLeft</text></g>
+    <g transform="translate(768 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" transform="scale(-1 1) translate(-128 0)"/><text class="label" x="64" y="124">left</text></g>
+    <g transform="translate(896 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" transform="scale(-1 1) translate(-128 0)"/><text class="label" x="64" y="124">frontLeft</text></g>
+  </g>
+  <g id="row-hurt" transform="translate(0 128)">
+    <g transform="translate(0 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-front" class="hurt"/><text class="label" x="64" y="124">hurt front</text></g>
+    <g transform="translate(128 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="hurt"/><text class="label" x="64" y="124">hurt FR</text></g>
+    <g transform="translate(256 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="hurt"/><text class="label" x="64" y="124">hurt R</text></g>
+    <g transform="translate(384 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="hurt"/><text class="label" x="64" y="124">hurt BR</text></g>
+    <g transform="translate(512 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-back" class="hurt"/><text class="label" x="64" y="124">hurt back</text></g>
+    <g transform="translate(640 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="hurt" transform="scale(-1 1) translate(-128 0)"/><text class="label" x="64" y="124">hurt BL</text></g>
+    <g transform="translate(768 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="hurt" transform="scale(-1 1) translate(-128 0)"/><text class="label" x="64" y="124">hurt L</text></g>
+    <g transform="translate(896 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="hurt" transform="scale(-1 1) translate(-128 0)"/><text class="label" x="64" y="124">hurt FL</text></g>
+  </g>
+  <g id="row-death" transform="translate(0 256)">
+    <g transform="translate(0 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-front" class="dead" transform="rotate(90 64 64)"/><text class="label" x="64" y="124">death F</text></g>
+    <g transform="translate(128 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="dead" transform="rotate(90 64 64)"/><text class="label" x="64" y="124">death FR</text></g>
+    <g transform="translate(256 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="dead" transform="rotate(90 64 64)"/><text class="label" x="64" y="124">death R</text></g>
+    <g transform="translate(384 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="dead" transform="rotate(90 64 64)"/><text class="label" x="64" y="124">death BR</text></g>
+    <g transform="translate(512 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-back" class="dead" transform="rotate(90 64 64)"/><text class="label" x="64" y="124">death B</text></g>
+    <g transform="translate(640 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="dead" transform="scale(-1 1) translate(-128 0) rotate(90 64 64)"/><text class="label" x="64" y="124">death BL</text></g>
+    <g transform="translate(768 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="dead" transform="scale(-1 1) translate(-128 0) rotate(90 64 64)"/><text class="label" x="64" y="124">death L</text></g>
+    <g transform="translate(896 0)"><rect class="cell" x="0" y="0" width="128" height="128"/><use href="#grunt-side" class="dead" transform="scale(-1 1) translate(-128 0) rotate(90 64 64)"/><text class="label" x="64" y="124">death FL</text></g>
+  </g>
+</svg>

@@ -2,9 +2,39 @@
 
 Newest entries go first.
 
-## 2026-04-30: Slice: Walk and Shoot
+## 2026-04-30: Slice: First Billboard Enemy
 
 - Status: In progress
+- Branch: `feat/slice-2-billboard-enemy`
+- Dot: `Flatline-implement-slice-2-b073353e`
+- GDD sections: 6, 7, 8, 18, 20, 21, 22, 25
+- Done:
+  - Added 8-angle billboard bucket selection and sprite animation frame selection logic.
+  - Added a placeholder grunt atlas metadata file and SVG sprite sheet with idle, hurt, and death rows.
+  - Replaced the debug target capsule with a camera-facing billboard enemy plane using atlas UV updates.
+  - Added a debug HUD readout for angle bucket, sprite angle, and animation state.
+  - Added unit tests for angle buckets, atlas clip selection, frame timing, and UV transforms.
+  - Expanded Playwright smoke to capture screenshots and validate WebGL pixels on desktop and mobile viewports.
+- Verification:
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test` passed with 4 files and 13 tests.
+  - `npm run build` passed.
+  - `npm run test:e2e` passed with 2 browser smoke checks.
+  - `npm run verify` passed.
+  - `npm audit --audit-level=moderate` passed.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - Answered `Q-002` with 8-angle engine support and placeholder mirrored art.
+
+## 2026-04-30: Slice: Walk and Shoot
+
+- Status: Merged
 - Branch: `feat/slice-1-walk-shoot`
 - Dot: `Flatline-implement-slice-1-c57819d8`
 - GDD sections: 6, 9, 10, 20, 21, 22, 28
@@ -23,7 +53,7 @@ Newest entries go first.
   - `npm run verify` passed.
   - `npm audit --audit-level=moderate` passed.
 - Review:
-  - No PR yet.
+  - PR #2 merged after no review threads and CodeQL passed on main.
 - GDD edits:
   - None.
 - Followups:

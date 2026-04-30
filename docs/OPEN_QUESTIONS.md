@@ -12,11 +12,11 @@ Resolved questions are marked `answered` or `obsolete`. Do not delete them.
 
 ### Q-002: Should MVP enemy art use 5 angles or 8 angles first?
 
-- Status: open
+- Status: answered
 - Date: 2026-04-30
 - Context: GDD sections 7 and 20 list 8-direction animation support, while section 7 allows a 5-angle shortcut for MVP art cost.
 - Recommendation: Implement 8-angle engine support first, but ship placeholder art that can mirror down from 5 authored angles.
-- Decision:
+- Decision: Implement 8-angle engine support in slice 2. Placeholder art may mirror authored angles until final enemy sheets exist.
 
 ### Q-003: Should first public leaderboard be local-only or server-backed?
 

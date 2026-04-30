@@ -1,0 +1,31 @@
+{
+  "image": "grunt.svg",
+  "imageWidth": 1024,
+  "imageHeight": 384,
+  "clips": [
+    { "name": "idle", "angle": "front", "loop": true, "frames": [{ "x": 0, "y": 0, "w": 128, "h": 128, "durationMs": 400 }] },
+    { "name": "idle", "angle": "frontRight", "loop": true, "frames": [{ "x": 128, "y": 0, "w": 128, "h": 128, "durationMs": 400 }] },
+    { "name": "idle", "angle": "right", "loop": true, "frames": [{ "x": 256, "y": 0, "w": 128, "h": 128, "durationMs": 400 }] },
+    { "name": "idle", "angle": "backRight", "loop": true, "frames": [{ "x": 384, "y": 0, "w": 128, "h": 128, "durationMs": 400 }] },
+    { "name": "idle", "angle": "back", "loop": true, "frames": [{ "x": 512, "y": 0, "w": 128, "h": 128, "durationMs": 400 }] },
+    { "name": "idle", "angle": "backLeft", "loop": true, "frames": [{ "x": 640, "y": 0, "w": 128, "h": 128, "durationMs": 400 }] },
+    { "name": "idle", "angle": "left", "loop": true, "frames": [{ "x": 768, "y": 0, "w": 128, "h": 128, "durationMs": 400 }] },
+    { "name": "idle", "angle": "frontLeft", "loop": true, "frames": [{ "x": 896, "y": 0, "w": 128, "h": 128, "durationMs": 400 }] },
+    { "name": "hurt", "angle": "front", "loop": false, "frames": [{ "x": 0, "y": 128, "w": 128, "h": 128, "durationMs": 180 }] },
+    { "name": "hurt", "angle": "frontRight", "loop": false, "frames": [{ "x": 128, "y": 128, "w": 128, "h": 128, "durationMs": 180 }] },
+    { "name": "hurt", "angle": "right", "loop": false, "frames": [{ "x": 256, "y": 128, "w": 128, "h": 128, "durationMs": 180 }] },
+    { "name": "hurt", "angle": "backRight", "loop": false, "frames": [{ "x": 384, "y": 128, "w": 128, "h": 128, "durationMs": 180 }] },
+    { "name": "hurt", "angle": "back", "loop": false, "frames": [{ "x": 512, "y": 128, "w": 128, "h": 128, "durationMs": 180 }] },
+    { "name": "hurt", "angle": "backLeft", "loop": false, "frames": [{ "x": 640, "y": 128, "w": 128, "h": 128, "durationMs": 180 }] },
+    { "name": "hurt", "angle": "left", "loop": false, "frames": [{ "x": 768, "y": 128, "w": 128, "h": 128, "durationMs": 180 }] },
+    { "name": "hurt", "angle": "frontLeft", "loop": false, "frames": [{ "x": 896, "y": 128, "w": 128, "h": 128, "durationMs": 180 }] },
+    { "name": "death", "angle": "front", "loop": false, "frames": [{ "x": 0, "y": 256, "w": 128, "h": 128, "durationMs": 500 }] },
+    { "name": "death", "angle": "frontRight", "loop": false, "frames": [{ "x": 128, "y": 256, "w": 128, "h": 128, "durationMs": 500 }] },
+    { "name": "death", "angle": "right", "loop": false, "frames": [{ "x": 256, "y": 256, "w": 128, "h": 128, "durationMs": 500 }] },
+    { "name": "death", "angle": "backRight", "loop": false, "frames": [{ "x": 384, "y": 256, "w": 128, "h": 128, "durationMs": 500 }] },
+    { "name": "death", "angle": "back", "loop": false, "frames": [{ "x": 512, "y": 256, "w": 128, "h": 128, "durationMs": 500 }] },
+    { "name": "death", "angle": "backLeft", "loop": false, "frames": [{ "x": 640, "y": 256, "w": 128, "h": 128, "durationMs": 500 }] },
+    { "name": "death", "angle": "left", "loop": false, "frames": [{ "x": 768, "y": 256, "w": 128, "h": 128, "durationMs": 500 }] },
+    { "name": "death", "angle": "frontLeft", "loop": false, "frames": [{ "x": 896, "y": 256, "w": 128, "h": 128, "durationMs": 500 }] }
+  ]
+}
