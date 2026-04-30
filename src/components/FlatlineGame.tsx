@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
+import { applyDailySpawnOffset, createDailyArenaConfig, type DailyArenaConfig } from '@/game/dailyArena'
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel } from '@/game/enemies'
 import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { updatePlayerPosition } from '@/game/movement'
@@ -88,9 +89,10 @@ type SubmitStatus = 'idle' | 'submitting' | 'submitted' | 'unavailable' | 'error
 
 type FlatlineGameProps = {
   initialLeaderboardScope?: LeaderboardScope
+  arenaMode?: 'standard' | 'daily'
 }
 
-export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGameProps) {
+export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'standard' }: FlatlineGameProps) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const runtimeRef = useRef<RuntimeRefs | null>(null)
   const animationRef = useRef<number | null>(null)
@@ -132,6 +134,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
   )
   const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
   const [seed] = useState(() => dailySeed())
+  const [dailyConfig] = useState<DailyArenaConfig | null>(() => arenaMode === 'daily' ? createDailyArenaConfig(seed) : null)
   const [dailyDate] = useState(() => dailyDateKey())
   const [sharedScope, setSharedScope] = useState<LeaderboardScope>(initialLeaderboardScope)
   const [sharedEntries, setSharedEntries] = useState<RankedLeaderboardEntry[]>([])
@@ -553,7 +556,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
           directorRef.current.runMs += delta * 1000
           setRunMs(directorRef.current.runMs)
           hazardDamageCooldownRef.current = Math.max(0, hazardDamageCooldownRef.current - delta * 1000)
-          const hazards = hazardStatesForRunMs(directorRef.current.runMs)
+          const hazards = hazardStatesForRunMs(directorRef.current.runMs + (dailyConfig?.hazardOffsetMs ?? 0))
           applyHazardMeshes(runtime, hazards)
           runtime.overhead.intensity = 55 + roomPressureIntensity(directorRef.current.runMs) * 35
           runtime.movingCover.position.x = Math.sin(directorRef.current.runMs / 1800) * 2.2
@@ -589,7 +592,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
             playerHealthRef.current = Math.min(100, playerHealthRef.current + 15)
             weaponAmmoRef.current = collectWeaponAmmo(weaponAmmoRef.current)
             healthPickupReadyRef.current = false
-            healthPickupCooldownRef.current = 9000
+            healthPickupCooldownRef.current = dailyConfig?.supplyCooldownMs ?? 9000
             setPlayerHealth(playerHealthRef.current)
             setWeaponAmmo(weaponAmmoRef.current)
             setHealthPickupReady(false)
@@ -653,7 +656,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
           directorRef.current = directorTick.state
 
           if (directorTick.spawn && enemyRef.current.state === 'dead' && enemyRef.current.animationTimeMs > 800) {
-            const nextType = enemyTypeForSpawn(directorRef.current.spawnCount)
+            const nextType = enemyTypeForSpawn(applyDailySpawnOffset(directorRef.current.spawnCount, dailyConfig))
             enemyRef.current = createEnemy(
               nextType,
               `${nextType}-${directorRef.current.spawnCount}`,
@@ -718,7 +721,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
       mount.removeChild(renderer.domElement)
       runtimeRef.current = null
     }
-  }, [damageCurrentEnemy, finishRun])
+  }, [dailyConfig, damageCurrentEnemy, finishRun])
 
   useEffect(() => {
     function updateKey(event: KeyboardEvent, pressed: boolean) {
