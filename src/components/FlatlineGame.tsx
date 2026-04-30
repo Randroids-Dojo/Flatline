@@ -10,6 +10,17 @@ import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, tickDirector, type DirectorState } from '@/game/spawnDirector'
 import { frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
+import {
+  canFireWeapon,
+  collectWeaponAmmo,
+  createWeaponAmmo,
+  nextWeapon,
+  spendWeaponAmmo,
+  weaponAmmoLabel,
+  weaponConfigs,
+  type WeaponAmmoState,
+  type WeaponId
+} from '@/game/weapons'
 import { dailySeed } from '@/lib/dailySeed'
 import { insertLeaderboardEntry, readLeaderboard, writeLeaderboard, type LeaderboardEntry } from '@/lib/leaderboard'
 import { dailyDateKey, type LeaderboardScope, type RankedLeaderboardEntry, type SharedLeaderboardResponse } from '@/lib/sharedLeaderboard'
@@ -46,6 +57,14 @@ type ShotBolt = {
   ttlMs: number
 }
 
+type InkProjectile = {
+  mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
+  direction: THREE.Vector3
+  remainingDistance: number
+  damage: number
+  splashRadius: number
+}
+
 type RunSummary = {
   score: number
   survivalMs: number
@@ -72,6 +91,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
   const runtimeRef = useRef<RuntimeRefs | null>(null)
   const animationRef = useRef<number | null>(null)
   const shotBoltsRef = useRef<ShotBolt[]>([])
+  const inkProjectilesRef = useRef<InkProjectile[]>([])
   const lastTimeRef = useRef<number>(0)
   const positionRef = useRef<Vec3>({ ...initialPlayerPosition })
   const yawRef = useRef<number>(initialYaw)
@@ -86,6 +106,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
   const scoreRef = useRef<ScoreState>(createScoreState())
   const healthPickupReadyRef = useRef<boolean>(true)
   const healthPickupCooldownRef = useRef<number>(0)
+  const selectedWeaponRef = useRef<WeaponId>('peashooter')
+  const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const atlasRef = useRef<SpriteAtlas | null>(null)
   const [running, setRunning] = useState(false)
   const [paused, setPaused] = useState(false)
@@ -96,6 +118,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
   const [kills, setKills] = useState(0)
   const [runMs, setRunMs] = useState(0)
   const [healthPickupReady, setHealthPickupReady] = useState(true)
+  const [selectedWeapon, setSelectedWeapon] = useState<WeaponId>('peashooter')
+  const [weaponAmmo, setWeaponAmmo] = useState<WeaponAmmoState>(() => createWeaponAmmo())
   const [summary, setSummary] = useState<RunSummary | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
     typeof window === 'undefined' ? [] : readLeaderboard(window.localStorage)
@@ -115,8 +139,54 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
   })
   const [status, setStatus] = useState('Start a run to lock the pointer and enter the room.')
 
+  const damageCurrentEnemy = useCallback((damage: number, hurtStatus: string, killStatus: string) => {
+    const enemy = enemyRef.current
+    const runtime = runtimeRef.current
+
+    if (enemy.state !== 'dead') {
+      const wasAlive = enemyRef.current.state !== 'dead'
+      enemyRef.current = damageEnemy(enemyRef.current, damage)
+      setEnemyHealth(enemyRef.current.health)
+
+      if (wasAlive && enemyRef.current.state === 'dead') {
+        scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs)
+        setScore(scoreRef.current.score)
+        setKills(scoreRef.current.kills)
+        playCue(90, settingsRef.current.audio)
+      } else {
+        playCue(320, settingsRef.current.audio)
+      }
+
+      setStatus(enemyRef.current.state === 'dead' ? killStatus : hurtStatus)
+      runtime?.enemyMaterial.color.set('#f05a4f')
+    }
+  }, [])
+
   const fire = useCallback(() => {
-    if (!runningRef.current || runtimeRef.current === null) {
+    const runtime = runtimeRef.current
+
+    if (!runningRef.current || runtime === null) {
+      return
+    }
+
+    const weapon = selectedWeaponRef.current
+
+    if (!canFireWeapon(weapon, weaponAmmoRef.current)) {
+      setStatus(`${weaponConfigs[weapon].label} is empty. Switch weapons or collect supplies.`)
+      return
+    }
+
+    weaponAmmoRef.current = spendWeaponAmmo(weapon, weaponAmmoRef.current)
+    setWeaponAmmo(weaponAmmoRef.current)
+    runtime.muzzleLight.intensity = weapon === 'boomstick' ? 7 : 4.5
+    playCue(weapon === 'boomstick' ? 120 : 180, settingsRef.current.audio)
+
+    const direction = forwardFromYawPitch(yawRef.current, pitchRef.current)
+
+    if (weapon === 'inkblaster') {
+      spawnInkProjectile(runtime, inkProjectilesRef.current, positionRef.current, direction, weaponConfigs.inkblaster.damage)
+      scoreRef.current = recordShot(scoreRef.current, true)
+      setStatus('Inkblaster projectile launched.')
       return
     }
 
@@ -130,41 +200,33 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
             radius: 0.72
           }
         ]
-    const direction = forwardFromYawPitch(yawRef.current, pitchRef.current)
-    const hit = fireHitscan(
-      positionRef.current,
-      direction,
-      targets,
-      18
-    )
+    const spread = weaponConfigs[weapon].spreadRadians
+    const hits = spread
+      .map((yawOffset) => {
+        const pelletDirection = forwardFromYawPitch(yawRef.current + yawOffset, pitchRef.current)
+        const hit = fireHitscan(positionRef.current, pelletDirection, targets, 18)
+        spawnShotBolt(runtime, shotBoltsRef.current, positionRef.current, pelletDirection, hit?.distance ?? 18, Boolean(hit))
+        return hit
+      })
+      .filter((hit): hit is NonNullable<typeof hit> => hit !== null)
 
-    runtimeRef.current.muzzleLight.intensity = 4.5
-    spawnShotBolt(runtimeRef.current, shotBoltsRef.current, positionRef.current, direction, hit?.distance ?? 18, Boolean(hit))
-    playCue(180, settingsRef.current.audio)
+    scoreRef.current = recordShot(scoreRef.current, hits.length > 0)
 
-    scoreRef.current = recordShot(scoreRef.current, Boolean(hit))
+    if (hits.length > 0) {
+      setHits((value) => value + hits.length)
+      damageCurrentEnemy(
+        weapon === 'boomstick' ? hits.length : weaponConfigs.peashooter.damage,
+        weapon === 'boomstick' ? 'Boomstick blast landed.' : 'Billboard enemy hurt.',
+        weapon === 'boomstick' ? 'Boomstick dropped the enemy.' : 'Billboard enemy dropped.'
+      )
 
-    if (hit) {
-      const wasAlive = enemyRef.current.state !== 'dead'
-      enemyRef.current = damageEnemy(enemyRef.current, 1)
-      setEnemyHealth(enemyRef.current.health)
-      setHits((value) => value + 1)
-
-      if (wasAlive && enemyRef.current.state === 'dead') {
-        scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs)
-        setScore(scoreRef.current.score)
-        setKills(scoreRef.current.kills)
-        playCue(90, settingsRef.current.audio)
-      } else {
-        playCue(320, settingsRef.current.audio)
+      if (weapon === 'boomstick') {
+        enemyRef.current = knockEnemyBack(enemyRef.current, direction, 0.65)
       }
-
-      setStatus(enemyRef.current.state === 'dead' ? 'Billboard enemy dropped.' : 'Billboard enemy hurt.')
-      runtimeRef.current.enemyMaterial.color.set('#f05a4f')
     } else {
-      setStatus('Shot missed. Track the target and fire again.')
+      setStatus(`${weaponConfigs[weapon].label} missed. Track the target and fire again.`)
     }
-  }, [])
+  }, [damageCurrentEnemy])
 
   const startRun = useCallback(() => {
     positionRef.current = { ...initialPlayerPosition }
@@ -176,6 +238,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
     enemyRef.current = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)
     healthPickupReadyRef.current = true
     healthPickupCooldownRef.current = 0
+    selectedWeaponRef.current = 'peashooter'
+    weaponAmmoRef.current = createWeaponAmmo()
+    clearShotBolts(runtimeRef.current, shotBoltsRef.current)
+    clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
     runningRef.current = true
     pausedRef.current = false
     setRunning(true)
@@ -188,6 +254,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
     setKills(0)
     setRunMs(0)
     setHealthPickupReady(true)
+    setSelectedWeapon('peashooter')
+    setWeaponAmmo(weaponAmmoRef.current)
     setStatus('WASD moves. Mouse aims. Left click fires.')
     requestPointerLock(runtimeRef.current?.renderer.domElement)
   }, [])
@@ -326,6 +394,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
     }
 
     const shotBolts = shotBoltsRef.current
+    const inkProjectiles = inkProjectilesRef.current
     const scene = new THREE.Scene()
     scene.background = new THREE.Color('#101010')
     scene.fog = new THREE.Fog('#101010', 12, 28)
@@ -472,16 +541,31 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
 
           if (
             healthPickupReadyRef.current &&
-            playerHealthRef.current < 100 &&
+            (playerHealthRef.current < 100 ||
+              weaponAmmoRef.current.boomstick < (weaponConfigs.boomstick.maxAmmo ?? 0) ||
+              weaponAmmoRef.current.inkblaster < (weaponConfigs.inkblaster.maxAmmo ?? 0)) &&
             Math.hypot(positionRef.current.x, positionRef.current.z) <= 1.35
           ) {
             playerHealthRef.current = Math.min(100, playerHealthRef.current + 15)
+            weaponAmmoRef.current = collectWeaponAmmo(weaponAmmoRef.current)
             healthPickupReadyRef.current = false
             healthPickupCooldownRef.current = 9000
             setPlayerHealth(playerHealthRef.current)
+            setWeaponAmmo(weaponAmmoRef.current)
             setHealthPickupReady(false)
-            setStatus('Health pickup collected.')
+            setStatus('Supplies collected.')
             playCue(520, settingsRef.current.audio)
+          }
+
+          const projectileHits = tickInkProjectiles(runtime, inkProjectiles, enemyRef.current, delta * 1000)
+
+          if (projectileHits > 0) {
+            scoreRef.current = {
+              ...scoreRef.current,
+              shotsHit: scoreRef.current.shotsHit + projectileHits
+            }
+            setHits((value) => value + projectileHits)
+            damageCurrentEnemy(projectileHits * weaponConfigs.inkblaster.damage, 'Ink splash landed.', 'Inkblaster dropped the enemy.')
           }
 
           const result = tickEnemy(
@@ -585,11 +669,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
       }
 
       clearShotBolts(runtimeRef.current, shotBolts)
+      clearInkProjectiles(runtimeRef.current, inkProjectiles)
       renderer.dispose()
       mount.removeChild(renderer.domElement)
       runtimeRef.current = null
     }
-  }, [finishRun])
+  }, [damageCurrentEnemy, finishRun])
 
   useEffect(() => {
     function updateKey(event: KeyboardEvent, pressed: boolean) {
@@ -608,6 +693,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
       if (event.code === 'Space' && pressed) {
         event.preventDefault()
         fire()
+      }
+      if (event.code === 'Digit1' && pressed) {
+        selectWeapon('peashooter', selectedWeaponRef, setSelectedWeapon, setStatus)
+      }
+      if (event.code === 'Digit2' && pressed) {
+        selectWeapon('boomstick', selectedWeaponRef, setSelectedWeapon, setStatus)
+      }
+      if (event.code === 'Digit3' && pressed) {
+        selectWeapon('inkblaster', selectedWeaponRef, setSelectedWeapon, setStatus)
+      }
+      if (event.code === 'KeyQ' && pressed) {
+        selectWeapon(nextWeapon(selectedWeaponRef.current), selectedWeaponRef, setSelectedWeapon, setStatus)
       }
       if (event.code === 'Escape' && pressed && runningRef.current) {
         pausedRef.current = !pausedRef.current
@@ -710,8 +807,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
             <strong>{playerHealth}</strong>
           </div>
           <div className="hud-pill">
+            Weapon
+            <strong>{weaponConfigs[selectedWeapon].label}</strong>
+          </div>
+          <div className="hud-pill">
             Ammo
-            <strong>Inf</strong>
+            <strong>{weaponAmmoLabel(selectedWeapon, weaponAmmo)}</strong>
           </div>
           <div className="hud-pill">
             Score
@@ -739,7 +840,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
             <span>{debug.animation}</span>
           </div>
           <div className="hud-pill">
-            Health
+            Supplies
             <strong>{healthPickupReady ? 'Ready' : 'Wait'}</strong>
           </div>
         </div>
@@ -975,6 +1076,112 @@ function clearShotBolts(runtime: RuntimeRefs | null, bolts: ShotBolt[]) {
     bolt.mesh.geometry.dispose()
     bolt.mesh.material.dispose()
   }
+}
+
+function spawnInkProjectile(
+  runtime: RuntimeRefs,
+  projectiles: InkProjectile[],
+  origin: Vec3,
+  direction: Vec3,
+  damage: number
+) {
+  const start = new THREE.Vector3(origin.x, origin.y - 0.12, origin.z)
+  const travelDirection = new THREE.Vector3(direction.x, direction.y, direction.z).normalize()
+  start.addScaledVector(travelDirection, 0.65)
+
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.16, 16, 16),
+    new THREE.MeshBasicMaterial({
+      color: '#50d1c0',
+      transparent: true,
+      opacity: 0.88
+    })
+  )
+  mesh.position.copy(start)
+  mesh.renderOrder = 5
+  runtime.shotGroup.add(mesh)
+  projectiles.push({
+    mesh,
+    direction: travelDirection,
+    remainingDistance: 16,
+    damage,
+    splashRadius: 0.95
+  })
+}
+
+function tickInkProjectiles(
+  runtime: RuntimeRefs,
+  projectiles: InkProjectile[],
+  enemy: EnemyModel,
+  deltaMs: number
+): number {
+  let hits = 0
+
+  for (let index = projectiles.length - 1; index >= 0; index -= 1) {
+    const projectile = projectiles[index]
+    const step = Math.min(projectile.remainingDistance, deltaMs * 0.028)
+    projectile.mesh.position.addScaledVector(projectile.direction, step)
+    projectile.remainingDistance -= step
+
+    const enemyDistance = Math.hypot(
+      projectile.mesh.position.x - enemy.position.x,
+      projectile.mesh.position.z - enemy.position.z
+    )
+    const hitEnemy = enemy.state !== 'dead' && enemyDistance <= enemy.radius + projectile.splashRadius
+
+    if (hitEnemy || projectile.remainingDistance <= 0) {
+      if (hitEnemy) {
+        hits += 1
+      }
+
+      runtime.shotGroup.remove(projectile.mesh)
+      projectile.mesh.geometry.dispose()
+      projectile.mesh.material.dispose()
+      projectiles.splice(index, 1)
+    }
+  }
+
+  return hits
+}
+
+function clearInkProjectiles(runtime: RuntimeRefs | null, projectiles: InkProjectile[]) {
+  while (projectiles.length > 0) {
+    const projectile = projectiles.pop()
+
+    if (!projectile) {
+      return
+    }
+
+    runtime?.shotGroup.remove(projectile.mesh)
+    projectile.mesh.geometry.dispose()
+    projectile.mesh.material.dispose()
+  }
+}
+
+function knockEnemyBack(enemy: EnemyModel, direction: Vec3, distance: number): EnemyModel {
+  if (enemy.state === 'dead') {
+    return enemy
+  }
+
+  return {
+    ...enemy,
+    position: {
+      x: clamp(enemy.position.x + direction.x * distance, movementConfig.bounds.minX, movementConfig.bounds.maxX),
+      y: enemy.position.y,
+      z: clamp(enemy.position.z + direction.z * distance, movementConfig.bounds.minZ, movementConfig.bounds.maxZ)
+    }
+  }
+}
+
+function selectWeapon(
+  weapon: WeaponId,
+  selectedRef: { current: WeaponId },
+  setSelectedWeapon: (weapon: WeaponId) => void,
+  setStatus: (status: string) => void
+) {
+  selectedRef.current = weapon
+  setSelectedWeapon(weapon)
+  setStatus(`${weaponConfigs[weapon].label} ready.`)
 }
 
 function SettingsPanel({

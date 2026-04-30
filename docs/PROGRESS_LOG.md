@@ -2,6 +2,36 @@
 
 Newest entries go first.
 
+## 2026-04-30: Slice: Weapon set V1
+
+- Status: In progress
+- Branch: `feat/weapon-set-v1`
+- Dot: `Flatline-new-bc692035`
+- GDD sections: 10, 20, 29
+- Done:
+  - Added a pure weapon config and ammo model for Peashooter, Boomstick, and Inkblaster.
+  - Added HUD weapon selection with number keys and Q cycling.
+  - Kept Peashooter as infinite ammo hitscan fallback.
+  - Added Boomstick spread fire with limited ammo and knockback.
+  - Added Inkblaster moving projectiles with limited ammo and splash collision.
+  - Expanded center supplies to restore limited weapon ammo.
+  - Added weapon unit tests and browser smoke coverage for weapon switching and firing.
+- Verification:
+  - `npm run test -- weapons movement shooting` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test:e2e` passed with 4 browser smoke checks.
+  - `npm run verify` passed with 12 test files, 42 unit tests, and 4 browser smoke checks.
+  - `npm audit --audit-level=moderate` found 0 vulnerabilities.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-04-30: Slice: Input, projectile feedback, and post-MVP plan
 
 - Status: Complete
