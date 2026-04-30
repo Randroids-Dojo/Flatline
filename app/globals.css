@@ -1,0 +1,202 @@
+:root {
+  color-scheme: dark;
+  --ink: #f4f1e8;
+  --paper: #101010;
+  --accent: #50d1c0;
+  --danger: #f05a4f;
+  --panel: rgba(10, 10, 10, 0.72);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button {
+  font: inherit;
+}
+
+.game-shell {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #101010;
+}
+
+.render-root {
+  position: absolute;
+  inset: 0;
+}
+
+.render-root canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hud {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  z-index: 3;
+}
+
+.hud-pill {
+  min-width: 92px;
+  padding: 8px 10px;
+  border: 1px solid rgba(244, 241, 232, 0.2);
+  background: var(--panel);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.hud-pill strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.crosshair::before,
+.crosshair::after {
+  position: absolute;
+  content: "";
+  background: rgba(244, 241, 232, 0.92);
+  box-shadow: 0 0 8px rgba(80, 209, 192, 0.45);
+}
+
+.crosshair::before {
+  left: 11px;
+  top: 2px;
+  width: 2px;
+  height: 20px;
+}
+
+.crosshair::after {
+  left: 2px;
+  top: 11px;
+  width: 20px;
+  height: 2px;
+}
+
+.weapon {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 2;
+  width: min(30vw, 340px);
+  height: min(28vh, 250px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.weapon::before {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 54%;
+  height: 88%;
+  content: "";
+  transform: translateX(-50%);
+  border: 3px solid #070707;
+  border-bottom: 0;
+  border-radius: 48% 48% 0 0;
+  background: linear-gradient(90deg, #222, #d8d2c1 42%, #8d887b 58%, #161616);
+  box-shadow: inset 0 0 0 5px rgba(255, 255, 255, 0.12);
+}
+
+.weapon::after {
+  position: absolute;
+  left: 50%;
+  bottom: 34%;
+  width: 18%;
+  height: 42%;
+  content: "";
+  transform: translateX(-50%);
+  border-radius: 8px 8px 2px 2px;
+  background: #090909;
+}
+
+.start-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at 50% 42%, rgba(80, 209, 192, 0.16), rgba(16, 16, 16, 0.88) 48%, #101010 100%);
+}
+
+.start-panel-inner {
+  width: min(520px, 100%);
+  text-align: center;
+}
+
+.start-panel h1 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: clamp(54px, 9vw, 104px);
+  line-height: 0.9;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.start-panel p {
+  max-width: 420px;
+  margin: 0 auto 22px;
+  color: rgba(244, 241, 232, 0.76);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.start-button {
+  min-width: 190px;
+  padding: 12px 18px;
+  border: 1px solid rgba(244, 241, 232, 0.34);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #061412;
+  cursor: pointer;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-line {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 3;
+  max-width: min(380px, calc(100vw - 36px));
+  padding: 8px 10px;
+  border: 1px solid rgba(244, 241, 232, 0.16);
+  border-radius: 6px;
+  background: var(--panel);
+  color: rgba(244, 241, 232, 0.82);
+  font-size: 13px;
+}

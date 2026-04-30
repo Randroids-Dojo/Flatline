@@ -4,12 +4,12 @@ Followups are durable deferred work. Mark finished entries `done`; do not delete
 
 ### F-001: Add package scaffold and standard verification scripts
 
-- Status: open
+- Status: done
 - Priority: blocks-release
 - Created: 2026-04-30
 - Source: Implementation loop setup
 - Description: Add the Next.js, React, Three.js, TypeScript, Vitest, and Playwright project scaffold with `lint`, `typecheck`, `test`, `test:e2e`, `build`, and `verify` scripts.
-- Completion:
+- Completion: Completed in `feat/slice-1-walk-shoot` with standard npm scripts and local verification.
 
 ### F-002: Add deployed build smoke once hosting exists
 
@@ -28,4 +28,3 @@ Followups are durable deferred work. Mark finished entries `done`; do not delete
 - Source: Documentation setup
 - Description: `GDD.md` is currently small enough to remain canonical as one file. If it grows, split it into `docs/gdd/` section files with `GDD.md` as the index.
 - Completion:
-
