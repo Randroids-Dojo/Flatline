@@ -12,6 +12,7 @@ import { frameToUvTransform, selectAnimationClip, selectSpriteFrame, type Animat
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
 import { dailySeed } from '@/lib/dailySeed'
 import { insertLeaderboardEntry, readLeaderboard, writeLeaderboard, type LeaderboardEntry } from '@/lib/leaderboard'
+import { dailyDateKey, type LeaderboardScope, type RankedLeaderboardEntry, type SharedLeaderboardResponse } from '@/lib/sharedLeaderboard'
 
 const cameraHeight = 1.7
 const initialPlayerPosition: Vec3 = { x: 0, y: cameraHeight, z: -5.5 }
@@ -50,7 +51,14 @@ type Settings = {
   audio: boolean
 }
 
-export function FlatlineGame() {
+type SharedLeaderboardStatus = 'loading' | 'ready' | 'unavailable' | 'error'
+type SubmitStatus = 'idle' | 'submitting' | 'submitted' | 'unavailable' | 'error'
+
+type FlatlineGameProps = {
+  initialLeaderboardScope?: LeaderboardScope
+}
+
+export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGameProps) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const runtimeRef = useRef<RuntimeRefs | null>(null)
   const animationRef = useRef<number | null>(null)
@@ -84,6 +92,12 @@ export function FlatlineGame() {
   )
   const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
   const [seed] = useState(() => dailySeed())
+  const [dailyDate] = useState(() => dailyDateKey())
+  const [sharedScope, setSharedScope] = useState<LeaderboardScope>(initialLeaderboardScope)
+  const [sharedEntries, setSharedEntries] = useState<RankedLeaderboardEntry[]>([])
+  const [sharedStatus, setSharedStatus] = useState<SharedLeaderboardStatus>('loading')
+  const [initials, setInitials] = useState(() => loadInitials())
+  const [submitStatus, setSubmitStatus] = useState<SubmitStatus>('idle')
   const [debug, setDebug] = useState<{ angle: BillboardAngle; bucket: number; animation: AnimationName }>({
     angle: 'front',
     bucket: 0,
@@ -213,6 +227,84 @@ export function FlatlineGame() {
       window.localStorage.setItem('flatline.settings.v1', JSON.stringify(nextSettings))
     }
   }, [])
+
+  const fetchSharedLeaderboard = useCallback(async (scope: LeaderboardScope) => {
+    try {
+      const params = new URLSearchParams({ scope })
+
+      if (scope === 'daily') {
+        params.set('date', dailyDate)
+      }
+
+      const response = await fetch(`/api/leaderboard?${params.toString()}`)
+      const data = await response.json() as SharedLeaderboardResponse
+      setSharedEntries(data.entries)
+      setSharedStatus(data.unavailable ? 'unavailable' : 'ready')
+    } catch {
+      setSharedStatus('error')
+    }
+  }, [dailyDate])
+
+  const switchSharedScope = useCallback((scope: LeaderboardScope) => {
+    setSharedScope(scope)
+    setSharedStatus('loading')
+    fetchSharedLeaderboard(scope)
+  }, [fetchSharedLeaderboard])
+
+  const submitSharedScore = useCallback(async () => {
+    if (!summary || submitStatus === 'submitting') {
+      return
+    }
+
+    const cleanInitials = normalizeClientInitials(initials)
+
+    if (!cleanInitials) {
+      setSubmitStatus('error')
+      setStatus('Enter at least one letter for initials.')
+      return
+    }
+
+    setInitials(cleanInitials)
+    window.localStorage.setItem('flatline.initials.v1', cleanInitials)
+    setSubmitStatus('submitting')
+
+    try {
+      const response = await fetch('/api/leaderboard', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          initials: cleanInitials,
+          ...summary,
+          scope: sharedScope,
+          date: dailyDate
+        })
+      })
+
+      if (response.status === 503) {
+        setSubmitStatus('unavailable')
+        setSharedStatus('unavailable')
+        setStatus('Shared leaderboard is not configured yet.')
+        return
+      }
+
+      if (!response.ok) {
+        setSubmitStatus('error')
+        setStatus('Shared leaderboard submit failed.')
+        return
+      }
+
+      const data = await response.json() as SharedLeaderboardResponse
+      setSharedEntries(data.entries)
+      setSharedStatus(data.unavailable ? 'unavailable' : 'ready')
+      setSubmitStatus('submitted')
+      setStatus('Shared leaderboard updated.')
+    } catch {
+      setSubmitStatus('error')
+      setStatus('Shared leaderboard submit failed.')
+    }
+  }, [dailyDate, initials, sharedScope, submitStatus, summary])
 
   useEffect(() => {
     const mount = mountRef.current
@@ -584,6 +676,10 @@ export function FlatlineGame() {
     settingsRef.current = settings
   }, [settings])
 
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchSharedLeaderboard(sharedScope))
+  }, [fetchSharedLeaderboard, sharedScope])
+
   return (
     <main className="game-shell">
       <div ref={mountRef} className="render-root" data-testid="render-root" />
@@ -642,8 +738,37 @@ export function FlatlineGame() {
             ) : (
               <p>Daily seed {seed}. One room. Endless pressure. Move fast, aim clean, and stay alive.</p>
             )}
+            {summary ? (
+              <div className="submit-panel" data-testid="shared-submit">
+                <label>
+                  Initials
+                  <input
+                    value={initials}
+                    maxLength={3}
+                    onChange={(event) => {
+                      setInitials(normalizeClientInitials(event.target.value))
+                      setSubmitStatus('idle')
+                    }}
+                  />
+                </label>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  disabled={submitStatus === 'submitting' || submitStatus === 'submitted'}
+                  onClick={submitSharedScore}
+                >
+                  {submitButtonLabel(submitStatus)}
+                </button>
+              </div>
+            ) : null}
             <SettingsPanel settings={settings} onChange={updateSettings} />
-            {leaderboard.length > 0 ? <Leaderboard entries={leaderboard} /> : null}
+            <SharedLeaderboardPanel
+              entries={sharedEntries}
+              scope={sharedScope}
+              status={sharedStatus}
+              onScopeChange={switchSharedScope}
+            />
+            {leaderboard.length > 0 ? <LocalLeaderboard entries={leaderboard} /> : null}
             <button className="start-button" type="button" onClick={startRun}>
               {summary ? 'Restart run' : 'Start run'}
             </button>
@@ -655,7 +780,13 @@ export function FlatlineGame() {
           <div className="pause-panel-inner">
             <h2>Paused</h2>
             <SettingsPanel settings={settings} onChange={updateSettings} />
-            {leaderboard.length > 0 ? <Leaderboard entries={leaderboard} /> : null}
+            <SharedLeaderboardPanel
+              entries={sharedEntries}
+              scope={sharedScope}
+              status={sharedStatus}
+              onScopeChange={switchSharedScope}
+            />
+            {leaderboard.length > 0 ? <LocalLeaderboard entries={leaderboard} /> : null}
             <button className="start-button" type="button" onClick={resumeRun}>
               Resume
             </button>
@@ -791,9 +922,56 @@ function SettingsPanel({
   )
 }
 
-function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
+function SharedLeaderboardPanel({
+  entries,
+  scope,
+  status,
+  onScopeChange
+}: {
+  entries: RankedLeaderboardEntry[]
+  scope: LeaderboardScope
+  status: SharedLeaderboardStatus
+  onScopeChange: (scope: LeaderboardScope) => void
+}) {
   return (
-    <ol className="leaderboard" data-testid="leaderboard">
+    <div className="shared-leaderboard" data-testid="shared-leaderboard">
+      <div className="leaderboard-tabs">
+        <button
+          className={scope === 'all' ? 'active' : ''}
+          type="button"
+          onClick={() => onScopeChange('all')}
+        >
+          All-time
+        </button>
+        <button
+          className={scope === 'daily' ? 'active' : ''}
+          type="button"
+          onClick={() => onScopeChange('daily')}
+        >
+          Daily
+        </button>
+      </div>
+      {status === 'loading' ? <p>Loading shared board.</p> : null}
+      {status === 'unavailable' ? <p>Shared board unavailable.</p> : null}
+      {status === 'error' ? <p>Shared board failed to load.</p> : null}
+      {status === 'ready' && entries.length === 0 ? <p>No shared scores yet.</p> : null}
+      {entries.length > 0 ? (
+        <ol className="leaderboard">
+          {entries.map((entry) => (
+            <li key={entry.id}>
+              <span>#{entry.rank} {entry.playerInitials}</span>
+              <strong>{entry.score}</strong>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </div>
+  )
+}
+
+function LocalLeaderboard({ entries }: { entries: LeaderboardEntry[] }) {
+  return (
+    <ol className="leaderboard" data-testid="leaderboard" aria-label="Local leaderboard">
       {entries.map((entry, index) => (
         <li key={`${entry.createdAt}-${index}`}>
           <span>{entry.playerInitials}</span>
@@ -802,6 +980,34 @@ function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
       ))}
     </ol>
   )
+}
+
+function loadInitials(): string {
+  if (typeof window === 'undefined') {
+    return 'YOU'
+  }
+
+  return normalizeClientInitials(window.localStorage.getItem('flatline.initials.v1') ?? 'YOU') || 'YOU'
+}
+
+function normalizeClientInitials(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3)
+}
+
+function submitButtonLabel(status: SubmitStatus): string {
+  if (status === 'submitting') {
+    return 'Submitting'
+  }
+
+  if (status === 'submitted') {
+    return 'Submitted'
+  }
+
+  if (status === 'unavailable') {
+    return 'Unavailable'
+  }
+
+  return 'Submit score'
 }
 
 function loadInitialSettings(): Settings {

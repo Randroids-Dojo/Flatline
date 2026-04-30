@@ -250,6 +250,76 @@ button {
   font-size: 13px;
 }
 
+.shared-leaderboard,
+.submit-panel {
+  max-width: 360px;
+  margin: 0 auto 18px;
+  padding: 10px;
+  border: 1px solid rgba(244, 241, 232, 0.18);
+  border-radius: 6px;
+  background: rgba(10, 10, 10, 0.62);
+}
+
+.shared-leaderboard p {
+  margin: 8px 0 0;
+  color: rgba(244, 241, 232, 0.76);
+  font-size: 13px;
+}
+
+.leaderboard-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.leaderboard-tabs button,
+.secondary-button {
+  padding: 8px 10px;
+  border: 1px solid rgba(244, 241, 232, 0.24);
+  border-radius: 6px;
+  background: rgba(244, 241, 232, 0.08);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.leaderboard-tabs button.active,
+.secondary-button {
+  background: var(--accent);
+  color: #061412;
+}
+
+.secondary-button:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.submit-panel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.submit-panel label {
+  display: grid;
+  gap: 5px;
+  color: rgba(244, 241, 232, 0.8);
+  font-size: 13px;
+  text-align: left;
+}
+
+.submit-panel input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(244, 241, 232, 0.24);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--ink);
+  font: inherit;
+  text-transform: uppercase;
+}
+
 .pause-panel {
   position: absolute;
   inset: 0;
