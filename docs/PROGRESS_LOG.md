@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-04-30: Slice: Input, projectile feedback, and post-MVP plan
 
-- Status: In progress
+- Status: Complete
 - Branch: `fix/input-projectiles-roadmap`
 - Dot: `Flatline-new-625746d6`
 - GDD sections: 6, 10, 20, 29
@@ -21,7 +21,11 @@ Newest entries go first.
   - `npm run verify` passed with 11 test files, 37 unit tests, and 4 browser smoke checks.
   - `npm audit --audit-level=moderate` found 0 vulnerabilities.
 - Review:
-  - No PR yet.
+  - PR #10 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
+- Deploy:
+  - Production Vercel deployment for merge commit `6b62cbf` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`: started a run, fired a shot, status showed `Billboard enemy hurt.`, and the HUD showed `Hits 1`.
 - GDD edits:
   - Added section 29, Post-MVP Product Plan.
 - Followups:
