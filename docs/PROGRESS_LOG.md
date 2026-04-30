@@ -2,6 +2,33 @@
 
 Newest entries go first.
 
+## 2026-04-30: Slice: Input, projectile feedback, and post-MVP plan
+
+- Status: In progress
+- Branch: `fix/input-projectiles-roadmap`
+- Dot: `Flatline-new-625746d6`
+- GDD sections: 6, 10, 20, 29
+- Done:
+  - Fixed camera-relative forward movement so W and S match the rendered view.
+  - Aligned pistol hitscan direction with the Three.js camera forward vector.
+  - Added visible shot bolts for pistol fire while keeping hitscan damage timing.
+  - Added a post-MVP product plan to the GDD.
+  - Added backlog dots for weapon set V1, enemy roster V1, room states and hazards V1, and deterministic daily room V2.
+- Verification:
+  - `npm run test -- movement shooting` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run verify` passed with 11 test files, 37 unit tests, and 4 browser smoke checks.
+  - `npm audit --audit-level=moderate` found 0 vulnerabilities.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - Added section 29, Post-MVP Product Plan.
+- Followups:
+  - Added Dots tasks for the next product slices.
+- Open questions:
+  - None.
+
 ## 2026-04-30: Slice: Shared KV leaderboards
 
 - Status: Complete

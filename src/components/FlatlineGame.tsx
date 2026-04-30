@@ -16,6 +16,7 @@ import { dailyDateKey, type LeaderboardScope, type RankedLeaderboardEntry, type 
 
 const cameraHeight = 1.7
 const initialPlayerPosition: Vec3 = { x: 0, y: cameraHeight, z: -5.5 }
+const initialYaw = Math.PI
 const movementConfig = {
   speed: 6.8,
   bounds: {
@@ -35,6 +36,14 @@ type RuntimeRefs = {
   enemyMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
   enemyFacingArrow: THREE.ArrowHelper
   muzzleLight: THREE.PointLight
+  shotGroup: THREE.Group
+}
+
+type ShotBolt = {
+  mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
+  direction: THREE.Vector3
+  remainingDistance: number
+  ttlMs: number
 }
 
 type RunSummary = {
@@ -62,9 +71,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
   const mountRef = useRef<HTMLDivElement | null>(null)
   const runtimeRef = useRef<RuntimeRefs | null>(null)
   const animationRef = useRef<number | null>(null)
+  const shotBoltsRef = useRef<ShotBolt[]>([])
   const lastTimeRef = useRef<number>(0)
   const positionRef = useRef<Vec3>({ ...initialPlayerPosition })
-  const yawRef = useRef<number>(0)
+  const yawRef = useRef<number>(initialYaw)
   const pitchRef = useRef<number>(0)
   const keysRef = useRef<MovementInput>({ forward: false, backward: false, left: false, right: false })
   const runningRef = useRef<boolean>(false)
@@ -120,14 +130,16 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
             radius: 0.72
           }
         ]
+    const direction = forwardFromYawPitch(yawRef.current, pitchRef.current)
     const hit = fireHitscan(
       positionRef.current,
-      forwardFromYawPitch(yawRef.current, pitchRef.current),
+      direction,
       targets,
       18
     )
 
     runtimeRef.current.muzzleLight.intensity = 4.5
+    spawnShotBolt(runtimeRef.current, shotBoltsRef.current, positionRef.current, direction, hit?.distance ?? 18, Boolean(hit))
     playCue(180, settingsRef.current.audio)
 
     scoreRef.current = recordShot(scoreRef.current, Boolean(hit))
@@ -150,13 +162,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
       setStatus(enemyRef.current.state === 'dead' ? 'Billboard enemy dropped.' : 'Billboard enemy hurt.')
       runtimeRef.current.enemyMaterial.color.set('#f05a4f')
     } else {
-      setStatus('Shot missed. Aim at the target dummy.')
+      setStatus('Shot missed. Track the target and fire again.')
     }
   }, [])
 
   const startRun = useCallback(() => {
     positionRef.current = { ...initialPlayerPosition }
-    yawRef.current = 0
+    yawRef.current = initialYaw
     pitchRef.current = 0
     playerHealthRef.current = 100
     directorRef.current = createDirectorState()
@@ -313,6 +325,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
       return
     }
 
+    const shotBolts = shotBoltsRef.current
     const scene = new THREE.Scene()
     scene.background = new THREE.Color('#101010')
     scene.fog = new THREE.Fog('#101010', 12, 28)
@@ -339,6 +352,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
     const muzzleLight = new THREE.PointLight('#f05a4f', 0, 7)
     muzzleLight.position.set(0, 1.4, -4)
     scene.add(muzzleLight)
+
+    const shotGroup = new THREE.Group()
+    shotGroup.name = 'shot-bolts'
+    scene.add(shotGroup)
 
     scene.add(createRoom())
 
@@ -386,7 +403,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
       enemyTexture: null,
       enemyMesh,
       enemyFacingArrow,
-      muzzleLight
+      muzzleLight,
+      shotGroup
     }
 
     loadGruntAtlas().then(({ atlas, texture }) => {
@@ -526,6 +544,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
       runtime.camera.rotation.set(pitchRef.current, yawRef.current, 0)
       runtime.muzzleLight.position.copy(runtime.camera.position)
       runtime.muzzleLight.intensity = Math.max(0, runtime.muzzleLight.intensity - delta * 22)
+      tickShotBolts(runtime, shotBolts, delta * 1000)
       const enemy = enemyRef.current
       const animation = animationForEnemyState(enemy.state)
 
@@ -565,6 +584,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
         cancelAnimationFrame(animationRef.current)
       }
 
+      clearShotBolts(runtimeRef.current, shotBolts)
       renderer.dispose()
       mount.removeChild(renderer.domElement)
       runtimeRef.current = null
@@ -877,6 +897,84 @@ function createRoom() {
   group.add(furnaceRight)
 
   return group
+}
+
+function spawnShotBolt(
+  runtime: RuntimeRefs,
+  bolts: ShotBolt[],
+  origin: Vec3,
+  direction: Vec3,
+  distance: number,
+  hit: boolean
+) {
+  const start = new THREE.Vector3(origin.x, origin.y - 0.16, origin.z)
+  const travelDirection = new THREE.Vector3(direction.x, direction.y, direction.z).normalize()
+  start.addScaledVector(travelDirection, 0.55)
+
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(hit ? 0.085 : 0.065, 10, 10),
+    new THREE.MeshBasicMaterial({
+      color: hit ? '#f05a4f' : '#50d1c0',
+      transparent: true,
+      opacity: 0.92
+    })
+  )
+  mesh.position.copy(start)
+  mesh.renderOrder = 4
+  runtime.shotGroup.add(mesh)
+  shotBoltsLimit(runtime, bolts)
+  bolts.push({
+    mesh,
+    direction: travelDirection,
+    remainingDistance: Math.max(0.35, distance - 0.55),
+    ttlMs: hit ? 120 : 180
+  })
+}
+
+function tickShotBolts(runtime: RuntimeRefs, bolts: ShotBolt[], deltaMs: number) {
+  for (let index = bolts.length - 1; index >= 0; index -= 1) {
+    const bolt = bolts[index]
+    const step = Math.min(bolt.remainingDistance, deltaMs * 0.075)
+    bolt.mesh.position.addScaledVector(bolt.direction, step)
+    bolt.remainingDistance -= step
+    bolt.ttlMs -= deltaMs
+    bolt.mesh.material.opacity = Math.max(0, Math.min(0.92, bolt.ttlMs / 120))
+
+    if (bolt.remainingDistance <= 0 || bolt.ttlMs <= 0) {
+      runtime.shotGroup.remove(bolt.mesh)
+      bolt.mesh.geometry.dispose()
+      bolt.mesh.material.dispose()
+      bolts.splice(index, 1)
+    }
+  }
+}
+
+function shotBoltsLimit(runtime: RuntimeRefs, bolts: ShotBolt[]) {
+  while (bolts.length > 20) {
+    const bolt = bolts.shift()
+
+    if (!bolt) {
+      return
+    }
+
+    runtime.shotGroup.remove(bolt.mesh)
+    bolt.mesh.geometry.dispose()
+    bolt.mesh.material.dispose()
+  }
+}
+
+function clearShotBolts(runtime: RuntimeRefs | null, bolts: ShotBolt[]) {
+  while (bolts.length > 0) {
+    const bolt = bolts.pop()
+
+    if (!bolt) {
+      return
+    }
+
+    runtime?.shotGroup.remove(bolt.mesh)
+    bolt.mesh.geometry.dispose()
+    bolt.mesh.material.dispose()
+  }
 }
 
 function SettingsPanel({

@@ -21,8 +21,8 @@ export function updatePlayerPosition(
   const cos = Math.cos(yawRadians)
   const distance = config.speed * deltaSeconds
 
-  const dx = (sin * moveForward + cos * moveRight) * distance
-  const dz = (cos * moveForward - sin * moveRight) * distance
+  const dx = (-sin * moveForward + cos * moveRight) * distance
+  const dz = (-cos * moveForward - sin * moveRight) * distance
 
   return {
     x: clamp(position.x + dx, config.bounds.minX, config.bounds.maxX),

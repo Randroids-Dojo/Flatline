@@ -30,10 +30,18 @@ describe('fireHitscan', () => {
 
 describe('forwardFromYawPitch', () => {
   it('builds the expected forward vector from yaw and pitch', () => {
-    const forward = forwardFromYawPitch(Math.PI / 2, 0)
+    const forward = forwardFromYawPitch(0, 0)
 
-    expect(forward.x).toBeCloseTo(1)
+    expect(forward.x).toBeCloseTo(0)
     expect(forward.y).toBeCloseTo(0)
-    expect(forward.z).toBeCloseTo(0)
+    expect(forward.z).toBeCloseTo(-1)
+  })
+
+  it('matches the starting arena facing toward positive z', () => {
+    const forward = forwardFromYawPitch(Math.PI, 0)
+
+    expect(forward.x).toBeCloseTo(0)
+    expect(forward.y).toBeCloseTo(0)
+    expect(forward.z).toBeCloseTo(1)
   })
 })

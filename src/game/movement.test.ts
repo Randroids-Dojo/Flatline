@@ -15,15 +15,28 @@ describe('updatePlayerPosition', () => {
   it('moves forward relative to yaw', () => {
     const next = updatePlayerPosition(
       { x: 0, y: 1.7, z: 0 },
-      Math.PI / 2,
+      0,
       { forward: true, backward: false, left: false, right: false },
       0.5,
       config
     )
 
-    expect(next.x).toBeCloseTo(3)
-    expect(next.z).toBeCloseTo(0)
+    expect(next.x).toBeCloseTo(0)
+    expect(next.z).toBeCloseTo(-3)
     expect(next.y).toBe(1.7)
+  })
+
+  it('moves backward opposite the camera forward vector', () => {
+    const next = updatePlayerPosition(
+      { x: 0, y: 1.7, z: 0 },
+      0,
+      { forward: false, backward: true, left: false, right: false },
+      0.5,
+      config
+    )
+
+    expect(next.x).toBeCloseTo(0)
+    expect(next.z).toBeCloseTo(3)
   })
 
   it('normalizes diagonal movement speed', () => {
@@ -40,14 +53,14 @@ describe('updatePlayerPosition', () => {
 
   it('clamps the player inside room bounds', () => {
     const next = updatePlayerPosition(
-      { x: 7.9, y: 1.7, z: 7.9 },
-      0,
+      { x: -7.9, y: 1.7, z: 7.9 },
+      Math.PI,
       { forward: true, backward: false, left: false, right: true },
       1,
       config
     )
 
-    expect(next.x).toBe(8)
+    expect(next.x).toBe(-8)
     expect(next.z).toBe(8)
   })
 })

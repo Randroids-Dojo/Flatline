@@ -26,9 +26,9 @@ export function forwardFromYawPitch(yawRadians: number, pitchRadians: number): V
   const pitchCos = Math.cos(pitchRadians)
 
   return normalize({
-    x: Math.sin(yawRadians) * pitchCos,
+    x: -Math.sin(yawRadians) * pitchCos,
     y: Math.sin(pitchRadians),
-    z: Math.cos(yawRadians) * pitchCos
+    z: -Math.cos(yawRadians) * pitchCos
   })
 }
 
