@@ -20,3 +20,16 @@ dot ready
 ```
 
 Pick one ready task, turn it on with `dot on <id>`, complete it on a branch, then close it with `dot off <id> -r "<reason>"` after the PR is merged and verified.
+
+## Shared Leaderboard Setup
+
+Flatline can use Vercel KV through Upstash Redis for shared all-time and daily leaderboards.
+
+Required Vercel environment variables:
+
+```bash
+KV_REST_API_URL=
+KV_REST_API_TOKEN=
+```
+
+Create or attach a Vercel KV store in the Vercel dashboard, confirm those variables exist for Production and Preview, then redeploy. If KV is not configured, the game still runs and keeps the local browser leaderboard.

@@ -2,6 +2,34 @@
 
 Newest entries go first.
 
+## 2026-04-30: Slice: Shared KV leaderboards
+
+- Status: In progress
+- Branch: `feat/shared-kv-leaderboards`
+- Dot: `Flatline-implement-shared-kv-9985c5d4`
+- GDD sections: 3, 5, 14, 20, 21, 24, 27
+- Done:
+  - Added Upstash Redis KV support using `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
+  - Added shared all-time and daily leaderboard API routes.
+  - Added initials submission from the run summary.
+  - Added shared board tabs to the title, pause, and summary surfaces.
+  - Kept local browser leaderboard as a fallback.
+  - Added API and helper tests with fake KV coverage.
+- Verification:
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test` passed with 11 files and 35 tests.
+  - `npm run verify` passed.
+  - `npm audit --audit-level=moderate` found 0 vulnerabilities.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - Updated `Q-003`.
+
 ## 2026-04-30: Slice: MVP loop closure
 
 - Status: In progress

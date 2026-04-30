@@ -24,7 +24,7 @@ Resolved questions are marked `answered` or `obsolete`. Do not delete them.
 - Date: 2026-04-30
 - Context: GDD section 20 says basic leaderboard, section 20.2 says local first is acceptable, and section 3.2 lists optional Upstash Redis.
 - Recommendation: Ship local personal best and local leaderboard first. Add server leaderboard after the run loop is fun.
-- Decision: Ship local leaderboard persistence for MVP. Server-backed leaderboard remains out of scope until explicitly approved.
+- Decision: Ship shared all-time and daily leaderboards through Vercel KV, with local leaderboard as a fallback when KV is unavailable.
 
 ### Q-004: Should the MVP room be authored manually or generated from a seed?
 
