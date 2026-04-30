@@ -2,9 +2,34 @@
 
 Newest entries go first.
 
-## 2026-04-30: Slice: Endless Spawn Director
+## 2026-04-30: Slice: Web Game Polish
 
 - Status: In progress
+- Branch: `feat/slice-5-web-polish`
+- Dot: `Flatline-implement-slice-5-0b00421a`
+- GDD sections: 5, 10, 15, 16, 20, 21, 22, 24
+- Done:
+  - Added pause and resume flow with settings controls.
+  - Added persisted sensitivity, FOV, and audio settings.
+  - Added generated audio cues for fire, hit, kill, and pickup events.
+  - Added local leaderboard persistence and display on run summary.
+  - Added deterministic daily seed utility and `/arena/daily` route.
+  - Expanded Playwright smoke for leaderboard, pause, settings, restart, and daily route.
+- Verification:
+  - `npm run verify` passed with 9 unit test files, 29 unit tests, and 4 browser smoke checks.
+  - `npm audit --audit-level=moderate` passed.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - Answered `Q-001`, `Q-003`, and `Q-005` according to implemented MVP defaults.
+
+## 2026-04-30: Slice: Endless Spawn Director
+
+- Status: Merged
 - Branch: `feat/slice-4-spawn-director`
 - Dot: `Flatline-implement-slice-4-8251595e`
 - GDD sections: 12, 13, 14, 15, 20, 21, 22
@@ -21,7 +46,7 @@ Newest entries go first.
   - `npm run verify` passed.
   - `npm audit --audit-level=moderate` passed.
 - Review:
-  - No PR yet.
+  - PR #5 merged after no review threads and CodeQL passed.
 - GDD edits:
   - None.
 - Followups:

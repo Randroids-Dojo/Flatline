@@ -1,9 +1,9 @@
 ---
 title: "implement: slice 5 web game polish"
-status: open
+status: active
 priority: 2
 issue-type: task
-created-at: "2026-04-30T00:05:22.815552-05:00"
+created-at: "\"2026-04-30T00:05:22.815552-05:00\""
 blocks:
   - Flatline-implement-slice-4-8251595e
 ---
