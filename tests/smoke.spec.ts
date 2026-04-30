@@ -13,6 +13,11 @@ test('starts a walk and shoot run', async ({ page }, testInfo) => {
   await expect(page.getByTestId('billboard-debug')).toContainText('front')
   await expect(page.getByTestId('status-line')).toContainText('WASD')
   await page.screenshot({ path: testInfo.outputPath('walk-and-shoot.png'), fullPage: true })
+
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('flatline:force-death')))
+  await expect(page.getByTestId('run-summary')).toBeVisible()
+  await page.getByRole('button', { name: 'Restart run' }).click()
+  await expect(page.getByTestId('hud')).toBeVisible()
 })
 
 async function canvasHasPixels(page: import('@playwright/test').Page) {

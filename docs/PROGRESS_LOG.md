@@ -2,9 +2,36 @@
 
 Newest entries go first.
 
-## 2026-04-30: Slice: Enemy AI
+## 2026-04-30: Slice: Endless Spawn Director
 
 - Status: In progress
+- Branch: `feat/slice-4-spawn-director`
+- Dot: `Flatline-implement-slice-4-8251595e`
+- GDD sections: 12, 13, 14, 15, 20, 21, 22
+- Done:
+  - Added a deterministic pressure-based spawn director with four MVP spawn doors and cadence ramp.
+  - Added score tracking for shots, accuracy, kills, combo, survival bonus, and final score.
+  - Added an endless prototype loop with enemy respawns, score HUD, kill HUD, run timer, center health pickup, death summary, and restart.
+  - Added unit tests for pressure ramp, spawn cadence, safe door selection, scoring, combo, survival bonus, and accuracy.
+  - Expanded Playwright smoke to force a death summary and verify restart.
+- Verification:
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test` passed with 7 files and 26 tests.
+  - `npm run verify` passed.
+  - `npm audit --audit-level=moderate` passed.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
+## 2026-04-30: Slice: Enemy AI
+
+- Status: Merged
 - Branch: `feat/slice-3-enemy-ai`
 - Dot: `Flatline-implement-slice-3-c0d80db8`
 - GDD sections: 8, 11, 17, 18, 20, 21, 22
@@ -20,7 +47,7 @@ Newest entries go first.
   - `npm run verify` passed.
   - `npm audit --audit-level=moderate` passed.
 - Review:
-  - No PR yet.
+  - PR #4 merged after no review threads and CodeQL passed.
 - GDD edits:
   - None.
 - Followups:
