@@ -1,0 +1,31 @@
+# Flatline Followups
+
+Followups are durable deferred work. Mark finished entries `done`; do not delete them.
+
+### F-001: Add package scaffold and standard verification scripts
+
+- Status: open
+- Priority: blocks-release
+- Created: 2026-04-30
+- Source: Implementation loop setup
+- Description: Add the Next.js, React, Three.js, TypeScript, Vitest, and Playwright project scaffold with `lint`, `typecheck`, `test`, `test:e2e`, `build`, and `verify` scripts.
+- Completion:
+
+### F-002: Add deployed build smoke once hosting exists
+
+- Status: open
+- Priority: high
+- Created: 2026-04-30
+- Source: Working agreement
+- Description: Once the repo has a deploy target, add deploy verification steps and production smoke checks to the loop.
+- Completion:
+
+### F-003: Split GDD into section files if it becomes hard to navigate
+
+- Status: open
+- Priority: later
+- Created: 2026-04-30
+- Source: Documentation setup
+- Description: `GDD.md` is currently small enough to remain canonical as one file. If it grows, split it into `docs/gdd/` section files with `GDD.md` as the index.
+- Completion:
+
