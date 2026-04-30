@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
+import { createGrunt, damageEnemy, gruntConfig, tickEnemy, type EnemyModel } from '@/game/enemies'
 import { updatePlayerPosition } from '@/game/movement'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
 
 const cameraHeight = 1.7
+const initialPlayerPosition: Vec3 = { x: 0, y: cameraHeight, z: -5.5 }
 const movementConfig = {
   speed: 6.8,
   bounds: {
@@ -35,17 +37,18 @@ export function FlatlineGame() {
   const runtimeRef = useRef<RuntimeRefs | null>(null)
   const animationRef = useRef<number | null>(null)
   const lastTimeRef = useRef<number>(0)
-  const positionRef = useRef<Vec3>({ x: 0, y: cameraHeight, z: -5.5 })
+  const positionRef = useRef<Vec3>({ ...initialPlayerPosition })
   const yawRef = useRef<number>(0)
   const pitchRef = useRef<number>(0)
   const keysRef = useRef<MovementInput>({ forward: false, backward: false, left: false, right: false })
   const runningRef = useRef<boolean>(false)
-  const enemyAnimationRef = useRef<AnimationName>('idle')
-  const enemyAnimationTimeRef = useRef<number>(0)
-  const enemyHealthRef = useRef<number>(3)
+  const enemyRef = useRef<EnemyModel>(createGrunt('grunt-1', { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition))
+  const playerHealthRef = useRef<number>(100)
   const atlasRef = useRef<SpriteAtlas | null>(null)
   const [running, setRunning] = useState(false)
   const [hits, setHits] = useState(0)
+  const [playerHealth, setPlayerHealth] = useState(100)
+  const [enemyHealth, setEnemyHealth] = useState(3)
   const [debug, setDebug] = useState<{ angle: BillboardAngle; bucket: number; animation: AnimationName }>({
     angle: 'front',
     bucket: 0,
@@ -58,13 +61,16 @@ export function FlatlineGame() {
       return
     }
 
-    const targets: SphereTarget[] = [
-      {
-        id: 'dummy',
-        center: { x: 0, y: 1.35, z: 3.5 },
-        radius: 0.72
-      }
-    ]
+    const enemy = enemyRef.current
+    const targets: SphereTarget[] = enemy.state === 'dead'
+      ? []
+      : [
+          {
+            id: enemy.id,
+            center: { x: enemy.position.x, y: 1.35, z: enemy.position.z },
+            radius: 0.72
+          }
+        ]
     const hit = fireHitscan(
       positionRef.current,
       forwardFromYawPitch(yawRef.current, pitchRef.current),
@@ -75,11 +81,10 @@ export function FlatlineGame() {
     runtimeRef.current.muzzleLight.intensity = 4.5
 
     if (hit) {
-      enemyHealthRef.current = Math.max(0, enemyHealthRef.current - 1)
-      enemyAnimationRef.current = enemyHealthRef.current === 0 ? 'death' : 'hurt'
-      enemyAnimationTimeRef.current = 0
+      enemyRef.current = damageEnemy(enemyRef.current, 1)
+      setEnemyHealth(enemyRef.current.health)
       setHits((value) => value + 1)
-      setStatus(enemyHealthRef.current === 0 ? 'Billboard enemy dropped.' : 'Billboard enemy hurt.')
+      setStatus(enemyRef.current.state === 'dead' ? 'Billboard enemy dropped.' : 'Billboard enemy hurt.')
       runtimeRef.current.enemyMaterial.color.set('#f05a4f')
     } else {
       setStatus('Shot missed. Aim at the target dummy.')
@@ -222,34 +227,73 @@ export function FlatlineGame() {
           delta,
           movementConfig
         )
+
+        if (playerHealthRef.current > 0) {
+          const result = tickEnemy(
+            enemyRef.current,
+            {
+              position: positionRef.current,
+              radius: 0.4,
+              health: playerHealthRef.current
+            },
+            delta * 1000,
+            gruntConfig
+          )
+          enemyRef.current = result.enemy
+
+          if (result.player.health !== playerHealthRef.current) {
+            playerHealthRef.current = result.player.health
+            setPlayerHealth(result.player.health)
+          }
+
+          for (const event of result.events) {
+            if (event.type === 'enemyAttackStarted') {
+              setStatus('Enemy windup. Backpedal or sidestep.')
+            }
+
+            if (event.type === 'enemyAttackHit') {
+              setStatus(`Enemy hit for ${event.damage}.`)
+            }
+
+            if (event.type === 'enemyAttackMissed') {
+              setStatus('Enemy missed.')
+            }
+          }
+
+          if (result.player.health === 0) {
+            runningRef.current = false
+            setRunning(false)
+            setStatus('Flatlined. Refresh to restart this prototype.')
+          }
+        }
       }
 
       runtime.camera.position.set(positionRef.current.x, positionRef.current.y, positionRef.current.z)
       runtime.camera.rotation.set(pitchRef.current, yawRef.current, 0)
       runtime.muzzleLight.position.copy(runtime.camera.position)
       runtime.muzzleLight.intensity = Math.max(0, runtime.muzzleLight.intensity - delta * 22)
-      enemyAnimationTimeRef.current += delta * 1000
+      const enemy = enemyRef.current
+      const animation = animationForEnemyState(enemy.state)
 
-      if (enemyAnimationRef.current === 'hurt' && enemyAnimationTimeRef.current > 180) {
-        enemyAnimationRef.current = 'idle'
-        enemyAnimationTimeRef.current = 0
+      if (enemy.state !== 'hurt') {
         runtime.enemyMaterial.color.set('#ffffff')
       }
 
-      const enemyPosition = { x: 0, y: 1.05, z: 3.5 }
-      const enemyFacingAngle = -Math.PI / 2
-      const bucket = angleToPlayerBucket(enemyPosition, enemyFacingAngle, positionRef.current)
-      const angle = angleToPlayerName(enemyPosition, enemyFacingAngle, positionRef.current)
-      applyEnemyFrame(runtime, atlasRef.current, enemyAnimationRef.current, angle, enemyAnimationTimeRef.current)
+      const bucket = angleToPlayerBucket(enemy.position, enemy.facingAngle, positionRef.current)
+      const angle = angleToPlayerName(enemy.position, enemy.facingAngle, positionRef.current)
+      applyEnemyFrame(runtime, atlasRef.current, animation, angle, enemy.animationTimeMs)
+      runtime.enemyMesh.position.set(enemy.position.x, enemy.position.y, enemy.position.z)
       runtime.enemyMesh.lookAt(runtime.camera.position)
-      runtime.enemyFacingArrow.setDirection(new THREE.Vector3(0, 0, -1))
+      runtime.enemyFacingArrow.position.set(enemy.position.x, 0.08, enemy.position.z)
+      runtime.enemyFacingArrow.setDirection(new THREE.Vector3(Math.cos(enemy.facingAngle), 0, Math.sin(enemy.facingAngle)))
+      dummyMarker.position.set(enemy.position.x, 0.04, enemy.position.z)
       dummyMarker.rotation.z += delta * 1.4
       setDebug((current) => {
-        if (current.angle === angle && current.bucket === bucket && current.animation === enemyAnimationRef.current) {
+        if (current.angle === angle && current.bucket === bucket && current.animation === animation) {
           return current
         }
 
-        return { angle, bucket, animation: enemyAnimationRef.current }
+        return { angle, bucket, animation }
       })
       runtime.renderer.render(runtime.scene, runtime.camera)
     }
@@ -351,11 +395,15 @@ export function FlatlineGame() {
         <div className="hud" data-testid="hud">
           <div className="hud-pill">
             Health
-            <strong>100</strong>
+            <strong>{playerHealth}</strong>
           </div>
           <div className="hud-pill">
             Ammo
             <strong>Inf</strong>
+          </div>
+          <div className="hud-pill">
+            Enemy
+            <strong>{enemyHealth}</strong>
           </div>
           <div className="hud-pill">
             Hits
@@ -466,6 +514,18 @@ function createRoom() {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
+}
+
+function animationForEnemyState(state: EnemyModel['state']): AnimationName {
+  if (state === 'dead') {
+    return 'death'
+  }
+
+  if (state === 'hurt' || state === 'attackWindup' || state === 'attackRelease') {
+    return 'hurt'
+  }
+
+  return 'idle'
 }
 
 async function loadGruntAtlas() {
