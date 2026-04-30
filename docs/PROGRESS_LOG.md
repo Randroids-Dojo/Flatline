@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-04-30: Slice: Shared KV leaderboards
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/shared-kv-leaderboards`
 - Dot: `Flatline-implement-shared-kv-9985c5d4`
 - GDD sections: 3, 5, 14, 20, 21, 24, 27
@@ -22,7 +22,12 @@ Newest entries go first.
   - `npm run verify` passed.
   - `npm audit --audit-level=moderate` found 0 vulnerabilities.
 - Review:
-  - No PR yet.
+  - PR #8 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
+- Deploy:
+  - Production Vercel deployment for merge commit `daee67d` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`.
+  - Production `GET /api/leaderboard?scope=all` returned `unavailable: true`, confirming KV env vars still need to be configured in Vercel before shared scores persist.
 - GDD edits:
   - None.
 - Followups:
