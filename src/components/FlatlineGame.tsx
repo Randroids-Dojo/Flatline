@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
-import { createGrunt, damageEnemy, gruntConfig, tickEnemy, type EnemyModel } from '@/game/enemies'
+import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel } from '@/game/enemies'
 import { updatePlayerPosition } from '@/game/movement'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
@@ -114,6 +114,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
   const [hits, setHits] = useState(0)
   const [playerHealth, setPlayerHealth] = useState(100)
   const [enemyHealth, setEnemyHealth] = useState(3)
+  const [enemyType, setEnemyType] = useState<EnemyModel['type']>('grunt')
   const [score, setScore] = useState(0)
   const [kills, setKills] = useState(0)
   const [runMs, setRunMs] = useState(0)
@@ -250,6 +251,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
     setHits(0)
     setPlayerHealth(100)
     setEnemyHealth(3)
+    setEnemyType('grunt')
     setScore(0)
     setKills(0)
     setRunMs(0)
@@ -576,7 +578,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
               health: playerHealthRef.current
             },
             delta * 1000,
-            gruntConfig
+            enemyConfigs[enemyRef.current.type]
           )
           enemyRef.current = result.enemy
 
@@ -613,13 +615,16 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
           directorRef.current = directorTick.state
 
           if (directorTick.spawn && enemyRef.current.state === 'dead' && enemyRef.current.animationTimeMs > 800) {
-            enemyRef.current = createGrunt(
-              `grunt-${directorRef.current.spawnCount}`,
+            const nextType = enemyTypeForSpawn(directorRef.current.spawnCount)
+            enemyRef.current = createEnemy(
+              nextType,
+              `${nextType}-${directorRef.current.spawnCount}`,
               directorTick.spawn.door.position,
               positionRef.current
             )
             setEnemyHealth(enemyRef.current.health)
-            setStatus(`Spawn door ${directorTick.spawn.door.id} opened.`)
+            setEnemyType(enemyRef.current.type)
+            setStatus(`${enemyLabel(enemyRef.current.type)} entered from ${directorTick.spawn.door.id}.`)
           }
         }
       }
@@ -633,13 +638,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
       const animation = animationForEnemyState(enemy.state)
 
       if (enemy.state !== 'hurt') {
-        runtime.enemyMaterial.color.set('#ffffff')
+        runtime.enemyMaterial.color.set(enemyConfigs[enemy.type].tint)
       }
 
       const bucket = angleToPlayerBucket(enemy.position, enemy.facingAngle, positionRef.current)
       const angle = angleToPlayerName(enemy.position, enemy.facingAngle, positionRef.current)
       applyEnemyFrame(runtime, atlasRef.current, animation, angle, enemy.animationTimeMs)
       runtime.enemyMesh.position.set(enemy.position.x, enemy.position.y, enemy.position.z)
+      runtime.enemyMesh.scale.setScalar(enemyConfigs[enemy.type].scale)
       runtime.enemyMesh.lookAt(runtime.camera.position)
       runtime.enemyFacingArrow.position.set(enemy.position.x, 0.08, enemy.position.z)
       runtime.enemyFacingArrow.setDirection(new THREE.Vector3(Math.cos(enemy.facingAngle), 0, Math.sin(enemy.facingAngle)))
@@ -828,7 +834,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all' }: FlatlineGamePr
           </div>
           <div className="hud-pill">
             Enemy
-            <strong>{enemyHealth}</strong>
+            <strong>{enemyLabel(enemyType)} {enemyHealth}</strong>
           </div>
           <div className="hud-pill">
             Hits
@@ -1348,6 +1354,18 @@ function animationForEnemyState(state: EnemyModel['state']): AnimationName {
   }
 
   return 'idle'
+}
+
+function enemyLabel(type: EnemyModel['type']): string {
+  if (type === 'skitter') {
+    return 'Skitter'
+  }
+
+  if (type === 'brute') {
+    return 'Brute'
+  }
+
+  return 'Grunt'
 }
 
 function formatTime(ms: number): string {
