@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-05-01: Slice: Weapon sprite foreground V1
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/weapon-sprite-foreground`
 - Dot: `Flatline-implement-weapon-sprite-ad59eb55`
 - GDD sections: 7, 10, 25, 26.1
@@ -23,7 +23,11 @@ Newest entries go first.
   - `git diff --check` passed.
   - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - No PR yet.
+  - PR #30 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
+- Deploy:
+  - Production Vercel deployment for merge commit `dba5f18` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`: root returned 200 and `/assets/weapons/boomstick-fire.png` returned `image/png`.
 - GDD edits:
   - None.
 - Followups:
