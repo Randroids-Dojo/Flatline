@@ -25,12 +25,10 @@
       "id": "gdd-8-billboard-enemies",
       "gddSections": ["7", "8", "20.1"],
       "requirement": "Billboard enemy renderer with angle-aware sprite selection and enemy combat roles.",
-      "status": "partial",
-      "implementation": ["src/game/billboard.ts", "src/game/spriteAtlas.ts", "src/game/enemies.ts", "src/components/FlatlineGame.tsx", "public/assets/enemies/grunt/grunt.png", "public/assets/enemies/grunt/grunt.atlas.json"],
+      "status": "implemented",
+      "implementation": ["src/game/billboard.ts", "src/game/spriteAtlas.ts", "src/game/enemies.ts", "src/components/FlatlineGame.tsx", "public/assets/enemies/grunt/grunt.png", "public/assets/enemies/grunt/grunt.atlas.json", "public/assets/enemies/skitter/skitter.png", "public/assets/enemies/skitter/skitter.atlas.json", "public/assets/enemies/brute/brute.png", "public/assets/enemies/brute/brute.atlas.json"],
       "tests": ["src/game/billboard.test.ts", "src/game/spriteAtlas.test.ts", "src/game/enemies.test.ts", "tests/smoke.spec.ts"],
-      "gaps": [
-        "Skitter and Brute currently reuse the Grunt atlas with tint and scale variants."
-      ]
+      "gaps": []
     },
     {
       "id": "gdd-9-room-hazards",
@@ -104,21 +102,13 @@
       "id": "gdd-7-final-art",
       "gddSections": ["7", "25", "26.1"],
       "requirement": "Finalized hand-drawn billboard enemy and weapon art pipeline.",
-      "status": "partial",
-      "implementation": ["docs/ART_PIPELINE.md", "scripts/generate-grunt-atlas.mjs", "scripts/generate-weapon-sprites.mjs", "public/assets/enemies/grunt/grunt.png", "public/assets/enemies/grunt/grunt.atlas.json", "public/assets/weapons"],
+      "status": "implemented",
+      "implementation": ["docs/ART_PIPELINE.md", "scripts/generate-grunt-atlas.mjs", "scripts/generate-enemy-variant-atlases.mjs", "scripts/generate-weapon-sprites.mjs", "public/assets/enemies/grunt/grunt.png", "public/assets/enemies/grunt/grunt.atlas.json", "public/assets/enemies/skitter/skitter.png", "public/assets/enemies/skitter/skitter.atlas.json", "public/assets/enemies/brute/brute.png", "public/assets/enemies/brute/brute.atlas.json", "public/assets/weapons"],
       "tests": ["src/game/spriteAtlas.test.ts", "tests/smoke.spec.ts"],
-      "gaps": [
-        "Skitter and Brute need distinct atlas art instead of Grunt tint and scale variants."
-      ]
+      "gaps": []
     }
   ],
   "nextRecommendedTasks": [
-    {
-      "priority": 2,
-      "source": "gdd-8-billboard-enemies",
-      "title": "implement: distinct skitter and brute atlas variants",
-      "reason": "The Grunt atlas is no longer placeholder-only, but the other enemy roles still reuse it through tint and scale."
-    },
     {
       "priority": 2,
       "source": "gdd-5-daily-mode",
