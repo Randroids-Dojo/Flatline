@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-04-30: Slice: Continuous loop docs and coverage ledger
 
-- Status: In progress
+- Status: Complete
 - Branch: `docs/continuous-loop-coverage`
 - Dot: `Flatline-new-b7840626`
 - GDD sections: 20, 21, 25, 27, 28, 29
@@ -19,7 +19,11 @@ Newest entries go first.
   - `git diff --check` passed.
   - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - No PR yet.
+  - PR #20 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
+- Deploy:
+  - Production Vercel deployment for merge commit `997a9d3` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`: root returned 200 and `/api/leaderboard` returned `unavailable:false`.
 - GDD edits:
   - None.
 - Followups:
