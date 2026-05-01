@@ -97,6 +97,7 @@ test('practice route exposes tuning controls without leaderboard submission', as
   await page.getByLabel('Infinite ammo').check()
   await page.getByLabel('Damage').uncheck()
   await page.getByLabel('Billboard debug').uncheck()
+  await page.getByLabel('Freeze room').check()
   await page.getByRole('button', { name: 'Start run' }).click()
   await expect(page.getByTestId('hud').getByText('Inkblaster')).toBeVisible()
   await expect(page.getByTestId('billboard-debug')).toBeHidden()

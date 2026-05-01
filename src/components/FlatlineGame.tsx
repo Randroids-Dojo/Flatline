@@ -102,6 +102,7 @@ type PracticeSettings = {
   infiniteAmmo: boolean
   damageEnabled: boolean
   debugOverlays: boolean
+  roomStateFrozen: boolean
 }
 
 export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'standard' }: FlatlineGameProps) {
@@ -121,6 +122,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const enemyRef = useRef<EnemyModel>(createGrunt('grunt-1', { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition))
   const playerHealthRef = useRef<number>(100)
   const directorRef = useRef<DirectorState>(createDirectorState())
+  const roomStateMsRef = useRef<number>(0)
   const scoreRef = useRef<ScoreState>(createScoreState())
   const healthPickupReadyRef = useRef<boolean>(true)
   const healthPickupCooldownRef = useRef<number>(0)
@@ -262,6 +264,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     pitchRef.current = 0
     playerHealthRef.current = 100
     directorRef.current = createDirectorState()
+    roomStateMsRef.current = 0
     scoreRef.current = createScoreState()
     enemyRef.current = createEnemy(firstEnemyType, `${firstEnemyType}-1`, { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)
     healthPickupReadyRef.current = true
@@ -586,11 +589,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         if (playerHealthRef.current > 0) {
           directorRef.current.runMs += delta * 1000
           setRunMs(directorRef.current.runMs)
+          if (!practiceSettingsRef.current.roomStateFrozen) {
+            roomStateMsRef.current += delta * 1000
+          }
           hazardDamageCooldownRef.current = Math.max(0, hazardDamageCooldownRef.current - delta * 1000)
-          const hazards = hazardStatesForRunMs(directorRef.current.runMs + (dailyConfig?.hazardOffsetMs ?? 0))
+          const hazards = hazardStatesForRunMs(roomStateMsRef.current + (dailyConfig?.hazardOffsetMs ?? 0))
           applyHazardMeshes(runtime, hazards)
-          runtime.overhead.intensity = 55 + roomPressureIntensity(directorRef.current.runMs) * 35
-          runtime.movingCover.position.x = Math.sin(directorRef.current.runMs / 1800) * 2.2
+          runtime.overhead.intensity = 55 + roomPressureIntensity(roomStateMsRef.current) * 35
+          runtime.movingCover.position.x = Math.sin(roomStateMsRef.current / 1800) * 2.2
 
           if (hazardDamageCooldownRef.current === 0) {
             const hazardDamage = hazardDamageAtPosition(positionRef.current, hazards)
@@ -1454,6 +1460,15 @@ function PracticePanel({
         />
         Billboard debug
       </label>
+      <label className="toggle-row">
+        <input
+          disabled={disabled}
+          type="checkbox"
+          checked={settings.roomStateFrozen}
+          onChange={(event) => onChange({ ...settings, roomStateFrozen: event.target.checked })}
+        />
+        Freeze room
+      </label>
     </div>
   )
 }
@@ -1572,7 +1587,8 @@ function createPracticeSettings(): PracticeSettings {
     spawnRate: 1,
     infiniteAmmo: false,
     damageEnabled: true,
-    debugOverlays: true
+    debugOverlays: true,
+    roomStateFrozen: false
   }
 }
 
@@ -1585,7 +1601,8 @@ function normalizePracticeSettings(settings: PracticeSettings): PracticeSettings
     spawnRate: clamp(settings.spawnRate, 0.5, 2),
     infiniteAmmo: settings.infiniteAmmo,
     damageEnabled: settings.damageEnabled,
-    debugOverlays: settings.debugOverlays
+    debugOverlays: settings.debugOverlays,
+    roomStateFrozen: settings.roomStateFrozen
   }
 }
 
