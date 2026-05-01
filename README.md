@@ -12,6 +12,7 @@ An endless single-room Doom-like shooter where hand-drawn flat enemies swarm you
 - `docs/OPEN_QUESTIONS.md`: durable design and technical decisions.
 - `docs/FOLLOWUPS.md`: deferred work that should survive context loss.
 - `docs/GDD_COVERAGE.json`: maps GDD requirements to implementation, tests, and remaining gaps.
+- `docs/ART_PIPELINE.md`: implementation-ready visual asset pipeline and first polished art specs.
 
 ## Loop Quickstart
 

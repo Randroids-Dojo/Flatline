@@ -96,17 +96,19 @@
       "id": "gdd-5-practice-mode",
       "gddSections": ["5.3", "29.8"],
       "requirement": "Practice mode with no leaderboard submission and tuning controls.",
-      "status": "implemented",
+      "status": "partial",
       "implementation": ["app/arena/practice/page.tsx", "src/components/FlatlineGame.tsx", "src/game/spawnDirector.ts"],
       "tests": ["src/game/spawnDirector.test.ts", "tests/smoke.spec.ts"],
-      "gaps": []
+      "gaps": [
+        "Room state freeze control is not implemented yet."
+      ]
     },
     {
       "id": "gdd-7-final-art",
       "gddSections": ["7", "25", "26.1"],
       "requirement": "Finalized hand-drawn billboard enemy and weapon art pipeline.",
-      "status": "gap",
-      "implementation": ["public/assets/enemies/grunt/grunt.svg", "public/assets/enemies/grunt/grunt.atlas.json"],
+      "status": "partial",
+      "implementation": ["docs/ART_PIPELINE.md", "public/assets/enemies/grunt/grunt.svg", "public/assets/enemies/grunt/grunt.atlas.json"],
       "tests": ["src/game/spriteAtlas.test.ts"],
       "gaps": [
         "Current art is placeholder SVG atlas.",
@@ -116,10 +118,22 @@
   ],
   "nextRecommendedTasks": [
     {
+      "priority": 1,
+      "source": "gdd-5-practice-mode",
+      "title": "implement: practice room state freeze",
+      "reason": "Practice mode is the tuning and art validation surface, and GDD 29.8 requires a room state freeze control."
+    },
+    {
       "priority": 2,
       "source": "gdd-7-final-art",
-      "title": "research: final art pipeline and first polished enemy sheet",
-      "reason": "The main game loop works, but art remains placeholder quality."
+      "title": "implement: polished grunt atlas v1",
+      "reason": "The pipeline spec is defined, and the first polished enemy atlas will replace the most visible placeholder art."
+    },
+    {
+      "priority": 2,
+      "source": "gdd-7-final-art",
+      "title": "implement: weapon sprite foreground v1",
+      "reason": "Weapon art is still CSS and geometry placeholder feedback."
     },
     {
       "priority": 2,

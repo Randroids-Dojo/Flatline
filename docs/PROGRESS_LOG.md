@@ -2,6 +2,40 @@
 
 Newest entries go first.
 
+## 2026-04-30: Research: Final art pipeline and first polished enemy sheet
+
+- Status: In progress
+- Branch: `docs/final-art-pipeline-research`
+- Dot: `Flatline-research-final-art-83b50647`
+- GDD sections: 7, 8, 25, 26, 29.8
+- Findings:
+  - The renderer already supports 8 angle buckets and atlas-driven frame selection.
+  - The committed Grunt art is still a placeholder SVG with labels and grid cells.
+  - Skitter and Brute still reuse Grunt art through tint and scale.
+  - Practice Mode is the right validation surface for art, but it still lacks the GDD-required room state freeze control.
+- Decisions:
+  - The first polished art target is Grunt because it is centered at run start and appears in every mode.
+  - The first committed polished enemy should be a transparent PNG plus existing atlas JSON shape, not a new runtime asset format.
+  - Idle, hurt, and death are the first animation contract because those are the runtime states currently available.
+- Done:
+  - Added `docs/ART_PIPELINE.md` with asset direction, atlas contract, validation checklist, and implementation slices.
+  - Corrected GDD coverage for Practice Mode to partial because room state freeze remains open.
+  - Refined final-art coverage from gap to partial with the pipeline spec as the current implementation artifact.
+  - Created follow-on implement dots for room state freeze, polished Grunt atlas V1, and weapon sprite foreground V1.
+- Verification:
+  - `node -e "JSON.parse(require('fs').readFileSync('docs/GDD_COVERAGE.json','utf8')); console.log('coverage json ok')"` passed.
+  - `npm run lint` passed.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-04-30: Slice: Practice mode controls
 
 - Status: Complete
