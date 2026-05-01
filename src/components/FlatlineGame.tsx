@@ -53,6 +53,7 @@ type RuntimeRefs = {
   enemyTexture: THREE.Texture | null
   enemyMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
   enemyFacingArrow: THREE.ArrowHelper
+  doorSignals: Record<string, THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>>
   muzzleLight: THREE.PointLight
   shotGroup: THREE.Group
   hazardMeshes: Record<HazardKind, THREE.Mesh>
@@ -138,6 +139,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const practiceSettingsRef = useRef<PracticeSettings>(createPracticeSettings())
   const weaponFlashTimeoutRef = useRef<number | null>(null)
   const enemyAssetsRef = useRef<Partial<Record<EnemyType, EnemyVisualAsset>>>({})
+  const doorSignalTimersRef = useRef<Record<string, number>>({})
   const [running, setRunning] = useState(false)
   const [paused, setPaused] = useState(false)
   const [hits, setHits] = useState(0)
@@ -297,6 +299,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     hazardDamageCooldownRef.current = 0
     selectedWeaponRef.current = startingWeapon
     weaponAmmoRef.current = createWeaponAmmo()
+    doorSignalTimersRef.current = {}
     clearShotBolts(runtimeRef.current, shotBoltsRef.current)
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
     runningRef.current = true
@@ -508,7 +511,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     movingCover.receiveShadow = true
     scene.add(movingCover)
 
-    scene.add(createRoom())
+    const roomVisuals = createRoom()
+    scene.add(roomVisuals.group)
 
     const enemyMaterial = new THREE.MeshBasicMaterial({
       color: '#ffffff',
@@ -555,6 +559,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       enemyTexture: null,
       enemyMesh,
       enemyFacingArrow,
+      doorSignals: roomVisuals.doorSignals,
       muzzleLight,
       shotGroup,
       hazardMeshes,
@@ -730,6 +735,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               directorTick.spawn.door.position,
               positionRef.current
             )
+            doorSignalTimersRef.current[directorTick.spawn.door.id] = 950
             setEnemyHealth(enemyRef.current.health)
             setEnemyType(enemyRef.current.type)
             setStatus(`${enemyLabel(enemyRef.current.type)} entered from ${directorTick.spawn.door.id}.`)
@@ -741,6 +747,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       runtime.camera.rotation.set(pitchRef.current, yawRef.current, 0)
       runtime.muzzleLight.position.copy(runtime.camera.position)
       runtime.muzzleLight.intensity = Math.max(0, runtime.muzzleLight.intensity - delta * 22)
+      applyDoorSignals(runtime, doorSignalTimersRef.current, delta * 1000)
       tickShotBolts(runtime, shotBolts, delta * 1000)
       const enemy = enemyRef.current
       const animation = animationForEnemyState(enemy.state)
@@ -1066,8 +1073,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
 function createRoom() {
   const group = new THREE.Group()
+  const doorSignals: Record<string, THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>> = {}
   const floorMaterial = new THREE.MeshStandardMaterial({ color: '#242424', roughness: 0.94 })
   const wallMaterial = new THREE.MeshStandardMaterial({ color: '#4a4740', roughness: 0.9 })
+  const doorMaterial = new THREE.MeshStandardMaterial({ color: '#171717', roughness: 0.82 })
   const accentMaterial = new THREE.MeshStandardMaterial({
     color: '#50d1c0',
     emissive: '#123d39',
@@ -1138,7 +1147,41 @@ function createRoom() {
   furnaceRight.position.z = 1
   group.add(furnaceRight)
 
-  return group
+  addDoorVisual(group, doorSignals, 'north', { x: 0, y: 1.12, z: 9.78 }, new THREE.BoxGeometry(2.25, 1.8, 0.08), doorMaterial)
+  addDoorVisual(group, doorSignals, 'south', { x: 0, y: 1.12, z: -9.78 }, new THREE.BoxGeometry(2.25, 1.8, 0.08), doorMaterial)
+  addDoorVisual(group, doorSignals, 'east', { x: 9.78, y: 1.12, z: 0 }, new THREE.BoxGeometry(0.08, 1.8, 2.25), doorMaterial)
+  addDoorVisual(group, doorSignals, 'west', { x: -9.78, y: 1.12, z: 0 }, new THREE.BoxGeometry(0.08, 1.8, 2.25), doorMaterial)
+
+  return { group, doorSignals }
+}
+
+function addDoorVisual(
+  group: THREE.Group,
+  doorSignals: Record<string, THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>>,
+  id: string,
+  position: Vec3,
+  geometry: THREE.BoxGeometry,
+  doorMaterial: THREE.MeshStandardMaterial
+) {
+  const panel = new THREE.Mesh(geometry, doorMaterial)
+  panel.position.set(position.x, position.y, position.z)
+  group.add(panel)
+
+  const signal = new THREE.Mesh(
+    geometry.clone(),
+    new THREE.MeshBasicMaterial({
+      color: '#50d1c0',
+      transparent: true,
+      opacity: 0.08,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    })
+  )
+  signal.position.copy(panel.position)
+  signal.scale.set(0.74, 0.58, 0.74)
+  signal.renderOrder = 1
+  group.add(signal)
+  doorSignals[id] = signal
 }
 
 function createHazardMeshes(): Record<HazardKind, THREE.Mesh> {
@@ -1171,22 +1214,64 @@ function createHazardMeshes(): Record<HazardKind, THREE.Mesh> {
 
 function applyHazardMeshes(runtime: RuntimeRefs, hazards: HazardState[]) {
   hazards.forEach((hazard) => {
-    const material = runtime.hazardMeshes[hazard.kind].material as THREE.MeshBasicMaterial
+    const mesh = runtime.hazardMeshes[hazard.kind]
+    const material = mesh.material as THREE.MeshBasicMaterial
     material.opacity = opacityForHazardPhase(hazard.phase)
-    runtime.hazardMeshes[hazard.kind].visible = hazard.phase !== 'idle'
+    material.color.set(colorForHazardPhase(hazard.kind, hazard.phase))
+    mesh.visible = hazard.phase !== 'idle'
+    mesh.scale.setScalar(scaleForHazardPhase(hazard.phase))
   })
+}
+
+function applyDoorSignals(runtime: RuntimeRefs, timers: Record<string, number>, deltaMs: number) {
+  for (const [id, signal] of Object.entries(runtime.doorSignals)) {
+    const remainingMs = Math.max(0, (timers[id] ?? 0) - deltaMs)
+    timers[id] = remainingMs
+    const material = signal.material
+    const pulse = remainingMs > 0 ? 0.3 + Math.sin(remainingMs / 70) * 0.12 : 0.08
+    material.opacity = pulse
+    signal.scale.y = remainingMs > 0 ? 0.58 + (remainingMs / 950) * 0.22 : 0.58
+  }
 }
 
 function opacityForHazardPhase(phase: HazardPhase): number {
   if (phase === 'active') {
-    return 0.58
+    return 0.72
   }
 
   if (phase === 'warning') {
-    return 0.22
+    return 0.28
   }
 
   return 0
+}
+
+function scaleForHazardPhase(phase: HazardPhase): number {
+  if (phase === 'active') {
+    return 1.08
+  }
+
+  if (phase === 'warning') {
+    return 0.9
+  }
+
+  return 1
+}
+
+function colorForHazardPhase(kind: HazardKind, phase: HazardPhase): string {
+  if (phase === 'active') {
+    return kind === 'inkPool' ? '#5be7d6' : '#f05a4f'
+  }
+
+  if (kind === 'fallingLight') {
+    return '#f4f1e8'
+  }
+
+  if (kind === 'inkPool') {
+    return '#50d1c0'
+  }
+
+  return '#ffb04f'
 }
 
 function spawnShotBolt(
