@@ -2,6 +2,34 @@
 
 Newest entries go first.
 
+## 2026-04-30: Slice: Practice room state freeze
+
+- Status: In progress
+- Branch: `feat/practice-room-freeze`
+- Dot: `Flatline-implement-practice-room-b6778fd9`
+- GDD sections: 5.3, 29.8
+- Done:
+  - Added a Practice Mode freeze room control.
+  - Split room state timing from run timing so hazards, moving cover, and pressure lighting can freeze while play continues.
+  - Updated practice smoke coverage for the new control.
+  - Marked Practice Mode coverage implemented.
+- Verification:
+  - `node -e "JSON.parse(require('fs').readFileSync('docs/GDD_COVERAGE.json','utf8')); console.log('coverage json ok')"` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test:e2e` passed with 6 browser smoke checks.
+  - `npm run verify` passed with 14 test files, 51 unit tests, production build, and 6 browser smoke checks.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-04-30: Research: Final art pipeline and first polished enemy sheet
 
 - Status: Complete

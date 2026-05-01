@@ -96,12 +96,10 @@
       "id": "gdd-5-practice-mode",
       "gddSections": ["5.3", "29.8"],
       "requirement": "Practice mode with no leaderboard submission and tuning controls.",
-      "status": "partial",
+      "status": "implemented",
       "implementation": ["app/arena/practice/page.tsx", "src/components/FlatlineGame.tsx", "src/game/spawnDirector.ts"],
       "tests": ["src/game/spawnDirector.test.ts", "tests/smoke.spec.ts"],
-      "gaps": [
-        "Room state freeze control is not implemented yet."
-      ]
+      "gaps": []
     },
     {
       "id": "gdd-7-final-art",
@@ -117,12 +115,6 @@
     }
   ],
   "nextRecommendedTasks": [
-    {
-      "priority": 1,
-      "source": "gdd-5-practice-mode",
-      "title": "implement: practice room state freeze",
-      "reason": "Practice mode is the tuning and art validation surface, and GDD 29.8 requires a room state freeze control."
-    },
     {
       "priority": 2,
       "source": "gdd-7-final-art",
