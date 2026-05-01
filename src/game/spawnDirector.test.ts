@@ -28,6 +28,16 @@ describe('spawn director', () => {
     expect(result.spawn).toBeNull()
   })
 
+  it('can scale spawn cadence for tuned practice runs', () => {
+    const state = { ...createDirectorState(), lastSpawnMs: 0 }
+    const fast = tickDirector(state, 1500, 0, { x: 0, y: 1.7, z: 0 }, undefined, { cadenceScale: 0.5 })
+    const normal = tickDirector(state, 1500, 0, { x: 0, y: 1.7, z: 0 })
+
+    expect(fast.spawn?.door.id).toBe('north')
+    expect(fast.spawn?.cadenceMs).toBe(spawnCadenceForRunMs(1500) * 0.5)
+    expect(normal.spawn).toBeNull()
+  })
+
   it('avoids doors too close to the player when possible', () => {
     const door = selectSpawnDoor(
       [

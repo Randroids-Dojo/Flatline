@@ -233,6 +233,64 @@ button {
   grid-template-columns: 20px 1fr;
 }
 
+.practice-panel {
+  display: grid;
+  gap: 10px;
+  max-width: 360px;
+  margin: 0 auto 18px;
+  padding: 10px;
+  border: 1px solid rgba(244, 241, 232, 0.18);
+  border-radius: 6px;
+  background: rgba(10, 10, 10, 0.62);
+}
+
+.practice-panel label {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px;
+  align-items: center;
+  color: rgba(244, 241, 232, 0.8);
+  font-size: 13px;
+  text-align: left;
+}
+
+.practice-panel select,
+.practice-panel input[type="range"] {
+  width: 100%;
+}
+
+.practice-panel select {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid rgba(244, 241, 232, 0.24);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--ink);
+  font: inherit;
+}
+
+.practice-panel fieldset {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid rgba(244, 241, 232, 0.16);
+  border-radius: 6px;
+}
+
+.practice-panel legend {
+  padding: 0 4px;
+  color: rgba(244, 241, 232, 0.72);
+  font-size: 12px;
+}
+
+.practice-panel .toggle-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .leaderboard {
   max-width: 360px;
   margin: 0 auto 18px;

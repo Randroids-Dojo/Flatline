@@ -74,6 +74,38 @@ test('daily route loads the deterministic daily seed', async ({ page }) => {
   await expect(page.getByTestId('shared-leaderboard')).toBeVisible()
 })
 
+test('practice route exposes tuning controls without leaderboard submission', async ({ page }) => {
+  const leaderboardRequests: string[] = []
+  await page.route('**/api/leaderboard**', async (route) => {
+    leaderboardRequests.push(route.request().method())
+    await route.fulfill({
+      status: 200,
+      json: {
+        scope: 'all',
+        date: null,
+        entries: [],
+        unavailable: true
+      }
+    })
+  })
+
+  await page.goto('/arena/practice')
+  await expect(page.getByRole('heading', { name: 'Flatline' })).toBeVisible()
+  await expect(page.getByTestId('practice-panel')).toBeVisible()
+  await expect(page.getByTestId('shared-leaderboard')).toBeHidden()
+  await page.getByLabel('Start weapon').selectOption('inkblaster')
+  await page.getByLabel('Infinite ammo').check()
+  await page.getByLabel('Damage').uncheck()
+  await page.getByLabel('Billboard debug').uncheck()
+  await page.getByRole('button', { name: 'Start run' }).click()
+  await expect(page.getByTestId('hud').getByText('Inkblaster')).toBeVisible()
+  await expect(page.getByTestId('billboard-debug')).toBeHidden()
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('flatline:force-death')))
+  await expect(page.getByTestId('run-summary')).toBeVisible()
+  await expect(page.getByTestId('shared-submit')).toBeHidden()
+  expect(leaderboardRequests).toEqual([])
+})
+
 async function canvasHasPixels(page: import('@playwright/test').Page) {
   return page.locator('canvas').evaluate((element) => {
     const canvas = element as HTMLCanvasElement
