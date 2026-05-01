@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-04-30: Research: Final art pipeline and first polished enemy sheet
 
-- Status: In progress
+- Status: Complete
 - Branch: `docs/final-art-pipeline-research`
 - Dot: `Flatline-research-final-art-83b50647`
 - GDD sections: 7, 8, 25, 26, 29.8
@@ -28,7 +28,11 @@ Newest entries go first.
   - `git diff --check` passed.
   - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - No PR yet.
+  - PR #24 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
+- Deploy:
+  - Production Vercel deployment for merge commit `03fcb56` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/` and `/arena/practice`: both routes returned 200.
 - GDD edits:
   - None.
 - Followups:
