@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-05-01: Slice: Daily schedule preview
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/daily-schedule-preview`
 - Dot: `Flatline-implement-daily-schedule-2768d4c1`
 - GDD sections: 5.2, 20.1, 29.7
@@ -20,10 +20,14 @@ Newest entries go first.
   - `npm run typecheck` passed.
   - `npm run test:e2e` passed with 6 browser smoke checks.
   - `npm run verify` passed with 14 test files, 54 unit tests, production build, and 6 browser smoke checks.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - Pending.
+  - PR #34 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
 - Deploy:
-  - Pending.
+  - Production Vercel deployment for merge commit `396551e` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/arena/daily`: route returned 200 and included the Daily schedule panel.
 - GDD edits:
   - None.
 - Followups:
