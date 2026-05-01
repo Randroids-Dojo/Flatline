@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-04-30: Slice: Practice room state freeze
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/practice-room-freeze`
 - Dot: `Flatline-implement-practice-room-b6778fd9`
 - GDD sections: 5.3, 29.8
@@ -22,7 +22,11 @@ Newest entries go first.
   - `git diff --check` passed.
   - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - No PR yet.
+  - PR #26 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
+- Deploy:
+  - Production Vercel deployment for merge commit `9429c83` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/arena/practice`: route returned 200.
 - GDD edits:
   - None.
 - Followups:
