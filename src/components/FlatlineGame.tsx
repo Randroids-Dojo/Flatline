@@ -42,6 +42,7 @@ const movementConfig = {
 }
 const weaponIdsForSelect = [...weaponIds]
 const enemyTypesForSelect: EnemyType[] = ['grunt', 'skitter', 'brute']
+const enemyAtlasTypes: EnemyType[] = ['grunt', 'skitter', 'brute']
 
 type RuntimeRefs = {
   renderer: THREE.WebGLRenderer
@@ -56,6 +57,11 @@ type RuntimeRefs = {
   shotGroup: THREE.Group
   hazardMeshes: Record<HazardKind, THREE.Mesh>
   movingCover: THREE.Mesh
+}
+
+type EnemyVisualAsset = {
+  atlas: SpriteAtlas
+  texture: THREE.Texture
 }
 
 type ShotBolt = {
@@ -131,7 +137,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const practiceSettingsRef = useRef<PracticeSettings>(createPracticeSettings())
   const weaponFlashTimeoutRef = useRef<number | null>(null)
-  const atlasRef = useRef<SpriteAtlas | null>(null)
+  const enemyAssetsRef = useRef<Partial<Record<EnemyType, EnemyVisualAsset>>>({})
   const [running, setRunning] = useState(false)
   const [paused, setPaused] = useState(false)
   const [hits, setHits] = useState(0)
@@ -548,17 +554,16 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       movingCover
     }
 
-    loadGruntAtlas().then(({ atlas, texture }) => {
+    loadEnemyAtlases().then((assets) => {
       const runtime = runtimeRef.current
 
       if (!runtime) {
+        disposeEnemyAssets(assets)
         return
       }
 
-      atlasRef.current = atlas
-      runtime.enemyTexture = texture
-      runtime.enemyMaterial.map = texture
-      runtime.enemyMaterial.needsUpdate = true
+      enemyAssetsRef.current = assets
+      setEnemyVisualAsset(runtime, assets.grunt)
     }).catch(() => {
       setStatus('Sprite atlas failed to load.')
     })
@@ -739,7 +744,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
       const bucket = angleToPlayerBucket(enemy.position, enemy.facingAngle, positionRef.current)
       const angle = angleToPlayerName(enemy.position, enemy.facingAngle, positionRef.current)
-      applyEnemyFrame(runtime, atlasRef.current, animation, angle, enemy.animationTimeMs)
+      const enemyAsset = enemyAssetsRef.current[enemy.type] ?? enemyAssetsRef.current.grunt ?? null
+
+      if (enemyAsset) {
+        setEnemyVisualAsset(runtime, enemyAsset)
+      }
+
+      applyEnemyFrame(runtime, enemyAsset?.atlas ?? null, animation, angle, enemy.animationTimeMs)
       runtime.enemyMesh.position.set(enemy.position.x, enemy.position.y, enemy.position.z)
       runtime.enemyMesh.scale.setScalar(enemyConfigs[enemy.type].scale)
       runtime.enemyMesh.lookAt(runtime.camera.position)
@@ -772,6 +783,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
       clearShotBolts(runtimeRef.current, shotBolts)
       clearInkProjectiles(runtimeRef.current, inkProjectiles)
+      disposeEnemyAssets(enemyAssetsRef.current)
+      enemyAssetsRef.current = {}
       renderer.dispose()
       mount.removeChild(renderer.domElement)
       runtimeRef.current = null
@@ -1687,18 +1700,43 @@ function playCue(frequency: number, enabled: boolean) {
   })
 }
 
-async function loadGruntAtlas() {
-  const atlasResponse = await fetch('/assets/enemies/grunt/grunt.atlas.json')
+async function loadEnemyAtlases(): Promise<Record<EnemyType, EnemyVisualAsset>> {
+  const loadedAssets = await Promise.all(enemyAtlasTypes.map((type) => loadEnemyAtlas(type)))
+
+  return loadedAssets.reduce((assets, [type, asset]) => {
+    assets[type] = asset
+    return assets
+  }, {} as Record<EnemyType, EnemyVisualAsset>)
+}
+
+async function loadEnemyAtlas(type: EnemyType): Promise<[EnemyType, EnemyVisualAsset]> {
+  const atlasResponse = await fetch(`/assets/enemies/${type}/${type}.atlas.json`)
   const atlas = await atlasResponse.json() as SpriteAtlas
   assertValidSpriteAtlas(atlas)
-  const texture = await new THREE.TextureLoader().loadAsync(`/assets/enemies/grunt/${atlas.image}`)
+  const texture = await new THREE.TextureLoader().loadAsync(`/assets/enemies/${type}/${atlas.image}`)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.magFilter = THREE.NearestFilter
   texture.minFilter = THREE.NearestFilter
   texture.wrapS = THREE.ClampToEdgeWrapping
   texture.wrapT = THREE.ClampToEdgeWrapping
 
-  return { atlas, texture }
+  return [type, { atlas, texture }]
+}
+
+function setEnemyVisualAsset(runtime: RuntimeRefs, asset: EnemyVisualAsset) {
+  if (runtime.enemyTexture === asset.texture) {
+    return
+  }
+
+  runtime.enemyTexture = asset.texture
+  runtime.enemyMaterial.map = asset.texture
+  runtime.enemyMaterial.needsUpdate = true
+}
+
+function disposeEnemyAssets(assets: Partial<Record<EnemyType, EnemyVisualAsset>>) {
+  for (const asset of Object.values(assets)) {
+    asset?.texture.dispose()
+  }
 }
 
 function applyEnemyFrame(

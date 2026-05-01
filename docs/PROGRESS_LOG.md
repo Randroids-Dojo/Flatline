@@ -2,6 +2,36 @@
 
 Newest entries go first.
 
+## 2026-05-01: Slice: Enemy atlas variants
+
+- Status: In progress
+- Branch: `feat/enemy-atlas-variants`
+- Dot: `Flatline-implement-distinct-skitter-2482b448`
+- GDD sections: 7, 8, 25, 26.1
+- Done:
+  - Added transparent PNG atlases for Skitter and Brute with the same 8-angle idle, hurt, and death contract as Grunt.
+  - Added a reproducible enemy variant atlas generator.
+  - Updated the renderer to load per-enemy atlas assets and switch the billboard texture by active enemy type.
+  - Extended atlas validation tests to cover all committed enemy atlases.
+  - Extended Practice Mode smoke coverage to start a Brute-only run.
+- Verification:
+  - `node -e "const fs=require('fs'); for (const path of ['docs/GDD_COVERAGE.json','public/assets/enemies/grunt/grunt.atlas.json','public/assets/enemies/skitter/skitter.atlas.json','public/assets/enemies/brute/brute.atlas.json']) JSON.parse(fs.readFileSync(path,'utf8')); console.log('json ok')"` passed.
+  - `npm run test -- spriteAtlas billboard` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test:e2e` passed with 6 browser smoke checks.
+  - `npm run verify` passed with 14 test files, 53 unit tests, production build, and 6 browser smoke checks.
+- Review:
+  - Pending.
+- Deploy:
+  - Pending.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-05-01: Slice: Weapon sprite foreground V1
 
 - Status: Complete

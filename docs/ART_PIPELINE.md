@@ -7,7 +7,7 @@ This document turns GDD sections 7, 8, 25, 26, and 29 into implementation specs 
 - The runtime already supports 8 billboard angle buckets through `src/game/billboard.ts`.
 - Atlas metadata is parsed by `src/game/spriteAtlas.ts`.
 - The first Grunt atlas is a transparent generated PNG at `public/assets/enemies/grunt/grunt.png`.
-- Skitter and Brute reuse the Grunt atlas through tint and scale in `src/game/enemies.ts`.
+- Skitter and Brute use distinct transparent generated PNG atlases at `public/assets/enemies/skitter/` and `public/assets/enemies/brute/`.
 - Weapon foreground art uses transparent generated PNG sprites in `public/assets/weapons/`.
 - Practice Mode now provides the correct validation surface for enemy type, weapon, ammo, damage, and debug overlay tuning.
 
@@ -135,6 +135,8 @@ After Grunt works, add distinct atlas paths per enemy type:
 - `public/assets/enemies/brute/brute.atlas.json`
 
 This slice should remove the current tint-and-scale-only art reuse from the coverage gap.
+
+Status: complete.
 
 ### Slice D: Weapon Foreground Sprites
 

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import bruteAtlas from '../../public/assets/enemies/brute/brute.atlas.json'
 import gruntAtlas from '../../public/assets/enemies/grunt/grunt.atlas.json'
+import skitterAtlas from '../../public/assets/enemies/skitter/skitter.atlas.json'
 import { frameToUvTransform, selectAnimationClip, selectSpriteFrame, validateSpriteAtlas } from './spriteAtlas'
 import type { SpriteAtlas } from './spriteAtlas'
 
@@ -57,8 +59,10 @@ describe('sprite atlas selection', () => {
     })
   })
 
-  it('validates the committed grunt atlas contract', () => {
+  it('validates the committed enemy atlas contracts', () => {
     expect(validateSpriteAtlas(gruntAtlas as SpriteAtlas)).toEqual([])
+    expect(validateSpriteAtlas(skitterAtlas as SpriteAtlas)).toEqual([])
+    expect(validateSpriteAtlas(bruteAtlas as SpriteAtlas)).toEqual([])
   })
 
   it('reports missing clips and invalid frame rectangles', () => {
