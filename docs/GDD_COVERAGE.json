@@ -34,13 +34,10 @@
       "id": "gdd-9-room-hazards",
       "gddSections": ["9", "29.4", "29.5"],
       "requirement": "Single room with landmarks, moving cover, pressure lighting, and three hazard types.",
-      "status": "partial",
+      "status": "implemented",
       "implementation": ["src/components/FlatlineGame.tsx", "src/game/hazards.ts"],
       "tests": ["src/game/hazards.test.ts", "tests/smoke.spec.ts"],
-      "gaps": [
-        "Door state visuals are not yet fully represented as animated door meshes.",
-        "Hazard art is geometric placeholder feedback."
-      ]
+      "gaps": []
     },
     {
       "id": "gdd-10-weapons",

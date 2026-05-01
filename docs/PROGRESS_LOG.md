@@ -2,6 +2,35 @@
 
 Newest entries go first.
 
+## 2026-05-01: Slice: Room hazard visual polish
+
+- Status: In progress
+- Branch: `feat/room-hazard-visual-polish`
+- Dot: `Flatline-implement-room-hazard-b7b648ba`
+- GDD sections: 9, 20.1, 29.4, 29.5
+- Done:
+  - Added visible spawn door panels to the room landmarks.
+  - Added pulsing door signal meshes when the spawn director opens a door.
+  - Improved hazard warning and active phases with stronger opacity, scale, and color changes.
+  - Updated GDD coverage for room and hazard visuals.
+- Verification:
+  - `node -e "JSON.parse(require('fs').readFileSync('docs/GDD_COVERAGE.json','utf8')); console.log('coverage json ok')"` passed.
+  - `npm run test -- hazards` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test:e2e` passed with 6 browser smoke checks.
+  - `npm run verify` passed with 14 test files, 54 unit tests, production build, and 6 browser smoke checks.
+- Review:
+  - Pending.
+- Deploy:
+  - Pending.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-05-01: Slice: Daily schedule preview
 
 - Status: Complete
