@@ -73,12 +73,10 @@
       "id": "gdd-5-daily-mode",
       "gddSections": ["5.2", "29.7"],
       "requirement": "Deterministic daily room with daily leaderboard scope.",
-      "status": "partial",
+      "status": "implemented",
       "implementation": ["app/arena/daily/page.tsx", "src/game/dailyArena.ts", "src/lib/dailySeed.ts", "src/components/FlatlineGame.tsx"],
       "tests": ["src/game/dailyArena.test.ts", "src/lib/dailySeed.test.ts", "tests/smoke.spec.ts"],
-      "gaps": [
-        "Daily mode has seed-derived timing offsets but not a fully serialized arena schedule preview."
-      ]
+      "gaps": []
     },
     {
       "id": "gdd-14-leaderboards",
@@ -108,12 +106,5 @@
       "gaps": []
     }
   ],
-  "nextRecommendedTasks": [
-    {
-      "priority": 2,
-      "source": "gdd-5-daily-mode",
-      "title": "implement: daily schedule preview",
-      "reason": "Daily mode is deterministic internally, but players cannot inspect the daily schedule yet."
-    }
-  ]
+  "nextRecommendedTasks": []
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
-import { applyDailySpawnOffset, createDailyArenaConfig, type DailyArenaConfig } from '@/game/dailyArena'
+import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePreview, type DailyArenaConfig, type DailySchedulePreview } from '@/game/dailyArena'
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { updatePlayerPosition } from '@/game/movement'
@@ -159,6 +159,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>(() => createPracticeSettings())
   const [seed] = useState(() => dailySeed())
   const [dailyConfig] = useState<DailyArenaConfig | null>(() => arenaMode === 'daily' ? createDailyArenaConfig(seed) : null)
+  const [dailySchedule] = useState<DailySchedulePreview | null>(() => {
+    if (arenaMode !== 'daily') {
+      return null
+    }
+
+    return createDailySchedulePreview(createDailyArenaConfig(seed))
+  })
   const [dailyDate] = useState(() => dailyDateKey())
   const [sharedScope, setSharedScope] = useState<LeaderboardScope>(initialLeaderboardScope)
   const [sharedEntries, setSharedEntries] = useState<RankedLeaderboardEntry[]>([])
@@ -984,6 +991,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             ) : (
               <p>Daily seed {seed}. One room. Endless pressure. Move fast, aim clean, and stay alive.</p>
             )}
+            {!summary && dailySchedule ? <DailySchedulePanel preview={dailySchedule} /> : null}
             {summary && !isPractice ? (
               <div className="submit-panel" data-testid="shared-submit">
                 <label>
@@ -1551,6 +1559,34 @@ function SharedLeaderboardPanel({
   )
 }
 
+function DailySchedulePanel({ preview }: { preview: DailySchedulePreview }) {
+  return (
+    <div className="daily-schedule" data-testid="daily-schedule">
+      <div className="schedule-row">
+        <span>Spawn offset</span>
+        <strong>+{preview.spawnTypeOffset}</strong>
+      </div>
+      <div className="schedule-row">
+        <span>Supply cooldown</span>
+        <strong>{formatTime(preview.supplyCooldownMs)}</strong>
+      </div>
+      <div className="schedule-strip" aria-label="Daily spawn order">
+        {preview.spawnOrder.map((spawn) => (
+          <span key={spawn.spawnNumber}>{enemyLabel(spawn.enemyType)}</span>
+        ))}
+      </div>
+      <ol className="schedule-hazards" aria-label="Daily hazard schedule">
+        {preview.hazards.map((hazard) => (
+          <li key={hazard.kind}>
+            <span>{hazardLabel(hazard.kind)}</span>
+            <strong>{formatTime(hazard.firstWarningMs)}</strong>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
 function LocalLeaderboard({ entries }: { entries: LeaderboardEntry[] }) {
   return (
     <ol className="leaderboard" data-testid="leaderboard" aria-label="Local leaderboard">
@@ -1672,6 +1708,18 @@ function enemyLabel(type: EnemyModel['type']): string {
   }
 
   return 'Grunt'
+}
+
+function hazardLabel(kind: HazardKind): string {
+  if (kind === 'flameLane') {
+    return 'Flame lane'
+  }
+
+  if (kind === 'inkPool') {
+    return 'Ink pool'
+  }
+
+  return 'Falling light'
 }
 
 function formatTime(ms: number): string {
