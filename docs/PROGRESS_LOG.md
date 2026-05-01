@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-05-01: Slice: Enemy atlas variants
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/enemy-atlas-variants`
 - Dot: `Flatline-implement-distinct-skitter-2482b448`
 - GDD sections: 7, 8, 25, 26.1
@@ -21,10 +21,14 @@ Newest entries go first.
   - `npm run typecheck` passed.
   - `npm run test:e2e` passed with 6 browser smoke checks.
   - `npm run verify` passed with 14 test files, 53 unit tests, production build, and 6 browser smoke checks.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - Pending.
+  - PR #32 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
 - Deploy:
-  - Pending.
+  - Production Vercel deployment for merge commit `031818f` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`: root returned 200 and `/assets/enemies/skitter/skitter.png` plus `/assets/enemies/brute/brute.png` returned `image/png`.
 - GDD edits:
   - None.
 - Followups:
