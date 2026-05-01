@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-05-01: Slice: Polished Grunt atlas V1
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/polished-grunt-atlas`
 - Dot: `Flatline-implement-polished-grunt-b9596b0a`
 - GDD sections: 7, 8, 25, 26.1
@@ -23,7 +23,11 @@ Newest entries go first.
   - `git diff --check` passed.
   - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - No PR yet.
+  - PR #28 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
+- Deploy:
+  - Production Vercel deployment for merge commit `8025172` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`: root returned 200 and `/assets/enemies/grunt/grunt.png` returned `image/png`.
 - GDD edits:
   - None.
 - Followups:
