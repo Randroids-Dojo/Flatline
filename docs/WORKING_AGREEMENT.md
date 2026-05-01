@@ -116,6 +116,7 @@ Each slice updates:
 - `docs/PROGRESS_LOG.md`
 - `docs/OPEN_QUESTIONS.md` when decisions change.
 - `docs/FOLLOWUPS.md` when work is deferred.
+- `docs/GDD_COVERAGE.json` when GDD coverage changes.
 - `GDD.md` when design changes.
 - Dots task state.
 
@@ -179,16 +180,17 @@ Agents running the implementation loop must:
 1. Read the mandatory docs.
 2. Sync `main`.
 3. Inspect Dots.
-4. Inspect open PR review comments.
-5. Pick one ready slice.
-6. Work on a branch.
-7. Verify locally.
-8. Open or update a PR.
-9. Address review comments.
-10. Wait for CI.
-11. Merge only when clean.
-12. Verify deploy when applicable.
-13. Close the task with evidence.
-14. Continue to the next ready task.
+4. Inspect followups and GDD coverage gaps.
+5. Inspect open PR review comments.
+6. Pick one ready slice.
+7. Work on a branch.
+8. Verify locally.
+9. Open or update a PR.
+10. Address review comments.
+11. Wait for CI.
+12. Merge only when clean.
+13. Verify deploy when applicable.
+14. Close the task with evidence.
+15. Continue to the next ready task or create a task for the next actionable coverage gap.
 
 Stopping is only allowed when all planned work is complete or the backlog is genuinely blocked by a user decision.

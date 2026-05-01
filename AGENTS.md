@@ -28,6 +28,7 @@ Before starting a slice, read in this order:
 3. `docs/WORKING_AGREEMENT.md` for branching, commits, PRs, verification, review handling, and deploy behavior.
 4. `GDD.md` for the game design. It is the source of truth.
 5. The most recent dozen entries in `docs/PROGRESS_LOG.md`, then `docs/OPEN_QUESTIONS.md` and `docs/FOLLOWUPS.md`.
+6. `docs/GDD_COVERAGE.json` for implemented requirements and remaining gaps.
 
 If this file conflicts with `docs/IMPLEMENTATION_PLAN.md` or `docs/WORKING_AGREEMENT.md`, those documents win. Fix the conflict in the same PR.
 
@@ -65,9 +66,26 @@ Every slice ends with these documentation updates:
 - Add a new entry to the top of `docs/PROGRESS_LOG.md`.
 - Add or update decisions in `docs/OPEN_QUESTIONS.md`.
 - Add, update, or close deferred work in `docs/FOLLOWUPS.md`.
+- Update `docs/GDD_COVERAGE.json` when a slice implements, scopes, or changes coverage of a GDD requirement.
 - Update Dots task state with `dot on <id>` before work and `dot off <id> -r "<reason>"` when done.
 
 A cold agent must be able to read the mandatory docs and continue without guessing.
+
+## Rule 5A: work continuously in the loop
+
+Do not stop after one completed task while ready or discoverable work remains.
+
+After every merge:
+
+1. Sync `main`.
+2. Watch CI and deployment.
+3. Smoke the deployed build when a deploy target exists.
+4. Close the completed dot with evidence.
+5. Read `dot ready`, `docs/FOLLOWUPS.md`, and `docs/GDD_COVERAGE.json`.
+6. Pick the next highest-priority unblocked task.
+7. Start the next branch.
+
+Stopping is allowed only when no ready dots, no release-blocking followups, no critical open questions, and no actionable GDD coverage gaps remain, or when a user decision blocks further work.
 
 ## Rule 6: review comments are part of the loop
 
@@ -116,6 +134,7 @@ If browser automation is unavailable, say so in the progress log and request man
 3. Tests and checks pass locally.
 4. GDD remains accurate.
 5. `docs/PROGRESS_LOG.md`, `docs/OPEN_QUESTIONS.md`, and `docs/FOLLOWUPS.md` reflect the slice.
-6. Dots task state is correct.
-7. No secrets in the diff.
-8. Branch and commits follow `docs/WORKING_AGREEMENT.md`.
+6. `docs/GDD_COVERAGE.json` reflects implemented coverage and gaps.
+7. Dots task state is correct.
+8. No secrets in the diff.
+9. Branch and commits follow `docs/WORKING_AGREEMENT.md`.

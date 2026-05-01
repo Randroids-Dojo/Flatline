@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "updated": "2026-04-30",
+  "purpose": "Track GDD requirement coverage so the continuous implementation loop can find the next actionable gap without guessing.",
+  "coverage": [
+    {
+      "id": "gdd-3-technical-base",
+      "gddSections": ["3.2", "21", "22"],
+      "requirement": "Next.js, React, Three.js, TypeScript, Vitest, Playwright, and Vercel deployment baseline.",
+      "status": "implemented",
+      "implementation": ["app/page.tsx", "src/components/FlatlineGame.tsx", "package.json", "playwright.config.ts", "vitest.config.ts"],
+      "tests": ["tests/smoke.spec.ts"],
+      "gaps": []
+    },
+    {
+      "id": "gdd-6-movement-camera",
+      "gddSections": ["6", "20.1"],
+      "requirement": "First-person camera, mouse aim, pointer lock, and WASD movement.",
+      "status": "implemented",
+      "implementation": ["src/components/FlatlineGame.tsx", "src/game/movement.ts"],
+      "tests": ["src/game/movement.test.ts", "tests/smoke.spec.ts"],
+      "gaps": []
+    },
+    {
+      "id": "gdd-8-billboard-enemies",
+      "gddSections": ["7", "8", "20.1"],
+      "requirement": "Billboard enemy renderer with angle-aware sprite selection and enemy combat roles.",
+      "status": "partial",
+      "implementation": ["src/game/billboard.ts", "src/game/spriteAtlas.ts", "src/game/enemies.ts", "src/components/FlatlineGame.tsx", "public/assets/enemies/grunt/grunt.atlas.json"],
+      "tests": ["src/game/billboard.test.ts", "src/game/spriteAtlas.test.ts", "src/game/enemies.test.ts", "tests/smoke.spec.ts"],
+      "gaps": [
+        "Final hand-drawn enemy art is still placeholder quality.",
+        "Skitter and Brute currently reuse the grunt atlas with tint and scale variants."
+      ]
+    },
+    {
+      "id": "gdd-9-room-hazards",
+      "gddSections": ["9", "29.4", "29.5"],
+      "requirement": "Single room with landmarks, moving cover, pressure lighting, and three hazard types.",
+      "status": "partial",
+      "implementation": ["src/components/FlatlineGame.tsx", "src/game/hazards.ts"],
+      "tests": ["src/game/hazards.test.ts", "tests/smoke.spec.ts"],
+      "gaps": [
+        "Door state visuals are not yet fully represented as animated door meshes.",
+        "Hazard art is geometric placeholder feedback."
+      ]
+    },
+    {
+      "id": "gdd-10-weapons",
+      "gddSections": ["10", "20.1", "29.2"],
+      "requirement": "Peashooter, Boomstick, and Inkblaster with clear roles, ammo, and feedback.",
+      "status": "implemented",
+      "implementation": ["src/game/weapons.ts", "src/game/shooting.ts", "src/components/FlatlineGame.tsx"],
+      "tests": ["src/game/weapons.test.ts", "src/game/shooting.test.ts", "tests/smoke.spec.ts"],
+      "gaps": []
+    },
+    {
+      "id": "gdd-12-spawn-director",
+      "gddSections": ["12", "13", "20.1"],
+      "requirement": "Endless spawn director, pressure ramp, enemy respawns, and scoring loop.",
+      "status": "implemented",
+      "implementation": ["src/game/spawnDirector.ts", "src/game/scoring.ts", "src/components/FlatlineGame.tsx"],
+      "tests": ["src/game/spawnDirector.test.ts", "src/game/scoring.test.ts", "tests/smoke.spec.ts"],
+      "gaps": []
+    },
+    {
+      "id": "gdd-15-web-polish",
+      "gddSections": ["15", "16", "20.1"],
+      "requirement": "Title screen, pause, settings, generated audio cues, run summary, restart, and local leaderboard fallback.",
+      "status": "implemented",
+      "implementation": ["src/components/FlatlineGame.tsx", "src/lib/leaderboard.ts"],
+      "tests": ["src/lib/leaderboard.test.ts", "tests/smoke.spec.ts"],
+      "gaps": []
+    },
+    {
+      "id": "gdd-5-daily-mode",
+      "gddSections": ["5.2", "29.7"],
+      "requirement": "Deterministic daily room with daily leaderboard scope.",
+      "status": "partial",
+      "implementation": ["app/arena/daily/page.tsx", "src/game/dailyArena.ts", "src/lib/dailySeed.ts", "src/components/FlatlineGame.tsx"],
+      "tests": ["src/game/dailyArena.test.ts", "src/lib/dailySeed.test.ts", "tests/smoke.spec.ts"],
+      "gaps": [
+        "Daily mode has seed-derived timing offsets but not a fully serialized arena schedule preview."
+      ]
+    },
+    {
+      "id": "gdd-14-leaderboards",
+      "gddSections": ["14", "20.1", "24"],
+      "requirement": "Shared all-time and daily leaderboards with local fallback.",
+      "status": "implemented",
+      "implementation": ["app/api/leaderboard/route.ts", "src/lib/sharedLeaderboard.ts", "src/lib/kv.ts", "src/components/FlatlineGame.tsx"],
+      "tests": ["tests/api.leaderboard.test.ts", "src/lib/sharedLeaderboard.test.ts", "tests/smoke.spec.ts"],
+      "gaps": []
+    },
+    {
+      "id": "gdd-5-practice-mode",
+      "gddSections": ["5.3", "29.8"],
+      "requirement": "Practice mode with no leaderboard submission and tuning controls.",
+      "status": "gap",
+      "implementation": [],
+      "tests": [],
+      "gaps": [
+        "Practice mode route and controls are not implemented."
+      ]
+    },
+    {
+      "id": "gdd-7-final-art",
+      "gddSections": ["7", "25", "26.1"],
+      "requirement": "Finalized hand-drawn billboard enemy and weapon art pipeline.",
+      "status": "gap",
+      "implementation": ["public/assets/enemies/grunt/grunt.svg", "public/assets/enemies/grunt/grunt.atlas.json"],
+      "tests": ["src/game/spriteAtlas.test.ts"],
+      "gaps": [
+        "Current art is placeholder SVG atlas.",
+        "Weapon sprites are CSS and geometry placeholders rather than final authored frames."
+      ]
+    }
+  ],
+  "nextRecommendedTasks": [
+    {
+      "priority": 1,
+      "source": "gdd-5-practice-mode",
+      "title": "implement: practice mode controls",
+      "reason": "Practice mode is the largest remaining mode gap and blocks tuning enemy, weapon, and room systems."
+    },
+    {
+      "priority": 2,
+      "source": "gdd-7-final-art",
+      "title": "research: final art pipeline and first polished enemy sheet",
+      "reason": "The main game loop works, but art remains placeholder quality."
+    },
+    {
+      "priority": 2,
+      "source": "gdd-5-daily-mode",
+      "title": "implement: daily schedule preview",
+      "reason": "Daily mode is deterministic internally, but players cannot inspect the daily schedule yet."
+    }
+  ]
+}
