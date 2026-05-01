@@ -2,6 +2,32 @@
 
 Newest entries go first.
 
+## 2026-04-30: Slice: Practice mode controls
+
+- Status: In progress
+- Branch: `feat/practice-mode-controls`
+- Dot: `Flatline-implement-practice-mode-7c1fb46f`
+- GDD sections: 5.3, 20, 29.8
+- Done:
+  - Added `/arena/practice` as a no-leaderboard practice route.
+  - Added practice tuning controls for starting weapon, enemy types, spawn rate, infinite ammo, damage, and billboard debug overlays.
+  - Wired practice settings into run startup, ammo spending, damage handling, spawn cadence, enemy selection, and debug HUD visibility.
+  - Added unit coverage for spawn cadence scaling and browser smoke coverage for practice controls.
+- Verification:
+  - `npm run test -- spawnDirector` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test:e2e` passed with 6 browser smoke checks.
+  - `npm run verify` passed with 14 test files, 51 unit tests, production build, and 6 browser smoke checks.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-04-30: Slice: Continuous loop docs and coverage ledger
 
 - Status: Complete

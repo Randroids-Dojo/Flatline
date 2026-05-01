@@ -13,12 +13,12 @@ Followups are durable deferred work. Mark finished entries `done`; do not delete
 
 ### F-002: Add deployed build smoke once hosting exists
 
-- Status: open
+- Status: done
 - Priority: high
 - Created: 2026-04-30
 - Source: Working agreement
 - Description: Once the repo has a deploy target, add deploy verification steps and production smoke checks to the loop.
-- Completion:
+- Completion: Completed in `docs/continuous-loop-coverage` by adding deploy smoke to the loop contract and progress log evidence.
 
 ### F-003: Split GDD into section files if it becomes hard to navigate
 

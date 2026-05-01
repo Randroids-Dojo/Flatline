@@ -96,12 +96,10 @@
       "id": "gdd-5-practice-mode",
       "gddSections": ["5.3", "29.8"],
       "requirement": "Practice mode with no leaderboard submission and tuning controls.",
-      "status": "gap",
-      "implementation": [],
-      "tests": [],
-      "gaps": [
-        "Practice mode route and controls are not implemented."
-      ]
+      "status": "implemented",
+      "implementation": ["app/arena/practice/page.tsx", "src/components/FlatlineGame.tsx", "src/game/spawnDirector.ts"],
+      "tests": ["src/game/spawnDirector.test.ts", "tests/smoke.spec.ts"],
+      "gaps": []
     },
     {
       "id": "gdd-7-final-art",
@@ -117,12 +115,6 @@
     }
   ],
   "nextRecommendedTasks": [
-    {
-      "priority": 1,
-      "source": "gdd-5-practice-mode",
-      "title": "implement: practice mode controls",
-      "reason": "Practice mode is the largest remaining mode gap and blocks tuning enemy, weapon, and room systems."
-    },
     {
       "priority": 2,
       "source": "gdd-7-final-art",

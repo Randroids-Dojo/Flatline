@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
 import { applyDailySpawnOffset, createDailyArenaConfig, type DailyArenaConfig } from '@/game/dailyArena'
-import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel } from '@/game/enemies'
+import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { updatePlayerPosition } from '@/game/movement'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
@@ -20,6 +20,7 @@ import {
   spendWeaponAmmo,
   weaponAmmoLabel,
   weaponConfigs,
+  weaponIds,
   type WeaponAmmoState,
   type WeaponId
 } from '@/game/weapons'
@@ -39,6 +40,8 @@ const movementConfig = {
     maxZ: 8.5
   }
 }
+const weaponIdsForSelect = [...weaponIds]
+const enemyTypesForSelect: EnemyType[] = ['grunt', 'skitter', 'brute']
 
 type RuntimeRefs = {
   renderer: THREE.WebGLRenderer
@@ -89,7 +92,16 @@ type SubmitStatus = 'idle' | 'submitting' | 'submitted' | 'unavailable' | 'error
 
 type FlatlineGameProps = {
   initialLeaderboardScope?: LeaderboardScope
-  arenaMode?: 'standard' | 'daily'
+  arenaMode?: 'standard' | 'daily' | 'practice'
+}
+
+type PracticeSettings = {
+  startingWeapon: WeaponId
+  enemyTypes: EnemyType[]
+  spawnRate: number
+  infiniteAmmo: boolean
+  damageEnabled: boolean
+  debugOverlays: boolean
 }
 
 export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'standard' }: FlatlineGameProps) {
@@ -115,6 +127,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const hazardDamageCooldownRef = useRef<number>(0)
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
+  const practiceSettingsRef = useRef<PracticeSettings>(createPracticeSettings())
   const atlasRef = useRef<SpriteAtlas | null>(null)
   const [running, setRunning] = useState(false)
   const [paused, setPaused] = useState(false)
@@ -133,6 +146,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     typeof window === 'undefined' ? [] : readLeaderboard(window.localStorage)
   )
   const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
+  const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>(() => createPracticeSettings())
   const [seed] = useState(() => dailySeed())
   const [dailyConfig] = useState<DailyArenaConfig | null>(() => arenaMode === 'daily' ? createDailyArenaConfig(seed) : null)
   const [dailyDate] = useState(() => dailyDateKey())
@@ -147,6 +161,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     animation: 'idle'
   })
   const [status, setStatus] = useState('Start a run to lock the pointer and enter the room.')
+  const isPractice = arenaMode === 'practice'
 
   const damageCurrentEnemy = useCallback((damage: number, hurtStatus: string, killStatus: string) => {
     const enemy = enemyRef.current
@@ -180,13 +195,15 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
     const weapon = selectedWeaponRef.current
 
-    if (!canFireWeapon(weapon, weaponAmmoRef.current)) {
+    if (!practiceSettingsRef.current.infiniteAmmo && !canFireWeapon(weapon, weaponAmmoRef.current)) {
       setStatus(`${weaponConfigs[weapon].label} is empty. Switch weapons or collect supplies.`)
       return
     }
 
-    weaponAmmoRef.current = spendWeaponAmmo(weapon, weaponAmmoRef.current)
-    setWeaponAmmo(weaponAmmoRef.current)
+    if (!practiceSettingsRef.current.infiniteAmmo) {
+      weaponAmmoRef.current = spendWeaponAmmo(weapon, weaponAmmoRef.current)
+      setWeaponAmmo(weaponAmmoRef.current)
+    }
     runtime.muzzleLight.intensity = weapon === 'boomstick' ? 7 : 4.5
     playCue(weapon === 'boomstick' ? 120 : 180, settingsRef.current.audio)
 
@@ -238,17 +255,19 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   }, [damageCurrentEnemy])
 
   const startRun = useCallback(() => {
+    const firstEnemyType = practiceEnemyTypeForSpawn(0, practiceSettingsRef.current, isPractice)
+    const startingWeapon = practiceSettingsRef.current.startingWeapon
     positionRef.current = { ...initialPlayerPosition }
     yawRef.current = initialYaw
     pitchRef.current = 0
     playerHealthRef.current = 100
     directorRef.current = createDirectorState()
     scoreRef.current = createScoreState()
-    enemyRef.current = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)
+    enemyRef.current = createEnemy(firstEnemyType, `${firstEnemyType}-1`, { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)
     healthPickupReadyRef.current = true
     healthPickupCooldownRef.current = 0
     hazardDamageCooldownRef.current = 0
-    selectedWeaponRef.current = 'peashooter'
+    selectedWeaponRef.current = startingWeapon
     weaponAmmoRef.current = createWeaponAmmo()
     clearShotBolts(runtimeRef.current, shotBoltsRef.current)
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
@@ -259,17 +278,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setSummary(null)
     setHits(0)
     setPlayerHealth(100)
-    setEnemyHealth(3)
-    setEnemyType('grunt')
+    setEnemyHealth(enemyRef.current.health)
+    setEnemyType(enemyRef.current.type)
     setScore(0)
     setKills(0)
     setRunMs(0)
     setHealthPickupReady(true)
-    setSelectedWeapon('peashooter')
+    setSelectedWeapon(startingWeapon)
     setWeaponAmmo(weaponAmmoRef.current)
-    setStatus('WASD moves. Mouse aims. Left click fires.')
+    setStatus(isPractice ? 'Practice run started. Tuning changes apply next run.' : 'WASD moves. Mouse aims. Left click fires.')
     requestPointerLock(runtimeRef.current?.renderer.domElement)
-  }, [])
+  }, [isPractice])
 
   const finishRun = useCallback(() => {
     const runSummary = {
@@ -281,7 +300,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
     setSummary(runSummary)
 
-    if (typeof window !== 'undefined') {
+    if (!isPractice && typeof window !== 'undefined') {
       const nextLeaderboard = insertLeaderboardEntry(
         readLeaderboard(window.localStorage),
         {
@@ -300,8 +319,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     pausedRef.current = false
     setRunning(false)
     setPaused(false)
-    setStatus('Flatlined.')
-  }, [])
+    setStatus(isPractice ? 'Practice run ended.' : 'Flatlined.')
+  }, [isPractice])
 
   const resumeRun = useCallback(() => {
     pausedRef.current = false
@@ -319,7 +338,19 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
   }, [])
 
+  const updatePracticeSettings = useCallback((nextSettings: PracticeSettings) => {
+    const safeSettings = normalizePracticeSettings(nextSettings)
+    practiceSettingsRef.current = safeSettings
+    setPracticeSettings(safeSettings)
+  }, [])
+
   const fetchSharedLeaderboard = useCallback(async (scope: LeaderboardScope) => {
+    if (isPractice) {
+      setSharedEntries([])
+      setSharedStatus('ready')
+      return
+    }
+
     try {
       const params = new URLSearchParams({ scope })
 
@@ -334,7 +365,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     } catch {
       setSharedStatus('error')
     }
-  }, [dailyDate])
+  }, [dailyDate, isPractice])
 
   const switchSharedScope = useCallback((scope: LeaderboardScope) => {
     setSharedScope(scope)
@@ -343,7 +374,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   }, [fetchSharedLeaderboard])
 
   const submitSharedScore = useCallback(async () => {
-    if (!summary || submitStatus === 'submitting') {
+    if (isPractice || !summary || submitStatus === 'submitting') {
       return
     }
 
@@ -395,7 +426,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       setSubmitStatus('error')
       setStatus('Shared leaderboard submit failed.')
     }
-  }, [dailyDate, initials, sharedScope, submitStatus, summary])
+  }, [dailyDate, initials, isPractice, sharedScope, submitStatus, summary])
 
   useEffect(() => {
     const mount = mountRef.current
@@ -564,7 +595,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           if (hazardDamageCooldownRef.current === 0) {
             const hazardDamage = hazardDamageAtPosition(positionRef.current, hazards)
 
-            if (hazardDamage > 0) {
+            if (hazardDamage > 0 && practiceSettingsRef.current.damageEnabled) {
               playerHealthRef.current = Math.max(0, playerHealthRef.current - hazardDamage)
               hazardDamageCooldownRef.current = 900
               setPlayerHealth(playerHealthRef.current)
@@ -616,14 +647,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             {
               position: positionRef.current,
               radius: 0.4,
-              health: playerHealthRef.current
+              health: practiceSettingsRef.current.damageEnabled ? playerHealthRef.current : 999
             },
             delta * 1000,
             enemyConfigs[enemyRef.current.type]
           )
           enemyRef.current = result.enemy
 
-          if (result.player.health !== playerHealthRef.current) {
+          if (practiceSettingsRef.current.damageEnabled && result.player.health !== playerHealthRef.current) {
             playerHealthRef.current = result.player.health
             setPlayerHealth(result.player.health)
           }
@@ -642,7 +673,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             }
           }
 
-          if (result.player.health === 0) {
+          if (practiceSettingsRef.current.damageEnabled && result.player.health === 0) {
             finishRun()
           }
 
@@ -651,12 +682,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             directorRef.current,
             0,
             activePressure,
-            positionRef.current
+            positionRef.current,
+            undefined,
+            { cadenceScale: 1 / practiceSettingsRef.current.spawnRate }
           )
           directorRef.current = directorTick.state
 
           if (directorTick.spawn && enemyRef.current.state === 'dead' && enemyRef.current.animationTimeMs > 800) {
-            const nextType = enemyTypeForSpawn(applyDailySpawnOffset(directorRef.current.spawnCount, dailyConfig))
+            const nextType = practiceEnemyTypeForSpawn(
+              applyDailySpawnOffset(directorRef.current.spawnCount, dailyConfig),
+              practiceSettingsRef.current,
+              isPractice
+            )
             enemyRef.current = createEnemy(
               nextType,
               `${nextType}-${directorRef.current.spawnCount}`,
@@ -694,7 +731,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       dummyMarker.rotation.z += delta * 1.4
       dummyMarker.visible = enemy.state !== 'dead'
       runtime.enemyMesh.visible = enemy.state !== 'dead' || enemy.animationTimeMs < 1000
-      runtime.enemyFacingArrow.visible = runningRef.current
+      runtime.enemyFacingArrow.visible = runningRef.current && practiceSettingsRef.current.debugOverlays
       setDebug((current) => {
         if (current.angle === angle && current.bucket === bucket && current.animation === animation) {
           return current
@@ -721,7 +758,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       mount.removeChild(renderer.domElement)
       runtimeRef.current = null
     }
-  }, [dailyConfig, damageCurrentEnemy, finishRun])
+  }, [dailyConfig, damageCurrentEnemy, finishRun, isPractice])
 
   useEffect(() => {
     function updateKey(event: KeyboardEvent, pressed: boolean) {
@@ -881,11 +918,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             Hits
             <strong>{hits}</strong>
           </div>
-          <div className="hud-pill debug-pill" data-testid="billboard-debug">
-            Bucket {debug.bucket}
-            <strong>{debug.angle}</strong>
-            <span>{debug.animation}</span>
-          </div>
+          {practiceSettings.debugOverlays ? (
+            <div className="hud-pill debug-pill" data-testid="billboard-debug">
+              Bucket {debug.bucket}
+              <strong>{debug.angle}</strong>
+              <span>{debug.animation}</span>
+            </div>
+          ) : null}
           <div className="hud-pill">
             Supplies
             <strong>{healthPickupReady ? 'Ready' : 'Wait'}</strong>
@@ -903,10 +942,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                 <p>Accuracy {Math.round(summary.accuracy * 100)}%</p>
                 <p>Best combo {summary.bestCombo}</p>
               </div>
+            ) : isPractice ? (
+              <p>Practice room. Tune the run, test weapons, and rehearse pressure without score submission.</p>
             ) : (
               <p>Daily seed {seed}. One room. Endless pressure. Move fast, aim clean, and stay alive.</p>
             )}
-            {summary ? (
+            {summary && !isPractice ? (
               <div className="submit-panel" data-testid="shared-submit">
                 <label>
                   Initials
@@ -930,13 +971,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               </div>
             ) : null}
             <SettingsPanel settings={settings} onChange={updateSettings} />
-            <SharedLeaderboardPanel
-              entries={sharedEntries}
-              scope={sharedScope}
-              status={sharedStatus}
-              onScopeChange={switchSharedScope}
-            />
-            {leaderboard.length > 0 ? <LocalLeaderboard entries={leaderboard} /> : null}
+            {isPractice ? (
+              <PracticePanel settings={practiceSettings} onChange={updatePracticeSettings} />
+            ) : (
+              <SharedLeaderboardPanel
+                entries={sharedEntries}
+                scope={sharedScope}
+                status={sharedStatus}
+                onScopeChange={switchSharedScope}
+              />
+            )}
+            {!isPractice && leaderboard.length > 0 ? <LocalLeaderboard entries={leaderboard} /> : null}
             <button className="start-button" type="button" onClick={startRun}>
               {summary ? 'Restart run' : 'Start run'}
             </button>
@@ -948,13 +993,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           <div className="pause-panel-inner">
             <h2>Paused</h2>
             <SettingsPanel settings={settings} onChange={updateSettings} />
-            <SharedLeaderboardPanel
-              entries={sharedEntries}
-              scope={sharedScope}
-              status={sharedStatus}
-              onScopeChange={switchSharedScope}
-            />
-            {leaderboard.length > 0 ? <LocalLeaderboard entries={leaderboard} /> : null}
+            {isPractice ? (
+              <PracticePanel settings={practiceSettings} onChange={updatePracticeSettings} disabled />
+            ) : (
+              <SharedLeaderboardPanel
+                entries={sharedEntries}
+                scope={sharedScope}
+                status={sharedStatus}
+                onScopeChange={switchSharedScope}
+              />
+            )}
+            {!isPractice && leaderboard.length > 0 ? <LocalLeaderboard entries={leaderboard} /> : null}
             <button className="start-button" type="button" onClick={resumeRun}>
               Resume
             </button>
@@ -1322,6 +1371,93 @@ function SettingsPanel({
   )
 }
 
+function PracticePanel({
+  settings,
+  onChange,
+  disabled = false
+}: {
+  settings: PracticeSettings
+  onChange: (settings: PracticeSettings) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="practice-panel" data-testid="practice-panel">
+      <label>
+        Start weapon
+        <select
+          disabled={disabled}
+          value={settings.startingWeapon}
+          onChange={(event) => onChange({ ...settings, startingWeapon: event.target.value as WeaponId })}
+        >
+          {weaponIdsForSelect.map((weapon) => (
+            <option key={weapon} value={weapon}>
+              {weaponConfigs[weapon].label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Spawn rate
+        <input
+          disabled={disabled}
+          type="range"
+          min="0.5"
+          max="2"
+          step="0.25"
+          value={settings.spawnRate}
+          onChange={(event) => onChange({ ...settings, spawnRate: Number(event.target.value) })}
+        />
+      </label>
+      <fieldset>
+        <legend>Enemies</legend>
+        {enemyTypesForSelect.map((enemyType) => (
+          <label key={enemyType} className="toggle-row">
+            <input
+              disabled={disabled}
+              type="checkbox"
+              checked={settings.enemyTypes.includes(enemyType)}
+              onChange={(event) => {
+                const enemyTypes = event.target.checked
+                  ? [...settings.enemyTypes, enemyType]
+                  : settings.enemyTypes.filter((type) => type !== enemyType)
+                onChange({ ...settings, enemyTypes })
+              }}
+            />
+            {enemyLabel(enemyType)}
+          </label>
+        ))}
+      </fieldset>
+      <label className="toggle-row">
+        <input
+          disabled={disabled}
+          type="checkbox"
+          checked={settings.infiniteAmmo}
+          onChange={(event) => onChange({ ...settings, infiniteAmmo: event.target.checked })}
+        />
+        Infinite ammo
+      </label>
+      <label className="toggle-row">
+        <input
+          disabled={disabled}
+          type="checkbox"
+          checked={settings.damageEnabled}
+          onChange={(event) => onChange({ ...settings, damageEnabled: event.target.checked })}
+        />
+        Damage
+      </label>
+      <label className="toggle-row">
+        <input
+          disabled={disabled}
+          type="checkbox"
+          checked={settings.debugOverlays}
+          onChange={(event) => onChange({ ...settings, debugOverlays: event.target.checked })}
+        />
+        Billboard debug
+      </label>
+    </div>
+  )
+}
+
 function SharedLeaderboardPanel({
   entries,
   scope,
@@ -1427,6 +1563,39 @@ function loadInitialSettings(): Settings {
     window.localStorage.removeItem('flatline.settings.v1')
     return { sensitivity: 1, fov: 75, audio: true }
   }
+}
+
+function createPracticeSettings(): PracticeSettings {
+  return {
+    startingWeapon: 'peashooter',
+    enemyTypes: ['grunt', 'skitter', 'brute'],
+    spawnRate: 1,
+    infiniteAmmo: false,
+    damageEnabled: true,
+    debugOverlays: true
+  }
+}
+
+function normalizePracticeSettings(settings: PracticeSettings): PracticeSettings {
+  const enemyTypes = enemyTypesForSelect.filter((enemyType) => settings.enemyTypes.includes(enemyType))
+
+  return {
+    startingWeapon: weaponIds.includes(settings.startingWeapon) ? settings.startingWeapon : 'peashooter',
+    enemyTypes: enemyTypes.length > 0 ? enemyTypes : ['grunt'],
+    spawnRate: clamp(settings.spawnRate, 0.5, 2),
+    infiniteAmmo: settings.infiniteAmmo,
+    damageEnabled: settings.damageEnabled,
+    debugOverlays: settings.debugOverlays
+  }
+}
+
+function practiceEnemyTypeForSpawn(spawnCount: number, settings: PracticeSettings, isPractice: boolean): EnemyType {
+  if (!isPractice) {
+    return enemyTypeForSpawn(spawnCount)
+  }
+
+  const enemyTypes = normalizePracticeSettings(settings).enemyTypes
+  return enemyTypes[spawnCount % enemyTypes.length]
 }
 
 function clamp(value: number, min: number, max: number): number {

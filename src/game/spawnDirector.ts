@@ -18,6 +18,10 @@ export type SpawnDecision = {
   cadenceMs: number
 }
 
+export type DirectorOptions = {
+  cadenceScale?: number
+}
+
 export const mvpSpawnDoors: SpawnDoor[] = [
   { id: 'north', position: { x: 0, y: 1.05, z: 8.2 }, facingAngle: -Math.PI / 2 },
   { id: 'east', position: { x: 8.2, y: 1.05, z: 0 }, facingAngle: Math.PI },
@@ -38,14 +42,15 @@ export function tickDirector(
   deltaMs: number,
   activePressure: number,
   playerPosition: Vec3,
-  doors = mvpSpawnDoors
+  doors = mvpSpawnDoors,
+  options: DirectorOptions = {}
 ): { state: DirectorState; spawn: SpawnDecision | null } {
   const next = {
     ...state,
     runMs: state.runMs + deltaMs
   }
   const pressureTarget = targetPressureForRunMs(next.runMs)
-  const cadenceMs = spawnCadenceForRunMs(next.runMs)
+  const cadenceMs = spawnCadenceForRunMs(next.runMs) * Math.max(0.25, options.cadenceScale ?? 1)
 
   if (activePressure >= pressureTarget || next.runMs - next.lastSpawnMs < cadenceMs) {
     return { state: next, spawn: null }
