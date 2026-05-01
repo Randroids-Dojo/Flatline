@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-05-01: Slice: Room hazard visual polish
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/room-hazard-visual-polish`
 - Dot: `Flatline-implement-room-hazard-b7b648ba`
 - GDD sections: 9, 20.1, 29.4, 29.5
@@ -20,10 +20,14 @@ Newest entries go first.
   - `npm run typecheck` passed.
   - `npm run test:e2e` passed with 6 browser smoke checks.
   - `npm run verify` passed with 14 test files, 54 unit tests, production build, and 6 browser smoke checks.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - Pending.
+  - PR #36 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
 - Deploy:
-  - Pending.
+  - Production Vercel deployment for merge commit `05527d8` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`: root returned 200.
 - GDD edits:
   - None.
 - Followups:
