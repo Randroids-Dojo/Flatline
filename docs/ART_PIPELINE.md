@@ -6,7 +6,7 @@ This document turns GDD sections 7, 8, 25, 26, and 29 into implementation specs 
 
 - The runtime already supports 8 billboard angle buckets through `src/game/billboard.ts`.
 - Atlas metadata is parsed by `src/game/spriteAtlas.ts`.
-- The current enemy art is one placeholder SVG atlas at `public/assets/enemies/grunt/grunt.svg`.
+- The first Grunt atlas is a transparent generated PNG at `public/assets/enemies/grunt/grunt.png`.
 - Skitter and Brute reuse the Grunt atlas through tint and scale in `src/game/enemies.ts`.
 - Weapon foreground art is currently CSS geometry in `app/globals.css`.
 - Practice Mode now provides the correct validation surface for enemy type, weapon, ammo, damage, and debug overlay tuning.
@@ -116,6 +116,8 @@ Tests should cover missing clips, out-of-bounds frames, and valid Grunt metadata
 ### Slice B: Polished Grunt Atlas V1
 
 Replace the placeholder Grunt SVG with the first polished transparent PNG and update metadata.
+
+Status: complete.
 
 Keep scope tight:
 

@@ -10,7 +10,7 @@ import { updatePlayerPosition } from '@/game/movement'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, tickDirector, type DirectorState } from '@/game/spawnDirector'
-import { frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
+import { assertValidSpriteAtlas, frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
 import {
   canFireWeapon,
@@ -1672,6 +1672,7 @@ function playCue(frequency: number, enabled: boolean) {
 async function loadGruntAtlas() {
   const atlasResponse = await fetch('/assets/enemies/grunt/grunt.atlas.json')
   const atlas = await atlasResponse.json() as SpriteAtlas
+  assertValidSpriteAtlas(atlas)
   const texture = await new THREE.TextureLoader().loadAsync(`/assets/enemies/grunt/${atlas.image}`)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.magFilter = THREE.NearestFilter

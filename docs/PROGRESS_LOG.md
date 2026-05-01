@@ -2,6 +2,35 @@
 
 Newest entries go first.
 
+## 2026-05-01: Slice: Polished Grunt atlas V1
+
+- Status: In progress
+- Branch: `feat/polished-grunt-atlas`
+- Dot: `Flatline-implement-polished-grunt-b9596b0a`
+- GDD sections: 7, 8, 25, 26.1
+- Done:
+  - Replaced the placeholder labeled Grunt SVG atlas with a transparent PNG atlas.
+  - Added a reproducible Grunt atlas generator with 8 angles, 4 idle frames, 2 hurt frames, and 4 death frames.
+  - Updated Grunt atlas metadata to load `grunt.png` at 1536 by 1920.
+  - Added sprite atlas validation and committed metadata coverage.
+  - Added a follow-on implementation dot for distinct Skitter and Brute atlas variants.
+- Verification:
+  - `npm run test -- spriteAtlas billboard` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `node -e "JSON.parse(require('fs').readFileSync('docs/GDD_COVERAGE.json','utf8')); JSON.parse(require('fs').readFileSync('public/assets/enemies/grunt/grunt.atlas.json','utf8')); console.log('json ok')"` passed.
+  - `npm run verify` passed with 14 test files, 53 unit tests, production build, and 6 browser smoke checks.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - `Flatline-implement-distinct-skitter-2482b448`
+- Open questions:
+  - None.
+
 ## 2026-04-30: Slice: Practice room state freeze
 
 - Status: Complete
