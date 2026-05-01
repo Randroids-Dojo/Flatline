@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { frameToUvTransform, selectAnimationClip, selectSpriteFrame } from './spriteAtlas'
+import gruntAtlas from '../../public/assets/enemies/grunt/grunt.atlas.json'
+import { frameToUvTransform, selectAnimationClip, selectSpriteFrame, validateSpriteAtlas } from './spriteAtlas'
 import type { SpriteAtlas } from './spriteAtlas'
 
 const atlas: SpriteAtlas = {
@@ -54,5 +55,34 @@ describe('sprite atlas selection', () => {
       offsetX: 0.25,
       offsetY: 0
     })
+  })
+
+  it('validates the committed grunt atlas contract', () => {
+    expect(validateSpriteAtlas(gruntAtlas as SpriteAtlas)).toEqual([])
+  })
+
+  it('reports missing clips and invalid frame rectangles', () => {
+    const brokenAtlas: SpriteAtlas = {
+      image: 'broken.png',
+      imageWidth: 128,
+      imageHeight: 128,
+      clips: [
+        {
+          name: 'idle',
+          angle: 'front',
+          loop: true,
+          frames: [{ x: 96, y: 0, w: 64, h: 64, durationMs: 0 }]
+        }
+      ]
+    }
+
+    expect(validateSpriteAtlas(brokenAtlas)).toEqual(
+      expect.arrayContaining([
+        { path: 'clips.idle.frontRight', message: 'required clip is missing' },
+        { path: 'clips.hurt.front', message: 'required clip is missing' },
+        { path: 'clips.0.frames.0', message: 'frame duration must be positive' },
+        { path: 'clips.0.frames.0', message: 'frame rectangle must fit inside image bounds' }
+      ])
+    )
   })
 })
