@@ -11,6 +11,7 @@ An endless single-room Doom-like shooter where hand-drawn flat enemies swarm you
 - `docs/PROGRESS_LOG.md`: newest-first implementation history.
 - `docs/OPEN_QUESTIONS.md`: durable design and technical decisions.
 - `docs/FOLLOWUPS.md`: deferred work that should survive context loss.
+- `docs/GDD_COVERAGE.json`: maps GDD requirements to implementation, tests, and remaining gaps.
 
 ## Loop Quickstart
 
@@ -20,6 +21,8 @@ dot ready
 ```
 
 Pick one ready task, turn it on with `dot on <id>`, complete it on a branch, then close it with `dot off <id> -r "<reason>"` after the PR is merged and verified.
+
+The loop is continuous. After a merge, sync `main`, verify CI and production, close the dot with evidence, then immediately restart selection from `dot ready`, `docs/FOLLOWUPS.md`, and `docs/GDD_COVERAGE.json`. Stop only when the backlog is empty or blocked by a documented user decision.
 
 ## Shared Leaderboard Setup
 

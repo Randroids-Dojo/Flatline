@@ -2,6 +2,31 @@
 
 Newest entries go first.
 
+## 2026-04-30: Slice: Continuous loop docs and coverage ledger
+
+- Status: In progress
+- Branch: `docs/continuous-loop-coverage`
+- Dot: `Flatline-new-b7840626`
+- GDD sections: 20, 21, 25, 27, 28, 29
+- Done:
+  - Strengthened the agent docs so continuing the loop is the default after every clean merge.
+  - Added `docs/GDD_COVERAGE.json` as the coverage ledger for implemented requirements, tests, and remaining gaps.
+  - Added the coverage ledger to mandatory reading, slice selection, documentation policy, and pre-commit expectations.
+  - Updated README project docs and loop quickstart to describe the continuous loop.
+- Verification:
+  - `node -e "JSON.parse(require('fs').readFileSync('docs/GDD_COVERAGE.json','utf8')); console.log('coverage json ok')"` passed.
+  - `npm run lint` passed.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-04-30: Slice: Deterministic daily room V2
 
 - Status: Complete
