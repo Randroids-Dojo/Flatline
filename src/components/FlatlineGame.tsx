@@ -130,6 +130,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const practiceSettingsRef = useRef<PracticeSettings>(createPracticeSettings())
+  const weaponFlashTimeoutRef = useRef<number | null>(null)
   const atlasRef = useRef<SpriteAtlas | null>(null)
   const [running, setRunning] = useState(false)
   const [paused, setPaused] = useState(false)
@@ -143,6 +144,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [healthPickupReady, setHealthPickupReady] = useState(true)
   const [selectedWeapon, setSelectedWeapon] = useState<WeaponId>('peashooter')
   const [weaponAmmo, setWeaponAmmo] = useState<WeaponAmmoState>(() => createWeaponAmmo())
+  const [weaponFiring, setWeaponFiring] = useState(false)
   const [summary, setSummary] = useState<RunSummary | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
     typeof window === 'undefined' ? [] : readLeaderboard(window.localStorage)
@@ -207,6 +209,16 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       setWeaponAmmo(weaponAmmoRef.current)
     }
     runtime.muzzleLight.intensity = weapon === 'boomstick' ? 7 : 4.5
+    setWeaponFiring(true)
+
+    if (weaponFlashTimeoutRef.current !== null) {
+      window.clearTimeout(weaponFlashTimeoutRef.current)
+    }
+
+    weaponFlashTimeoutRef.current = window.setTimeout(() => {
+      setWeaponFiring(false)
+      weaponFlashTimeoutRef.current = null
+    }, 220)
     playCue(weapon === 'boomstick' ? 120 : 180, settingsRef.current.audio)
 
     const direction = forwardFromYawPitch(yawRef.current, pitchRef.current)
@@ -871,6 +883,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
   }, [fire, finishRun])
 
+  useEffect(() => () => {
+    if (weaponFlashTimeoutRef.current !== null) {
+      window.clearTimeout(weaponFlashTimeoutRef.current)
+    }
+  }, [])
+
   useEffect(() => {
     const runtime = runtimeRef.current
 
@@ -1017,7 +1035,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         </section>
       ) : null}
       <div className="crosshair" data-testid="crosshair" />
-      <div className="weapon" aria-hidden="true" />
+      <div className={`weapon weapon-${selectedWeapon}${weaponFiring ? ' weapon-firing' : ''}`} data-testid="weapon-sprite" aria-hidden="true" />
       <div className="status-line" data-testid="status-line">
         {status}
       </div>

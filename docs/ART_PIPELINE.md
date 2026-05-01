@@ -8,7 +8,7 @@ This document turns GDD sections 7, 8, 25, 26, and 29 into implementation specs 
 - Atlas metadata is parsed by `src/game/spriteAtlas.ts`.
 - The first Grunt atlas is a transparent generated PNG at `public/assets/enemies/grunt/grunt.png`.
 - Skitter and Brute reuse the Grunt atlas through tint and scale in `src/game/enemies.ts`.
-- Weapon foreground art is currently CSS geometry in `app/globals.css`.
+- Weapon foreground art uses transparent generated PNG sprites in `public/assets/weapons/`.
 - Practice Mode now provides the correct validation surface for enemy type, weapon, ammo, damage, and debug overlay tuning.
 
 ## Art Direction Decision
@@ -153,6 +153,8 @@ Future states:
 
 - Cooldown.
 - Reload, only if a later weapon requires it.
+
+Status: complete for idle and fire states.
 
 ## Open Implementation Notes
 
