@@ -49,7 +49,7 @@
       "gddSections": ["10", "20.1", "29.2"],
       "requirement": "Peashooter, Boomstick, and Inkblaster with clear roles, ammo, and feedback.",
       "status": "implemented",
-      "implementation": ["src/game/weapons.ts", "src/game/shooting.ts", "src/components/FlatlineGame.tsx"],
+      "implementation": ["src/game/weapons.ts", "src/game/shooting.ts", "src/components/FlatlineGame.tsx", "public/assets/weapons"],
       "tests": ["src/game/weapons.test.ts", "src/game/shooting.test.ts", "tests/smoke.spec.ts"],
       "gaps": []
     },
@@ -105,21 +105,14 @@
       "gddSections": ["7", "25", "26.1"],
       "requirement": "Finalized hand-drawn billboard enemy and weapon art pipeline.",
       "status": "partial",
-      "implementation": ["docs/ART_PIPELINE.md", "scripts/generate-grunt-atlas.mjs", "public/assets/enemies/grunt/grunt.png", "public/assets/enemies/grunt/grunt.atlas.json"],
+      "implementation": ["docs/ART_PIPELINE.md", "scripts/generate-grunt-atlas.mjs", "scripts/generate-weapon-sprites.mjs", "public/assets/enemies/grunt/grunt.png", "public/assets/enemies/grunt/grunt.atlas.json", "public/assets/weapons"],
       "tests": ["src/game/spriteAtlas.test.ts", "tests/smoke.spec.ts"],
       "gaps": [
-        "Skitter and Brute need distinct atlas art instead of Grunt tint and scale variants.",
-        "Weapon sprites are CSS and geometry placeholders rather than final authored frames."
+        "Skitter and Brute need distinct atlas art instead of Grunt tint and scale variants."
       ]
     }
   ],
   "nextRecommendedTasks": [
-    {
-      "priority": 2,
-      "source": "gdd-7-final-art",
-      "title": "implement: weapon sprite foreground v1",
-      "reason": "Weapon art is still CSS and geometry placeholder feedback."
-    },
     {
       "priority": 2,
       "source": "gdd-8-billboard-enemies",

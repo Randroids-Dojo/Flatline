@@ -2,6 +2,35 @@
 
 Newest entries go first.
 
+## 2026-05-01: Slice: Weapon sprite foreground V1
+
+- Status: In progress
+- Branch: `feat/weapon-sprite-foreground`
+- Dot: `Flatline-implement-weapon-sprite-ad59eb55`
+- GDD sections: 7, 10, 25, 26.1
+- Done:
+  - Added transparent PNG foreground sprites for Peashooter, Boomstick, and Inkblaster.
+  - Added idle and fire sprite states for each weapon.
+  - Replaced CSS-only weapon geometry with sprite-backed weapon classes.
+  - Wired the existing firing path to show a short weapon fire state.
+  - Added browser smoke assertions for weapon sprite state changes.
+- Verification:
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test:e2e` passed with 6 browser smoke checks.
+  - `node -e "JSON.parse(require('fs').readFileSync('docs/GDD_COVERAGE.json','utf8')); console.log('coverage json ok')"` passed.
+  - `npm run verify` passed with 14 test files, 53 unit tests, production build, and 6 browser smoke checks.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
+- Review:
+  - No PR yet.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-05-01: Slice: Polished Grunt atlas V1
 
 - Status: Complete
