@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-04-30: Slice: Practice mode controls
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/practice-mode-controls`
 - Dot: `Flatline-implement-practice-mode-7c1fb46f`
 - GDD sections: 5.3, 20, 29.8
@@ -20,7 +20,11 @@ Newest entries go first.
   - `npm run test:e2e` passed with 6 browser smoke checks.
   - `npm run verify` passed with 14 test files, 51 unit tests, production build, and 6 browser smoke checks.
 - Review:
-  - No PR yet.
+  - PR #22 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
+- Deploy:
+  - Production Vercel deployment for merge commit `5d64b5c` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/arena/practice`: route returned 200 and included the Flatline app shell.
 - GDD edits:
   - None.
 - Followups:
