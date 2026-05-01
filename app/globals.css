@@ -291,6 +291,58 @@ button {
   align-items: center;
 }
 
+.daily-schedule {
+  display: grid;
+  gap: 8px;
+  max-width: 420px;
+  margin: 0 auto 18px;
+  padding: 10px;
+  border: 1px solid rgba(244, 241, 232, 0.18);
+  border-radius: 6px;
+  background: rgba(10, 10, 10, 0.62);
+  text-align: left;
+}
+
+.schedule-row,
+.schedule-hazards li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  color: rgba(244, 241, 232, 0.78);
+  font-size: 13px;
+}
+
+.schedule-row strong,
+.schedule-hazards strong {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.schedule-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.schedule-strip span {
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid rgba(80, 209, 192, 0.26);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 12px;
+  text-align: center;
+}
+
+.schedule-hazards {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .leaderboard {
   max-width: 360px;
   margin: 0 auto 18px;

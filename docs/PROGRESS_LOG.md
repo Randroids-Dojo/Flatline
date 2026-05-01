@@ -2,6 +2,35 @@
 
 Newest entries go first.
 
+## 2026-05-01: Slice: Daily schedule preview
+
+- Status: In progress
+- Branch: `feat/daily-schedule-preview`
+- Dot: `Flatline-implement-daily-schedule-2768d4c1`
+- GDD sections: 5.2, 20.1, 29.7
+- Done:
+  - Added a deterministic daily schedule preview derived from the daily arena config.
+  - Exposed spawn order, supply cooldown, and hazard first-warning times on the Daily route start screen.
+  - Added unit coverage for preview determinism and browser smoke coverage for the Daily schedule panel.
+  - Updated GDD coverage for Daily Mode.
+- Verification:
+  - `node -e "JSON.parse(require('fs').readFileSync('docs/GDD_COVERAGE.json','utf8')); console.log('coverage json ok')"` passed.
+  - `npm run test -- dailyArena dailySeed` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test:e2e` passed with 6 browser smoke checks.
+  - `npm run verify` passed with 14 test files, 54 unit tests, production build, and 6 browser smoke checks.
+- Review:
+  - Pending.
+- Deploy:
+  - Pending.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-05-01: Slice: Enemy atlas variants
 
 - Status: Complete

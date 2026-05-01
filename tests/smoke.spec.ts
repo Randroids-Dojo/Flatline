@@ -75,6 +75,9 @@ test('daily route loads the deterministic daily seed', async ({ page }) => {
   })
   await page.goto('/arena/daily')
   await expect(page.getByText(/Daily seed flatline-/)).toBeVisible()
+  await expect(page.getByTestId('daily-schedule')).toBeVisible()
+  await expect(page.getByLabel('Daily spawn order')).toBeVisible()
+  await expect(page.getByLabel('Daily hazard schedule')).toBeVisible()
   await expect(page.getByTestId('shared-leaderboard')).toBeVisible()
 })
 
