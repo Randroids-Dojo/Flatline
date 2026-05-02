@@ -13,6 +13,17 @@ import { createDirectorState, tickDirector, type DirectorState } from '@/game/sp
 import { assertValidSpriteAtlas, frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
 import {
+  beginJoystick,
+  createJoystick,
+  endJoystick,
+  joystickDeadzone,
+  joystickMovedBeyond,
+  joystickRadius,
+  moveJoystick,
+  readJoystick,
+  type JoystickState
+} from '@/game/virtualJoystick'
+import {
   canFireWeaponAt,
   canFireWeapon,
   collectWeaponAmmo,
@@ -86,6 +97,11 @@ type InkProjectile = {
   ageMs: number
 }
 
+type TouchJoysticks = {
+  move: JoystickState
+  look: JoystickState
+}
+
 type RunSummary = {
   score: number
   survivalMs: number
@@ -129,6 +145,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const yawRef = useRef<number>(initialYaw)
   const pitchRef = useRef<number>(0)
   const keysRef = useRef<MovementInput>({ forward: false, backward: false, left: false, right: false })
+  const touchJoysticksRef = useRef<TouchJoysticks>({ move: createJoystick(), look: createJoystick() })
+  const touchLookVectorRef = useRef({ x: 0, y: 0 })
+  const touchLookStartedAtRef = useRef(0)
   const runningRef = useRef<boolean>(false)
   const pausedRef = useRef<boolean>(false)
   const settingsRef = useRef<Settings>({ sensitivity: 1, fov: 75, audio: true })
@@ -163,6 +182,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [weaponAmmo, setWeaponAmmo] = useState<WeaponAmmoState>(() => createWeaponAmmo())
   const [weaponFiring, setWeaponFiring] = useState(false)
   const [weaponReady, setWeaponReady] = useState(true)
+  const [touchJoysticksView, setTouchJoysticksView] = useState<TouchJoysticks>(() => ({
+    move: createJoystick(),
+    look: createJoystick()
+  }))
   const [summary, setSummary] = useState<RunSummary | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
     typeof window === 'undefined' ? [] : readLeaderboard(window.localStorage)
@@ -323,6 +346,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     selectedWeaponRef.current = startingWeapon
     weaponAmmoRef.current = createWeaponAmmo()
     weaponCooldownRef.current = createWeaponCooldownState()
+    resetTouchControls(touchJoysticksRef.current, keysRef.current)
+    touchLookVectorRef.current = { x: 0, y: 0 }
     doorSignalTimersRef.current = {}
     clearShotBolts(runtimeRef.current, shotBoltsRef.current)
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
@@ -343,11 +368,15 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setSelectedWeapon(startingWeapon)
     setWeaponAmmo(weaponAmmoRef.current)
     setWeaponReady(true)
+    setTouchJoysticksView(cloneTouchJoysticks(touchJoysticksRef.current))
     setStatus(isPractice ? 'Practice run started. Tuning changes apply next run.' : 'WASD moves. Mouse aims. Left click fires.')
     requestPointerLock(runtimeRef.current?.renderer.domElement)
   }, [isPractice])
 
   const finishRun = useCallback(() => {
+    resetTouchControls(touchJoysticksRef.current, keysRef.current)
+    touchLookVectorRef.current = { x: 0, y: 0 }
+    setTouchJoysticksView(cloneTouchJoysticks(touchJoysticksRef.current))
     const runSummary = {
       score: finalScore(scoreRef.current, directorRef.current.runMs),
       survivalMs: directorRef.current.runMs,
@@ -641,6 +670,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       setWeaponReady((current) => current === selectedWeaponReady ? current : selectedWeaponReady)
 
       if (runningRef.current && !pausedRef.current) {
+        const touchLook = touchLookVectorRef.current
+
+        if (touchLook.x !== 0 || touchLook.y !== 0) {
+          yawRef.current -= touchLook.x * 2.8 * delta * settingsRef.current.sensitivity
+          pitchRef.current = clamp(
+            pitchRef.current - touchLook.y * 2.35 * delta * settingsRef.current.sensitivity,
+            -1.25,
+            1.25
+          )
+        }
+
         positionRef.current = updatePlayerPosition(
           positionRef.current,
           yawRef.current,
@@ -949,6 +989,126 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
   }, [fire, finishRun])
 
+  useEffect(() => {
+    const joysticks = touchJoysticksRef.current
+    const keys = keysRef.current
+
+    function rerenderTouchControls() {
+      setTouchJoysticksView(cloneTouchJoysticks(joysticks))
+    }
+
+    function applyMoveJoystick() {
+      const move = readJoystick(joysticks.move)
+      keys.left = move.x < -joystickDeadzone
+      keys.right = move.x > joystickDeadzone
+      keys.forward = move.y < -joystickDeadzone
+      keys.backward = move.y > joystickDeadzone
+    }
+
+    function applyLookJoystick() {
+      const look = readJoystick(joysticks.look)
+      touchLookVectorRef.current = {
+        x: Math.abs(look.x) > joystickDeadzone ? look.x : 0,
+        y: Math.abs(look.y) > joystickDeadzone ? look.y : 0
+      }
+    }
+
+    function isInteractiveTarget(target: EventTarget | null): boolean {
+      if (!(target instanceof Element)) {
+        return false
+      }
+
+      return target.closest('button, input, textarea, select, a') !== null
+    }
+
+    function onPointerDown(event: PointerEvent) {
+      if (event.pointerType !== 'touch' || !runningRef.current || pausedRef.current || isInteractiveTarget(event.target)) {
+        return
+      }
+
+      event.preventDefault()
+
+      if (event.clientX < window.innerWidth / 2) {
+        if (joysticks.move.active) {
+          return
+        }
+
+        beginJoystick(joysticks.move, event.pointerId, event.clientX, event.clientY)
+        applyMoveJoystick()
+      } else {
+        if (joysticks.look.active) {
+          return
+        }
+
+        beginJoystick(joysticks.look, event.pointerId, event.clientX, event.clientY)
+        touchLookStartedAtRef.current = performance.now()
+        applyLookJoystick()
+      }
+
+      rerenderTouchControls()
+    }
+
+    function onPointerMove(event: PointerEvent) {
+      if (event.pointerType !== 'touch') {
+        return
+      }
+
+      if (joysticks.move.pointerId === event.pointerId) {
+        event.preventDefault()
+        moveJoystick(joysticks.move, event.clientX, event.clientY)
+        applyMoveJoystick()
+        rerenderTouchControls()
+        return
+      }
+
+      if (joysticks.look.pointerId === event.pointerId) {
+        event.preventDefault()
+        moveJoystick(joysticks.look, event.clientX, event.clientY)
+        applyLookJoystick()
+        rerenderTouchControls()
+      }
+    }
+
+    function onPointerUp(event: PointerEvent) {
+      if (event.pointerType !== 'touch') {
+        return
+      }
+
+      if (joysticks.move.pointerId === event.pointerId) {
+        event.preventDefault()
+        endJoystick(joysticks.move)
+        applyMoveJoystick()
+        rerenderTouchControls()
+      }
+
+      if (joysticks.look.pointerId === event.pointerId) {
+        event.preventDefault()
+        const wasTap = !joystickMovedBeyond(joysticks.look, 14) && performance.now() - touchLookStartedAtRef.current < 260
+        endJoystick(joysticks.look)
+        applyLookJoystick()
+        rerenderTouchControls()
+
+        if (wasTap && runningRef.current && !pausedRef.current) {
+          fire()
+        }
+      }
+    }
+
+    window.addEventListener('pointerdown', onPointerDown, { passive: false })
+    window.addEventListener('pointermove', onPointerMove, { passive: false })
+    window.addEventListener('pointerup', onPointerUp, { passive: false })
+    window.addEventListener('pointercancel', onPointerUp, { passive: false })
+
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
+      resetTouchControls(joysticks, keys)
+      touchLookVectorRef.current = { x: 0, y: 0 }
+    }
+  }, [fire])
+
   useEffect(() => () => {
     if (weaponFlashTimeoutRef.current !== null) {
       window.clearTimeout(weaponFlashTimeoutRef.current)
@@ -1112,11 +1272,83 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       <div className="crosshair" data-testid="crosshair" />
       {damagePulse > 0 ? <div key={damagePulse} className="damage-flash" data-testid="damage-flash" aria-hidden="true" /> : null}
       <div className={`weapon weapon-${selectedWeapon}${weaponFiring ? ' weapon-firing' : ''}`} data-testid="weapon-sprite" aria-hidden="true" />
+      {running && !paused ? <TouchControls joysticks={touchJoysticksView} /> : null}
       <div className="status-line" data-testid="status-line">
         {status}
       </div>
     </main>
   )
+}
+
+function TouchControls({ joysticks }: { joysticks: TouchJoysticks }) {
+  return (
+    <div className="touch-controls" data-testid="touch-controls" aria-hidden="true">
+      <JoystickVisual joystick={joysticks.move} label="Move" className="move" />
+      <JoystickVisual joystick={joysticks.look} label="Aim" className="look" />
+      <div className="touch-zone-label touch-zone-label-left">Move</div>
+      <div className="touch-zone-label touch-zone-label-right">Aim / Fire</div>
+    </div>
+  )
+}
+
+function JoystickVisual({
+  joystick,
+  label,
+  className
+}: {
+  joystick: JoystickState
+  label: string
+  className: string
+}) {
+  if (!joystick.active) {
+    return null
+  }
+
+  const dx = joystick.currentX - joystick.originX
+  const dy = joystick.currentY - joystick.originY
+  const length = Math.hypot(dx, dy)
+  const scale = length > joystickRadius ? joystickRadius / length : 1
+  const knobX = joystick.originX + dx * scale
+  const knobY = joystick.originY + dy * scale
+
+  return (
+    <>
+      <div
+        className={`touch-stick touch-stick-${className}`}
+        style={{
+          left: joystick.originX - joystickRadius,
+          top: joystick.originY - joystickRadius,
+          width: joystickRadius * 2,
+          height: joystickRadius * 2
+        }}
+      >
+        <span>{label}</span>
+      </div>
+      <div
+        className={`touch-knob touch-knob-${className}`}
+        style={{
+          left: knobX - 24,
+          top: knobY - 24
+        }}
+      />
+    </>
+  )
+}
+
+function resetTouchControls(joysticks: TouchJoysticks, keys: MovementInput) {
+  endJoystick(joysticks.move)
+  endJoystick(joysticks.look)
+  keys.forward = false
+  keys.backward = false
+  keys.left = false
+  keys.right = false
+}
+
+function cloneTouchJoysticks(joysticks: TouchJoysticks): TouchJoysticks {
+  return {
+    move: { ...joysticks.move },
+    look: { ...joysticks.look }
+  }
 }
 
 function createRoom() {

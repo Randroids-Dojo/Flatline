@@ -49,7 +49,8 @@ test('starts a walk and shoot run', async ({ page }, testInfo) => {
   await expect(page.getByTestId('hud').getByText('Inkblaster')).toBeVisible()
   await expect(page.getByTestId('weapon-sprite')).toHaveClass(/weapon-inkblaster/)
   await page.mouse.click(960, 540)
-  await expect(page.getByTestId('status-line')).toContainText('Inkblaster projectile launched.')
+  await expect(page.getByTestId('weapon-ready')).toContainText('Recovering')
+  await expect(page.getByTestId('weapon-ready')).toContainText('Ready', { timeout: 1200 })
   await page.screenshot({ path: testInfo.outputPath('walk-and-shoot.png'), fullPage: true })
 
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('flatline:force-death')))
@@ -121,6 +122,83 @@ test('practice route exposes tuning controls without leaderboard submission', as
   await expect(page.getByTestId('run-summary')).toBeVisible()
   await expect(page.getByTestId('shared-submit')).toBeHidden()
   expect(leaderboardRequests).toEqual([])
+})
+
+test('mobile touch controls fit the viewport and block page scroll', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'mobile touch controls are covered by the mobile project')
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Start run' }).click()
+  await expect(page.getByTestId('hud')).toBeVisible()
+  await expect(page.getByTestId('touch-controls')).toBeVisible()
+
+  const viewport = page.viewportSize()
+
+  if (!viewport) {
+    throw new Error('missing viewport')
+  }
+
+  await page.evaluate(({ width, height }) => {
+    window.dispatchEvent(new PointerEvent('pointerdown', {
+      pointerId: 51,
+      pointerType: 'touch',
+      clientX: Math.round(width * 0.22),
+      clientY: Math.round(height * 0.72),
+      bubbles: true,
+      cancelable: true
+    }))
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      pointerId: 51,
+      pointerType: 'touch',
+      clientX: Math.round(width * 0.22),
+      clientY: Math.round(height * 0.52),
+      bubbles: true,
+      cancelable: true
+    }))
+  }, viewport)
+
+  await expect(page.locator('.touch-stick-move')).toBeVisible()
+  await page.waitForTimeout(120)
+  await page.evaluate(({ width, height }) => {
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      pointerId: 51,
+      pointerType: 'touch',
+      clientX: Math.round(width * 0.22),
+      clientY: Math.round(height * 0.52),
+      bubbles: true,
+      cancelable: true
+    }))
+  }, viewport)
+  await expect(page.locator('.touch-stick-move')).toBeHidden()
+
+  await page.evaluate(({ width, height }) => {
+    window.scrollTo(0, 80)
+    window.dispatchEvent(new PointerEvent('pointerdown', {
+      pointerId: 52,
+      pointerType: 'touch',
+      clientX: Math.round(width * 0.72),
+      clientY: Math.round(height * 0.62),
+      bubbles: true,
+      cancelable: true
+    }))
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      pointerId: 52,
+      pointerType: 'touch',
+      clientX: Math.round(width * 0.86),
+      clientY: Math.round(height * 0.56),
+      bubbles: true,
+      cancelable: true
+    }))
+  }, viewport)
+
+  await expect(page.locator('.touch-stick-look')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+  await expect.poll(async () => {
+    return page.getByTestId('hud').evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      return rect.left >= 0 && rect.right <= window.innerWidth && rect.top >= 0
+    })
+  }).toBe(true)
 })
 
 async function canvasHasPixels(page: import('@playwright/test').Page) {

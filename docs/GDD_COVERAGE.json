@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updated": "2026-05-01",
+  "updated": "2026-05-02",
   "purpose": "Track GDD requirement coverage so the continuous implementation loop can find the next actionable gap without guessing.",
   "coverage": [
     {
@@ -15,10 +15,10 @@
     {
       "id": "gdd-6-movement-camera",
       "gddSections": ["6", "20.1"],
-      "requirement": "First-person camera, mouse aim, pointer lock, and WASD movement.",
+      "requirement": "First-person camera, mouse aim, pointer lock, WASD movement, and mobile touch movement/look controls.",
       "status": "implemented",
-      "implementation": ["src/components/FlatlineGame.tsx", "src/game/movement.ts"],
-      "tests": ["src/game/movement.test.ts", "tests/smoke.spec.ts"],
+      "implementation": ["src/components/FlatlineGame.tsx", "src/game/movement.ts", "src/game/virtualJoystick.ts"],
+      "tests": ["src/game/movement.test.ts", "src/game/virtualJoystick.test.ts", "tests/smoke.spec.ts"],
       "gaps": []
     },
     {

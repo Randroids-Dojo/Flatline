@@ -14,11 +14,15 @@
 html,
 body {
   width: 100%;
-  min-height: 100%;
+  height: 100%;
   margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--paper);
   color: var(--ink);
   font-family: Arial, Helvetica, sans-serif;
+  touch-action: none;
+  user-select: none;
 }
 
 button {
@@ -26,11 +30,14 @@ button {
 }
 
 .game-shell {
-  position: relative;
+  position: fixed;
+  inset: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
   background: #101010;
+  touch-action: none;
 }
 
 .render-root {
@@ -509,4 +516,144 @@ button {
   background: var(--panel);
   color: rgba(244, 241, 232, 0.82);
   font-size: 13px;
+}
+
+.touch-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.touch-stick,
+.touch-knob {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.touch-stick {
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(80, 209, 192, 0.82);
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: 0 0 18px rgba(80, 209, 192, 0.2);
+}
+
+.touch-stick span {
+  color: rgba(244, 241, 232, 0.68);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.touch-stick-look {
+  border-color: rgba(255, 176, 79, 0.86);
+  box-shadow: 0 0 18px rgba(255, 176, 79, 0.22);
+}
+
+.touch-knob {
+  width: 48px;
+  height: 48px;
+  background: rgba(80, 209, 192, 0.84);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.36);
+}
+
+.touch-knob-look {
+  background: rgba(255, 176, 79, 0.86);
+}
+
+.touch-zone-label {
+  position: fixed;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 4;
+  padding: 6px 8px;
+  border: 1px solid rgba(244, 241, 232, 0.14);
+  border-radius: 6px;
+  background: rgba(10, 10, 10, 0.42);
+  color: rgba(244, 241, 232, 0.46);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.touch-zone-label-left {
+  left: max(12px, env(safe-area-inset-left));
+}
+
+.touch-zone-label-right {
+  right: max(12px, env(safe-area-inset-right));
+}
+
+@media (pointer: fine) {
+  .touch-zone-label {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .hud {
+    top: max(8px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .hud-pill {
+    min-width: 0;
+    padding: 6px 7px;
+    font-size: 10px;
+  }
+
+  .hud-pill strong {
+    font-size: 14px;
+  }
+
+  .hud-pill span {
+    font-size: 10px;
+  }
+
+  .debug-pill {
+    display: none;
+  }
+
+  .weapon {
+    width: min(54vw, 270px);
+    height: min(24vh, 180px);
+  }
+
+  .status-line {
+    right: max(8px, env(safe-area-inset-right));
+    left: max(8px, env(safe-area-inset-left));
+    bottom: calc(max(8px, env(safe-area-inset-bottom)) + 34px);
+    max-width: none;
+    font-size: 12px;
+  }
+
+  .start-panel,
+  .pause-panel {
+    padding: max(14px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    overflow: hidden;
+  }
+
+  .start-panel h1 {
+    font-size: clamp(44px, 15vw, 72px);
+  }
+
+  .start-panel-inner,
+  .pause-panel-inner {
+    max-height: calc(100dvh - 28px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+
+  .settings-panel,
+  .practice-panel,
+  .shared-leaderboard,
+  .daily-schedule {
+    max-width: min(360px, calc(100vw - 24px));
+  }
 }
