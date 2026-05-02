@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-05-02: Fix: Mobile touch coordinate handling
 
-- Status: In progress
+- Status: Complete
 - Branch: `fix/mobile-touch-coordinates`
 - Dot: `Flatline-fix-mobile-touch-e614a554`
 - GDD sections: 3.1, 6, 20.1, 29.3
@@ -19,9 +19,11 @@ Newest entries go first.
   - `git diff --check` passed.
   - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - Pending.
+  - PR #45 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
 - Deploy:
-  - Pending.
+  - Production Vercel deployment for merge commit `5fa1d8b` passed.
+  - Live native touch smoke passed on `https://flatline-gamma.vercel.app/` with a Pixel 5 profile: start run worked, the move stick rendered away from the top-left, page scroll stayed at 0, and HUD bounds fit inside the phone viewport.
 - GDD edits:
   - None.
 - Followups:
