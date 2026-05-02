@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-05-02: Slice: Mobile touch controls and viewport fit
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/mobile-touch-controls`
 - Dot: `Flatline-implement-mobile-touch-e62c6a90`
 - GDD sections: 3.1, 6, 20.1, 29.3
@@ -24,9 +24,12 @@ Newest entries go first.
   - `git diff --check` passed.
   - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - Pending.
+  - PR #43 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
 - Deploy:
-  - Pending.
+  - Production Vercel deployment for merge commit `4581027` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`: root returned 200.
+  - Live Pixel 5 smoke passed on production: start run worked, the touch movement stick appeared, page scroll stayed at 0, and HUD bounds fit inside the phone viewport.
 - GDD edits:
   - None.
 - Followups:
