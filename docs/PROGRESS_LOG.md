@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-05-02: Slice: In-run combo and damage feedback
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/combo-damage-feedback`
 - Dot: `Flatline-implement-in-run-b732cdf3`
 - GDD sections: 14, 15, 16, 20.1
@@ -21,10 +21,16 @@ Newest entries go first.
   - `npm run test:e2e` passed with 6 browser smoke checks.
   - `npm run verify` passed with 14 test files, 54 unit tests, production build, and 6 browser smoke checks.
   - Follow-up title-screen flash fix: `npm run test:e2e` and `npm run verify` passed.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - Pending.
+  - PR #38 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - PR #39 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread queries found no unresolved threads.
 - Deploy:
-  - Pending.
+  - Production Vercel deployment for merge commit `0d78d54` passed.
+  - Production Vercel deployment for merge commit `82cffe3` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`: root returned 200 and the title screen did not include the idle damage flash.
 - GDD edits:
   - None.
 - Followups:
