@@ -21,6 +21,7 @@ test('starts a walk and shoot run', async ({ page }, testInfo) => {
   await expect(page.getByRole('heading', { name: 'Flatline' })).toBeVisible()
   await expect(page.getByTestId('shared-leaderboard')).toBeVisible()
   await expect(page.locator('canvas')).toBeVisible()
+  await expect(page.getByTestId('damage-flash')).toBeHidden()
   await expect.poll(async () => canvasHasPixels(page)).toBe(true)
 
   await page.getByRole('button', { name: 'Start run' }).click()

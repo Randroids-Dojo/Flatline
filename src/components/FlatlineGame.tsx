@@ -1076,7 +1076,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         </section>
       ) : null}
       <div className="crosshair" data-testid="crosshair" />
-      <div key={damagePulse} className="damage-flash" data-testid="damage-flash" aria-hidden="true" />
+      {damagePulse > 0 ? <div key={damagePulse} className="damage-flash" data-testid="damage-flash" aria-hidden="true" /> : null}
       <div className={`weapon weapon-${selectedWeapon}${weaponFiring ? ' weapon-firing' : ''}`} data-testid="weapon-sprite" aria-hidden="true" />
       <div className="status-line" data-testid="status-line">
         {status}

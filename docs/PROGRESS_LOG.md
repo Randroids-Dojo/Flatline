@@ -12,6 +12,7 @@ Newest entries go first.
   - Added an in-run Combo HUD pill so players can see active score-chasing state.
   - Wired quick-kill combo updates into the visible run HUD.
   - Added a short screen damage flash when hazards or enemies damage the player.
+  - Fixed the damage flash so it does not animate on the title screen before damage occurs.
   - Extended browser smoke coverage for visible combo feedback during a run.
 - Verification:
   - `npm run test -- scoring` passed.
@@ -19,6 +20,7 @@ Newest entries go first.
   - `npm run typecheck` passed.
   - `npm run test:e2e` passed with 6 browser smoke checks.
   - `npm run verify` passed with 14 test files, 54 unit tests, production build, and 6 browser smoke checks.
+  - Follow-up title-screen flash fix: `npm run test:e2e` and `npm run verify` passed.
 - Review:
   - Pending.
 - Deploy:
