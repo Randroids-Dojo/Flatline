@@ -2,6 +2,33 @@
 
 Newest entries go first.
 
+## 2026-05-02: Fix: Mobile touch coordinate handling
+
+- Status: In progress
+- Branch: `fix/mobile-touch-coordinates`
+- Dot: `Flatline-fix-mobile-touch-e614a554`
+- GDD sections: 3.1, 6, 20.1, 29.3
+- Done:
+  - Added native touch event handling that reads coordinates from `changedTouches` by touch identifier.
+  - Kept pointer-event handling as a fallback for touch runtimes without native touch events.
+  - Rendered joystick positions as explicit pixel values.
+  - Extended mobile smoke coverage to dispatch native touch events and assert the stick does not anchor near the top-left.
+- Verification:
+  - `npm run test:e2e -- --project=mobile-chromium -g "mobile touch controls"` passed.
+  - `npm run verify` passed with 15 test files, 59 unit tests, production build, 7 browser smoke checks, and 1 desktop skip for the mobile-only touch smoke.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
+- Review:
+  - Pending.
+- Deploy:
+  - Pending.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-05-02: Slice: Mobile touch controls and viewport fit
 
 - Status: Complete

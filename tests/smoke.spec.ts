@@ -138,58 +138,25 @@ test('mobile touch controls fit the viewport and block page scroll', async ({ pa
     throw new Error('missing viewport')
   }
 
-  await page.evaluate(({ width, height }) => {
-    window.dispatchEvent(new PointerEvent('pointerdown', {
-      pointerId: 51,
-      pointerType: 'touch',
-      clientX: Math.round(width * 0.22),
-      clientY: Math.round(height * 0.72),
-      bubbles: true,
-      cancelable: true
-    }))
-    window.dispatchEvent(new PointerEvent('pointermove', {
-      pointerId: 51,
-      pointerType: 'touch',
-      clientX: Math.round(width * 0.22),
-      clientY: Math.round(height * 0.52),
-      bubbles: true,
-      cancelable: true
-    }))
-  }, viewport)
+  await dispatchTouch(page, 'touchstart', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.72))
+  await dispatchTouch(page, 'touchmove', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.52))
 
   await expect(page.locator('.touch-stick-move')).toBeVisible()
+  await expect.poll(async () => {
+    return page.locator('.touch-stick-move').evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      return rect.left > 20 && rect.top > 20
+    })
+  }).toBe(true)
   await page.waitForTimeout(120)
-  await page.evaluate(({ width, height }) => {
-    window.dispatchEvent(new PointerEvent('pointerup', {
-      pointerId: 51,
-      pointerType: 'touch',
-      clientX: Math.round(width * 0.22),
-      clientY: Math.round(height * 0.52),
-      bubbles: true,
-      cancelable: true
-    }))
-  }, viewport)
+  await dispatchTouch(page, 'touchend', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.52))
   await expect(page.locator('.touch-stick-move')).toBeHidden()
 
-  await page.evaluate(({ width, height }) => {
+  await page.evaluate(() => {
     window.scrollTo(0, 80)
-    window.dispatchEvent(new PointerEvent('pointerdown', {
-      pointerId: 52,
-      pointerType: 'touch',
-      clientX: Math.round(width * 0.72),
-      clientY: Math.round(height * 0.62),
-      bubbles: true,
-      cancelable: true
-    }))
-    window.dispatchEvent(new PointerEvent('pointermove', {
-      pointerId: 52,
-      pointerType: 'touch',
-      clientX: Math.round(width * 0.86),
-      clientY: Math.round(height * 0.56),
-      bubbles: true,
-      cancelable: true
-    }))
-  }, viewport)
+  })
+  await dispatchTouch(page, 'touchstart', 52, Math.round(viewport.width * 0.72), Math.round(viewport.height * 0.62))
+  await dispatchTouch(page, 'touchmove', 52, Math.round(viewport.width * 0.86), Math.round(viewport.height * 0.56))
 
   await expect(page.locator('.touch-stick-look')).toBeVisible()
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
@@ -200,6 +167,30 @@ test('mobile touch controls fit the viewport and block page scroll', async ({ pa
     })
   }).toBe(true)
 })
+
+async function dispatchTouch(
+  page: import('@playwright/test').Page,
+  type: string,
+  identifier: number,
+  clientX: number,
+  clientY: number
+) {
+  await page.evaluate(({ eventType, touchId, x, y }) => {
+    const touch = new Touch({
+      identifier: touchId,
+      target: document.body,
+      clientX: x,
+      clientY: y
+    })
+    window.dispatchEvent(new TouchEvent(eventType, {
+      bubbles: true,
+      cancelable: true,
+      touches: eventType === 'touchend' || eventType === 'touchcancel' ? [] : [touch],
+      targetTouches: eventType === 'touchend' || eventType === 'touchcancel' ? [] : [touch],
+      changedTouches: [touch]
+    }))
+  }, { eventType: type, touchId: identifier, x: clientX, y: clientY })
+}
 
 async function canvasHasPixels(page: import('@playwright/test').Page) {
   return page.locator('canvas').evaluate((element) => {
