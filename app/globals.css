@@ -84,6 +84,14 @@ button {
   color: #ffb04f;
 }
 
+.weapon-ready-pill strong {
+  color: #8fe6d9;
+}
+
+.weapon-ready-pill.weapon-recovering strong {
+  color: #ffb04f;
+}
+
 .debug-pill {
   min-width: 126px;
 }

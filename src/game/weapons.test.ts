@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canFireWeaponAt,
   canFireWeapon,
   collectWeaponAmmo,
+  createWeaponCooldownState,
   createWeaponAmmo,
   nextWeapon,
   spendWeaponAmmo,
+  weaponCooldownRemainingMs,
   weaponAmmoLabel
 } from './weapons'
 
@@ -33,5 +36,14 @@ describe('weapon ammo', () => {
     expect(nextWeapon('peashooter')).toBe('boomstick')
     expect(nextWeapon('boomstick')).toBe('inkblaster')
     expect(nextWeapon('inkblaster')).toBe('peashooter')
+  })
+
+  it('tracks per-weapon fire cadence', () => {
+    const cooldowns = createWeaponCooldownState()
+
+    expect(canFireWeaponAt('boomstick', cooldowns.boomstick, 1000)).toBe(true)
+    expect(canFireWeaponAt('boomstick', 1000, 1200)).toBe(false)
+    expect(weaponCooldownRemainingMs('boomstick', 1000, 1200)).toBe(560)
+    expect(canFireWeaponAt('boomstick', 1000, 1760)).toBe(true)
   })
 })
