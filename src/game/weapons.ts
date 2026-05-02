@@ -6,6 +6,7 @@ export type WeaponConfig = {
   id: WeaponId
   label: string
   damage: number
+  fireIntervalMs: number
   ammoPerShot: number
   maxAmmo: number | null
   spreadRadians: readonly number[]
@@ -16,11 +17,14 @@ export type WeaponAmmoState = {
   inkblaster: number
 }
 
+export type WeaponCooldownState = Record<WeaponId, number>
+
 export const weaponConfigs: Record<WeaponId, WeaponConfig> = {
   peashooter: {
     id: 'peashooter',
     label: 'Peashooter',
     damage: 1,
+    fireIntervalMs: 220,
     ammoPerShot: 0,
     maxAmmo: null,
     spreadRadians: [0]
@@ -29,6 +33,7 @@ export const weaponConfigs: Record<WeaponId, WeaponConfig> = {
     id: 'boomstick',
     label: 'Boomstick',
     damage: 1,
+    fireIntervalMs: 760,
     ammoPerShot: 1,
     maxAmmo: 6,
     spreadRadians: [-0.09, -0.05, -0.02, 0.02, 0.05, 0.09]
@@ -37,9 +42,18 @@ export const weaponConfigs: Record<WeaponId, WeaponConfig> = {
     id: 'inkblaster',
     label: 'Inkblaster',
     damage: 2,
+    fireIntervalMs: 680,
     ammoPerShot: 1,
     maxAmmo: 4,
     spreadRadians: [0]
+  }
+}
+
+export function createWeaponCooldownState(): WeaponCooldownState {
+  return {
+    peashooter: Number.NEGATIVE_INFINITY,
+    boomstick: Number.NEGATIVE_INFINITY,
+    inkblaster: Number.NEGATIVE_INFINITY
   }
 }
 
@@ -79,6 +93,14 @@ export function spendWeaponAmmo(weapon: WeaponId, ammo: WeaponAmmoState): Weapon
     ...ammo,
     [weapon]: Math.max(0, ammo[weapon] - config.ammoPerShot)
   }
+}
+
+export function weaponCooldownRemainingMs(weapon: WeaponId, lastFiredAtMs: number, nowMs: number): number {
+  return Math.max(0, weaponConfigs[weapon].fireIntervalMs - (nowMs - lastFiredAtMs))
+}
+
+export function canFireWeaponAt(weapon: WeaponId, lastFiredAtMs: number, nowMs: number): boolean {
+  return weaponCooldownRemainingMs(weapon, lastFiredAtMs, nowMs) === 0
 }
 
 export function collectWeaponAmmo(ammo: WeaponAmmoState, boomstick = 2, inkblaster = 1): WeaponAmmoState {

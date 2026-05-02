@@ -2,6 +2,37 @@
 
 Newest entries go first.
 
+## 2026-05-02: Slice: Weapon pacing and projectile feedback
+
+- Status: In progress
+- Branch: `feat/weapon-pacing-feedback`
+- Dot: `Flatline-implement-weapon-pacing-1fec3409`
+- GDD sections: 6, 10, 20.1, 29.3
+- Done:
+  - Added per-weapon fire cadence so rapid clicking cannot bypass weapon roles.
+  - Added a visible Fire HUD pill that flips between Ready and Recovering.
+  - Made Inkblaster projectiles larger and easier to track with a pulsing halo.
+  - Extended deterministic weapon tests for cooldown readiness.
+  - Extended browser smoke coverage for visible weapon recovery feedback.
+- Verification:
+  - `npm run test -- weapons` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test:e2e` passed with 6 browser smoke checks.
+  - `npm run verify` passed with 14 test files, 55 unit tests, production build, and 6 browser smoke checks.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
+- Review:
+  - Pending.
+- Deploy:
+  - Pending.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-05-02: Slice: In-run combo and damage feedback
 
 - Status: Complete

@@ -13,8 +13,10 @@ import { createDirectorState, tickDirector, type DirectorState } from '@/game/sp
 import { assertValidSpriteAtlas, frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
 import {
+  canFireWeaponAt,
   canFireWeapon,
   collectWeaponAmmo,
+  createWeaponCooldownState,
   createWeaponAmmo,
   nextWeapon,
   spendWeaponAmmo,
@@ -22,6 +24,7 @@ import {
   weaponConfigs,
   weaponIds,
   type WeaponAmmoState,
+  type WeaponCooldownState,
   type WeaponId
 } from '@/game/weapons'
 import { dailySeed } from '@/lib/dailySeed'
@@ -73,11 +76,14 @@ type ShotBolt = {
 }
 
 type InkProjectile = {
-  mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
+  group: THREE.Group
+  core: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
+  halo: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
   direction: THREE.Vector3
   remainingDistance: number
   damage: number
   splashRadius: number
+  ageMs: number
 }
 
 type RunSummary = {
@@ -136,6 +142,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const hazardDamageCooldownRef = useRef<number>(0)
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
+  const weaponCooldownRef = useRef<WeaponCooldownState>(createWeaponCooldownState())
   const practiceSettingsRef = useRef<PracticeSettings>(createPracticeSettings())
   const weaponFlashTimeoutRef = useRef<number | null>(null)
   const enemyAssetsRef = useRef<Partial<Record<EnemyType, EnemyVisualAsset>>>({})
@@ -155,6 +162,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [selectedWeapon, setSelectedWeapon] = useState<WeaponId>('peashooter')
   const [weaponAmmo, setWeaponAmmo] = useState<WeaponAmmoState>(() => createWeaponAmmo())
   const [weaponFiring, setWeaponFiring] = useState(false)
+  const [weaponReady, setWeaponReady] = useState(true)
   const [summary, setSummary] = useState<RunSummary | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
     typeof window === 'undefined' ? [] : readLeaderboard(window.localStorage)
@@ -216,11 +224,23 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
 
     const weapon = selectedWeaponRef.current
+    const nowMs = performance.now()
+
+    if (!canFireWeaponAt(weapon, weaponCooldownRef.current[weapon], nowMs)) {
+      setWeaponReady(false)
+      return
+    }
 
     if (!practiceSettingsRef.current.infiniteAmmo && !canFireWeapon(weapon, weaponAmmoRef.current)) {
       setStatus(`${weaponConfigs[weapon].label} is empty. Switch weapons or collect supplies.`)
       return
     }
+
+    weaponCooldownRef.current = {
+      ...weaponCooldownRef.current,
+      [weapon]: nowMs
+    }
+    setWeaponReady(false)
 
     if (!practiceSettingsRef.current.infiniteAmmo) {
       weaponAmmoRef.current = spendWeaponAmmo(weapon, weaponAmmoRef.current)
@@ -302,6 +322,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     hazardDamageCooldownRef.current = 0
     selectedWeaponRef.current = startingWeapon
     weaponAmmoRef.current = createWeaponAmmo()
+    weaponCooldownRef.current = createWeaponCooldownState()
     doorSignalTimersRef.current = {}
     clearShotBolts(runtimeRef.current, shotBoltsRef.current)
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
@@ -321,6 +342,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setHealthPickupReady(true)
     setSelectedWeapon(startingWeapon)
     setWeaponAmmo(weaponAmmoRef.current)
+    setWeaponReady(true)
     setStatus(isPractice ? 'Practice run started. Tuning changes apply next run.' : 'WASD moves. Mouse aims. Left click fires.')
     requestPointerLock(runtimeRef.current?.renderer.domElement)
   }, [isPractice])
@@ -609,6 +631,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
       const delta = Math.min((time - lastTimeRef.current) / 1000 || 0, 0.05)
       lastTimeRef.current = time
+      const selectedWeaponId = selectedWeaponRef.current
+      const selectedWeaponReady = canFireWeaponAt(
+        selectedWeaponId,
+        weaponCooldownRef.current[selectedWeaponId],
+        performance.now()
+      )
+
+      setWeaponReady((current) => current === selectedWeaponReady ? current : selectedWeaponReady)
 
       if (runningRef.current && !pausedRef.current) {
         positionRef.current = updatePlayerPosition(
@@ -953,6 +983,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           <div className="hud-pill">
             Weapon
             <strong>{weaponConfigs[selectedWeapon].label}</strong>
+          </div>
+          <div className={`hud-pill weapon-ready-pill${weaponReady ? '' : ' weapon-recovering'}`} data-testid="weapon-ready">
+            Fire
+            <strong>{weaponReady ? 'Ready' : 'Recovering'}</strong>
           </div>
           <div className="hud-pill">
             Ammo
@@ -1377,23 +1411,38 @@ function spawnInkProjectile(
   const travelDirection = new THREE.Vector3(direction.x, direction.y, direction.z).normalize()
   start.addScaledVector(travelDirection, 0.65)
 
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.16, 16, 16),
+  const group = new THREE.Group()
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 16, 16),
     new THREE.MeshBasicMaterial({
       color: '#50d1c0',
       transparent: true,
-      opacity: 0.88
+      opacity: 0.96
     })
   )
-  mesh.position.copy(start)
-  mesh.renderOrder = 5
-  runtime.shotGroup.add(mesh)
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.34, 16, 16),
+    new THREE.MeshBasicMaterial({
+      color: '#50d1c0',
+      transparent: true,
+      opacity: 0.24,
+      wireframe: true
+    })
+  )
+  core.renderOrder = 5
+  halo.renderOrder = 4
+  group.add(core, halo)
+  group.position.copy(start)
+  runtime.shotGroup.add(group)
   projectiles.push({
-    mesh,
+    group,
+    core,
+    halo,
     direction: travelDirection,
     remainingDistance: 16,
     damage,
-    splashRadius: 0.95
+    splashRadius: 0.95,
+    ageMs: 0
   })
 }
 
@@ -1408,12 +1457,15 @@ function tickInkProjectiles(
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index]
     const step = Math.min(projectile.remainingDistance, deltaMs * 0.028)
-    projectile.mesh.position.addScaledVector(projectile.direction, step)
+    projectile.ageMs += deltaMs
+    projectile.group.position.addScaledVector(projectile.direction, step)
     projectile.remainingDistance -= step
+    const pulse = 1 + Math.sin(projectile.ageMs / 72) * 0.16
+    projectile.halo.scale.setScalar(pulse)
 
     const enemyDistance = Math.hypot(
-      projectile.mesh.position.x - enemy.position.x,
-      projectile.mesh.position.z - enemy.position.z
+      projectile.group.position.x - enemy.position.x,
+      projectile.group.position.z - enemy.position.z
     )
     const hitEnemy = enemy.state !== 'dead' && enemyDistance <= enemy.radius + projectile.splashRadius
 
@@ -1422,9 +1474,7 @@ function tickInkProjectiles(
         hits += 1
       }
 
-      runtime.shotGroup.remove(projectile.mesh)
-      projectile.mesh.geometry.dispose()
-      projectile.mesh.material.dispose()
+      disposeInkProjectile(runtime, projectile)
       projectiles.splice(index, 1)
     }
   }
@@ -1440,10 +1490,16 @@ function clearInkProjectiles(runtime: RuntimeRefs | null, projectiles: InkProjec
       return
     }
 
-    runtime?.shotGroup.remove(projectile.mesh)
-    projectile.mesh.geometry.dispose()
-    projectile.mesh.material.dispose()
+    disposeInkProjectile(runtime, projectile)
   }
+}
+
+function disposeInkProjectile(runtime: RuntimeRefs | null, projectile: InkProjectile) {
+  runtime?.shotGroup.remove(projectile.group)
+  projectile.core.geometry.dispose()
+  projectile.core.material.dispose()
+  projectile.halo.geometry.dispose()
+  projectile.halo.material.dispose()
 }
 
 function knockEnemyBack(enemy: EnemyModel, direction: Vec3, distance: number): EnemyModel {
