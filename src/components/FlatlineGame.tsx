@@ -1021,26 +1021,20 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       return target.closest('button, input, textarea, select, a') !== null
     }
 
-    function onPointerDown(event: PointerEvent) {
-      if (event.pointerType !== 'touch' || !runningRef.current || pausedRef.current || isInteractiveTarget(event.target)) {
-        return
-      }
-
-      event.preventDefault()
-
-      if (event.clientX < window.innerWidth / 2) {
+    function beginTouch(pointerId: number, x: number, y: number) {
+      if (x < window.innerWidth / 2) {
         if (joysticks.move.active) {
           return
         }
 
-        beginJoystick(joysticks.move, event.pointerId, event.clientX, event.clientY)
+        beginJoystick(joysticks.move, pointerId, x, y)
         applyMoveJoystick()
       } else {
         if (joysticks.look.active) {
           return
         }
 
-        beginJoystick(joysticks.look, event.pointerId, event.clientX, event.clientY)
+        beginJoystick(joysticks.look, pointerId, x, y)
         touchLookStartedAtRef.current = performance.now()
         applyLookJoystick()
       }
@@ -1048,41 +1042,29 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       rerenderTouchControls()
     }
 
-    function onPointerMove(event: PointerEvent) {
-      if (event.pointerType !== 'touch') {
-        return
-      }
-
-      if (joysticks.move.pointerId === event.pointerId) {
-        event.preventDefault()
-        moveJoystick(joysticks.move, event.clientX, event.clientY)
+    function moveTouch(pointerId: number, x: number, y: number) {
+      if (joysticks.move.pointerId === pointerId) {
+        moveJoystick(joysticks.move, x, y)
         applyMoveJoystick()
         rerenderTouchControls()
         return
       }
 
-      if (joysticks.look.pointerId === event.pointerId) {
-        event.preventDefault()
-        moveJoystick(joysticks.look, event.clientX, event.clientY)
+      if (joysticks.look.pointerId === pointerId) {
+        moveJoystick(joysticks.look, x, y)
         applyLookJoystick()
         rerenderTouchControls()
       }
     }
 
-    function onPointerUp(event: PointerEvent) {
-      if (event.pointerType !== 'touch') {
-        return
-      }
-
-      if (joysticks.move.pointerId === event.pointerId) {
-        event.preventDefault()
+    function endTouch(pointerId: number) {
+      if (joysticks.move.pointerId === pointerId) {
         endJoystick(joysticks.move)
         applyMoveJoystick()
         rerenderTouchControls()
       }
 
-      if (joysticks.look.pointerId === event.pointerId) {
-        event.preventDefault()
+      if (joysticks.look.pointerId === pointerId) {
         const wasTap = !joystickMovedBeyond(joysticks.look, 14) && performance.now() - touchLookStartedAtRef.current < 260
         endJoystick(joysticks.look)
         applyLookJoystick()
@@ -1094,16 +1076,95 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       }
     }
 
+    function onPointerDown(event: PointerEvent) {
+      if ('ontouchstart' in window) {
+        return
+      }
+
+      if (event.pointerType !== 'touch' || !runningRef.current || pausedRef.current || isInteractiveTarget(event.target)) {
+        return
+      }
+
+      event.preventDefault()
+      beginTouch(event.pointerId, event.clientX, event.clientY)
+    }
+
+    function onPointerMove(event: PointerEvent) {
+      if ('ontouchstart' in window) {
+        return
+      }
+
+      if (event.pointerType !== 'touch') {
+        return
+      }
+
+      if (joysticks.move.pointerId === event.pointerId || joysticks.look.pointerId === event.pointerId) {
+        event.preventDefault()
+        moveTouch(event.pointerId, event.clientX, event.clientY)
+      }
+    }
+
+    function onPointerUp(event: PointerEvent) {
+      if ('ontouchstart' in window) {
+        return
+      }
+
+      if (event.pointerType !== 'touch') {
+        return
+      }
+
+      if (joysticks.move.pointerId === event.pointerId || joysticks.look.pointerId === event.pointerId) {
+        event.preventDefault()
+        endTouch(event.pointerId)
+      }
+    }
+
+    function onTouchStart(event: TouchEvent) {
+      if (!runningRef.current || pausedRef.current || isInteractiveTarget(event.target)) {
+        return
+      }
+
+      event.preventDefault()
+
+      for (const touch of Array.from(event.changedTouches)) {
+        beginTouch(touch.identifier, touch.clientX, touch.clientY)
+      }
+    }
+
+    function onTouchMove(event: TouchEvent) {
+      event.preventDefault()
+
+      for (const touch of Array.from(event.changedTouches)) {
+        moveTouch(touch.identifier, touch.clientX, touch.clientY)
+      }
+    }
+
+    function onTouchEnd(event: TouchEvent) {
+      event.preventDefault()
+
+      for (const touch of Array.from(event.changedTouches)) {
+        endTouch(touch.identifier)
+      }
+    }
+
     window.addEventListener('pointerdown', onPointerDown, { passive: false })
     window.addEventListener('pointermove', onPointerMove, { passive: false })
     window.addEventListener('pointerup', onPointerUp, { passive: false })
     window.addEventListener('pointercancel', onPointerUp, { passive: false })
+    window.addEventListener('touchstart', onTouchStart, { passive: false })
+    window.addEventListener('touchmove', onTouchMove, { passive: false })
+    window.addEventListener('touchend', onTouchEnd, { passive: false })
+    window.addEventListener('touchcancel', onTouchEnd, { passive: false })
 
     return () => {
       window.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
       window.removeEventListener('pointercancel', onPointerUp)
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchEnd)
+      window.removeEventListener('touchcancel', onTouchEnd)
       resetTouchControls(joysticks, keys)
       touchLookVectorRef.current = { x: 0, y: 0 }
     }
@@ -1316,10 +1377,10 @@ function JoystickVisual({
       <div
         className={`touch-stick touch-stick-${className}`}
         style={{
-          left: joystick.originX - joystickRadius,
-          top: joystick.originY - joystickRadius,
-          width: joystickRadius * 2,
-          height: joystickRadius * 2
+          left: `${joystick.originX - joystickRadius}px`,
+          top: `${joystick.originY - joystickRadius}px`,
+          width: `${joystickRadius * 2}px`,
+          height: `${joystickRadius * 2}px`
         }}
       >
         <span>{label}</span>
@@ -1327,8 +1388,8 @@ function JoystickVisual({
       <div
         className={`touch-knob touch-knob-${className}`}
         style={{
-          left: knobX - 24,
-          top: knobY - 24
+          left: `${knobX - 24}px`,
+          top: `${knobY - 24}px`
         }}
       />
     </>
