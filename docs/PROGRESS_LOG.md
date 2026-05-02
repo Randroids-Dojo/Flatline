@@ -4,7 +4,7 @@ Newest entries go first.
 
 ## 2026-05-02: Slice: Weapon pacing and projectile feedback
 
-- Status: In progress
+- Status: Complete
 - Branch: `feat/weapon-pacing-feedback`
 - Dot: `Flatline-implement-weapon-pacing-1fec3409`
 - GDD sections: 6, 10, 20.1, 29.3
@@ -23,9 +23,11 @@ Newest entries go first.
   - `git diff --check` passed.
   - Banned character scans for U+2014 and U+2013 returned no matches.
 - Review:
-  - Pending.
+  - PR #41 merged to `main` after CodeQL, Vercel, and Vercel Preview Comments passed.
+  - Review thread query found no unresolved threads.
 - Deploy:
-  - Pending.
+  - Production Vercel deployment for merge commit `cf787b0` passed.
+  - Live smoke passed on `https://flatline-gamma.vercel.app/`: root returned 200.
 - GDD edits:
   - None.
 - Followups:
