@@ -2,6 +2,34 @@
 
 Newest entries go first.
 
+## 2026-05-02: Slice: In-run combo and damage feedback
+
+- Status: In progress
+- Branch: `feat/combo-damage-feedback`
+- Dot: `Flatline-implement-in-run-b732cdf3`
+- GDD sections: 14, 15, 16, 20.1
+- Done:
+  - Added an in-run Combo HUD pill so players can see active score-chasing state.
+  - Wired quick-kill combo updates into the visible run HUD.
+  - Added a short screen damage flash when hazards or enemies damage the player.
+  - Extended browser smoke coverage for visible combo feedback during a run.
+- Verification:
+  - `npm run test -- scoring` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test:e2e` passed with 6 browser smoke checks.
+  - `npm run verify` passed with 14 test files, 54 unit tests, production build, and 6 browser smoke checks.
+- Review:
+  - Pending.
+- Deploy:
+  - Pending.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-05-01: Slice: Room hazard visual polish
 
 - Status: Complete
