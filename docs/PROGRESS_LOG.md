@@ -2,6 +2,38 @@
 
 Newest entries go first.
 
+## 2026-05-02: Slice: Mobile touch controls and viewport fit
+
+- Status: In progress
+- Branch: `feat/mobile-touch-controls`
+- Dot: `Flatline-implement-mobile-touch-e62c6a90`
+- GDD sections: 3.1, 6, 20.1, 29.3
+- Done:
+  - Ported the VibeRacer-style float-where-you-tap joystick pattern for mobile.
+  - Added left-side touch movement and right-side touch look, with right-side tap-to-fire preserved.
+  - Locked the game shell to the visual viewport with `100dvh`, disabled browser pan/scroll stealing during runs, and added mobile viewport metadata.
+  - Tightened the mobile HUD and weapon/status layout so the run view fits phone viewports.
+  - Added deterministic virtual joystick tests and mobile browser smoke coverage for touch controls, viewport fit, and scroll prevention.
+  - Updated GDD coverage for mobile movement and look controls.
+- Verification:
+  - `npm run test -- virtualJoystick` passed.
+  - `npm run lint` passed.
+  - `npm run typecheck` passed.
+  - `npm run test:e2e -- --project=mobile-chromium` passed with 4 mobile browser checks.
+  - `npm run verify` passed with 15 test files, 59 unit tests, production build, 7 browser smoke checks, and 1 desktop skip for the mobile-only touch smoke.
+  - `git diff --check` passed.
+  - Banned character scans for U+2014 and U+2013 returned no matches.
+- Review:
+  - Pending.
+- Deploy:
+  - Pending.
+- GDD edits:
+  - None.
+- Followups:
+  - None.
+- Open questions:
+  - None.
+
 ## 2026-05-02: Slice: Weapon pacing and projectile feedback
 
 - Status: Complete
