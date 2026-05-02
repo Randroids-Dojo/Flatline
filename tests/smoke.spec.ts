@@ -27,6 +27,7 @@ test('starts a walk and shoot run', async ({ page }, testInfo) => {
 
   await expect(page.getByTestId('hud')).toBeVisible()
   await expect(page.getByTestId('crosshair')).toBeVisible()
+  await expect(page.getByTestId('combo-pill')).toContainText('0')
   await expect(page.getByTestId('weapon-sprite')).toHaveClass(/weapon-peashooter/)
   await expect(page.getByTestId('billboard-debug')).toContainText('front')
   await expect(page.getByTestId('status-line')).toContainText('WASD')
@@ -39,6 +40,7 @@ test('starts a walk and shoot run', async ({ page }, testInfo) => {
   await page.mouse.click(960, 540)
   await expect(page.getByTestId('weapon-sprite')).toHaveClass(/weapon-firing/)
   await expect(page.getByTestId('status-line')).toContainText('Boomstick')
+  await expect(page.getByTestId('combo-pill')).toContainText('1')
   await page.keyboard.press('Digit3')
   await expect(page.getByTestId('hud').getByText('Inkblaster')).toBeVisible()
   await expect(page.getByTestId('weapon-sprite')).toHaveClass(/weapon-inkblaster/)

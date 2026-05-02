@@ -80,6 +80,10 @@ button {
   text-transform: none;
 }
 
+.combo-pill strong {
+  color: #ffb04f;
+}
+
 .debug-pill {
   min-width: 126px;
 }
@@ -115,6 +119,27 @@ button {
   top: 11px;
   width: 20px;
   height: 2px;
+}
+
+.damage-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border: 12px solid rgba(240, 90, 79, 0);
+  animation: damage-flash 420ms ease-out;
+}
+
+@keyframes damage-flash {
+  0% {
+    border-color: rgba(240, 90, 79, 0.72);
+    background: rgba(240, 90, 79, 0.16);
+  }
+
+  100% {
+    border-color: rgba(240, 90, 79, 0);
+    background: rgba(240, 90, 79, 0);
+  }
 }
 
 .weapon {

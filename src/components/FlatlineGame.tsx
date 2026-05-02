@@ -148,7 +148,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [enemyType, setEnemyType] = useState<EnemyModel['type']>('grunt')
   const [score, setScore] = useState(0)
   const [kills, setKills] = useState(0)
+  const [combo, setCombo] = useState(0)
   const [runMs, setRunMs] = useState(0)
+  const [damagePulse, setDamagePulse] = useState(0)
   const [healthPickupReady, setHealthPickupReady] = useState(true)
   const [selectedWeapon, setSelectedWeapon] = useState<WeaponId>('peashooter')
   const [weaponAmmo, setWeaponAmmo] = useState<WeaponAmmoState>(() => createWeaponAmmo())
@@ -195,6 +197,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs)
         setScore(scoreRef.current.score)
         setKills(scoreRef.current.kills)
+        setCombo(scoreRef.current.combo)
         playCue(90, settingsRef.current.audio)
       } else {
         playCue(320, settingsRef.current.audio)
@@ -313,6 +316,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setEnemyType(enemyRef.current.type)
     setScore(0)
     setKills(0)
+    setCombo(0)
     setRunMs(0)
     setHealthPickupReady(true)
     setSelectedWeapon(startingWeapon)
@@ -634,6 +638,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               playerHealthRef.current = Math.max(0, playerHealthRef.current - hazardDamage)
               hazardDamageCooldownRef.current = 900
               setPlayerHealth(playerHealthRef.current)
+              setDamagePulse((value) => value + 1)
               setStatus(`Hazard hit for ${hazardDamage}.`)
               playCue(70, settingsRef.current.audio)
             }
@@ -692,6 +697,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           if (practiceSettingsRef.current.damageEnabled && result.player.health !== playerHealthRef.current) {
             playerHealthRef.current = result.player.health
             setPlayerHealth(result.player.health)
+            setDamagePulse((value) => value + 1)
           }
 
           for (const event of result.events) {
@@ -751,6 +757,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       tickShotBolts(runtime, shotBolts, delta * 1000)
       const enemy = enemyRef.current
       const animation = animationForEnemyState(enemy.state)
+      const activeCombo = directorRef.current.runMs <= scoreRef.current.comboExpiresAtMs ? scoreRef.current.combo : 0
+
+      setCombo((current) => current === activeCombo ? current : activeCombo)
 
       if (enemy.state !== 'hurt') {
         runtime.enemyMaterial.color.set(enemyConfigs[enemy.type].tint)
@@ -953,6 +962,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             Score
             <strong>{score}</strong>
           </div>
+          <div className="hud-pill combo-pill" data-testid="combo-pill">
+            Combo
+            <strong>{combo}</strong>
+          </div>
           <div className="hud-pill">
             Kills
             <strong>{kills}</strong>
@@ -1063,6 +1076,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         </section>
       ) : null}
       <div className="crosshair" data-testid="crosshair" />
+      <div key={damagePulse} className="damage-flash" data-testid="damage-flash" aria-hidden="true" />
       <div className={`weapon weapon-${selectedWeapon}${weaponFiring ? ' weapon-firing' : ''}`} data-testid="weapon-sprite" aria-hidden="true" />
       <div className="status-line" data-testid="status-line">
         {status}
