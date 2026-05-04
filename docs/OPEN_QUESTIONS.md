@@ -7,7 +7,7 @@ Questions here block or influence implementation.
 ## How to add a new question
 
 ```
-## Q-NNN: Short title
+### Q-NNN: Short title
 
 - Context: one or two sentences on why this is a decision point.
 - Options:
@@ -18,6 +18,8 @@ Questions here block or influence implementation.
 - Status: open
 - Resolution: (filled in once dev confirms or overrides)
 ```
+
+Use `###` (h3) for question entries so they nest under the `## Open` and `## Resolved` section headers.
 
 Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the entry in place and update `Status: resolved` plus the `Resolution:` line. Never delete.
 

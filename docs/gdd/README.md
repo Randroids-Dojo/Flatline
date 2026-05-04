@@ -11,7 +11,7 @@ The pre-split monolith is preserved at `docs/_archive/2026-05-03-pre-spiral/GDD.
 - Each `docs/gdd/<NN>-<title>.md` file is one requirement or one tightly-scoped section.
 - Each file starts with a `**Status:**` line: `not_started` | `partial` | `done`.
 - Once a file's work ships, append a `### Build log` section with what landed, the key files, and any non-obvious decisions. Build logs grow with the code.
-- Keep file names short and stable. The file path is referenced from `GDD_COVERAGE.json`.
+- Keep file names short and stable. The file path is referenced from `docs/GDD_COVERAGE.json`.
 
 ## Conventions
 

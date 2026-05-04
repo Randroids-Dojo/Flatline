@@ -10,7 +10,7 @@ Backlog spillover discovered during implementation. Keep items PR-sized when pos
 ## How to add a followup
 
 ```
-## F-NNN: Short title
+### F-NNN: Short title
 
 - Priority: blocks-release | nice-to-have | polish
 - Context: one or two sentences on why this came up.
@@ -19,7 +19,9 @@ Backlog spillover discovered during implementation. Keep items PR-sized when pos
 - PR / Dot reference (when picked up): #N or dots-N
 ```
 
-Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entry in place and append a `- Resolved: PR #N` line. Never delete.
+Use `###` (h3) for entries so they nest under the priority section headers (`## Blocks Release`, `## Nice To Have`, `## Polish`, `## Resolved`).
+
+`F-NNN` IDs are monotonically increasing across the lifetime of the project. The first three IDs (F-001, F-002, F-003) are carried forward from the pre-spiral ledger so cross-referencing pre-spiral work and history stays unambiguous. When a followup ships, leave the entry in place, set `Status: done`, and append a `- Resolved: PR #N` line. Never delete.
 
 ## Blocks Release
 
@@ -35,12 +37,29 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 
 ## Resolved
 
-### F-001: Split GDD into requirement-granular section files
+### F-001: Add package scaffold and standard verification scripts
 
 - Priority: blocks-release
-- Context: monolithic `GDD.md` flagged by `/spiral audit` as the chapter-granular coverage anti-pattern. Each requirement needs its own file so the coverage ledger can carry one row per requirement and the loop can find atomic gaps.
-- Blocker: none.
-- Unblock condition: re-init scaffold complete.
-- Resolved: 2026-05-03 spiral re-init slice. `GDD.md` archived to `docs/_archive/2026-05-03-pre-spiral/GDD.md`. Sections live as files under `docs/gdd/`.
+- Created: 2026-04-30
+- Source: implementation loop setup.
+- Description: add the Next.js, React, Three.js, TypeScript, Vitest, and Playwright project scaffold with `lint`, `typecheck`, `test`, `test:e2e`, `build`, and `verify` scripts.
+- Status: done
+- Resolved: pre-spiral, completed in `feat/slice-1-walk-shoot` with standard npm scripts and local verification.
 
-Pre-spiral followups (`F-001: Add package scaffold`, `F-002: Add deployed build smoke`, `F-003: Split GDD`) are preserved in `docs/_archive/2026-05-03-pre-spiral/FOLLOWUPS.md`. New IDs are monotonic from this re-init.
+### F-002: Add deployed build smoke once hosting exists
+
+- Priority: nice-to-have
+- Created: 2026-04-30
+- Source: working agreement.
+- Description: once the repo has a deploy target, add deploy verification steps and production smoke checks to the loop.
+- Status: done
+- Resolved: pre-spiral, completed in `docs/continuous-loop-coverage` by adding deploy smoke to the loop contract and progress log evidence.
+
+### F-003: Split GDD into requirement-granular section files
+
+- Priority: blocks-release
+- Created: 2026-04-30
+- Source: documentation setup; flagged by `/spiral audit` as the chapter-granular coverage anti-pattern.
+- Description: monolithic `GDD.md` carried only chapter-granular coverage rows (the namesake Flatline failure mode). Each requirement needs its own file under `docs/gdd/` so the coverage ledger can carry one row per requirement and the loop can find atomic gaps.
+- Status: done
+- Resolved: 2026-05-03 spiral re-init slice (PR #47). `GDD.md` archived to `docs/_archive/2026-05-03-pre-spiral/GDD.md`. Sections now live as files under `docs/gdd/`.

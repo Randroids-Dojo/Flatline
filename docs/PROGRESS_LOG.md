@@ -1,6 +1,6 @@
 # Progress Log
 
-Newest entries first. Every implementation slice adds an entry. Append-only: never delete, never reorder, never edit a previous entry.
+Newest entries first. Every implementation slice adds an entry at the top of the list. Once committed, do not edit, reorder, or delete a previous entry; corrections go in a new entry that supersedes the old one.
 
 Format for each slice:
 
@@ -25,4 +25,4 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 - Verification: em-dash and en-dash grep returned nothing (`grep -rnP '[\x{2014}\x{2013}]'`); the spiral audit script printed 0 findings on its final run.
 - Assumptions: requirement rows whose archived coverage said `implemented` were carried forward as `done` only when an implementation file path still exists; ambiguous rows downgraded to `partial`. Polish-area requirements without code refs marked `not_started`.
 - GDD coverage: ledger fully rewritten at requirement granularity. Every `docs/gdd/*.md` file has a `Status:` line.
-- Followups: F-001 (split GDD) created and resolved by this slice.
+- Followups: F-003 (split GDD into requirement-granular section files) resolved by this slice. F-NNN numbering is carried forward from the pre-spiral ledger so F-001 (package scaffold) and F-002 (deploy smoke) keep their original IDs in `docs/FOLLOWUPS.md`.

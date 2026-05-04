@@ -2,7 +2,7 @@
 
 **Status:** done
 
-1. Player opens `/` or `/arena/[slug]`.
+1. Player opens `/`, `/arena/daily`, or `/arena/practice`.
 2. Title screen appears.
 3. Player starts a run.
 4. Countdown: 3, 2, 1.

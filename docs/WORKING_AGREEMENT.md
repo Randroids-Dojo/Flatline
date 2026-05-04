@@ -5,7 +5,7 @@ This file defines the process rules for implementation slices on Flatline.
 ## Branches
 
 - Start every slice from current `main`.
-- Branch names should be short and descriptive: `feature/manual-shifting`, `fix/leaderboard-pagination`, `docs/update-coverage`.
+- Branch names should be short and descriptive with a type prefix from `feat/`, `fix/`, `chore/`, or `docs/`. Examples: `feat/manual-shifting`, `fix/leaderboard-pagination`, `chore/spiral-re-init`, `docs/update-coverage`.
 - Never push directly to `main`.
 - Do not mix unrelated changes in one branch.
 
