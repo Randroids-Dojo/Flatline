@@ -2,7 +2,7 @@
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Rows whose status is partial or done should carry implementationRefs. testRefs are required when there is executable behavior to test (e.g. game logic, routes); they may be empty for doc-only requirements (risk registers, scope fences, design intent files). followupRefs link to F-NNN entries in docs/FOLLOWUPS.md.",
   "updatedAt": "2026-05-04",
-  "_comment_3": "REQ-056 build log notes per-shot impact-ring feedback shipped on 2026-05-03 in feat/shot-impact-burst. REQ-039 build log notes the HUD damage-direction indicator shipped on 2026-05-03 in feat/damage-direction-indicator. REQ-045 / REQ-056 / REQ-026 build logs note the foreground muzzle flash overlay shipped on 2026-05-03 in feat/muzzle-flash-overlay. REQ-056 / REQ-026 build logs note the weapon recoil sprite kick shipped on 2026-05-03 in feat/weapon-recoil-kick. REQ-046 / REQ-056 build logs note the enemy hurt flash on damage shipped on 2026-05-03 in feat/enemy-hurt-flash. REQ-036 build log notes pickup bounce + glow pulse + halo ring shipped on 2026-05-03 in feat/pickup-readability-bounce. REQ-040 build log notes distinct per-enemy-type windup audio cues shipped on 2026-05-04 in feat/enemy-windup-audio-cues. REQ-040 / REQ-056 build logs note the player damage audio sting shipped on 2026-05-04 in feat/player-damage-audio-sting. REQ-040 build log notes the hazard countdown click shipped on 2026-05-04 in feat/hazard-countdown-click. REQ-061 build log notes the close-range / weapon-variety / no-damage-streak / accuracy scoring bonuses shipped on 2026-05-04 in feat/scoring-v2-bonuses.",
+  "_comment_3": "REQ-056 build log notes per-shot impact-ring feedback shipped on 2026-05-03 in feat/shot-impact-burst. REQ-039 build log notes the HUD damage-direction indicator shipped on 2026-05-03 in feat/damage-direction-indicator. REQ-045 / REQ-056 / REQ-026 build logs note the foreground muzzle flash overlay shipped on 2026-05-03 in feat/muzzle-flash-overlay. REQ-056 / REQ-026 build logs note the weapon recoil sprite kick shipped on 2026-05-03 in feat/weapon-recoil-kick. REQ-046 / REQ-056 build logs note the enemy hurt flash on damage shipped on 2026-05-03 in feat/enemy-hurt-flash. REQ-036 build log notes pickup bounce + glow pulse + halo ring shipped on 2026-05-03 in feat/pickup-readability-bounce. REQ-040 build log notes distinct per-enemy-type windup audio cues shipped on 2026-05-04 in feat/enemy-windup-audio-cues. REQ-040 / REQ-056 build logs note the player damage audio sting shipped on 2026-05-04 in feat/player-damage-audio-sting. REQ-040 build log notes the hazard countdown click shipped on 2026-05-04 in feat/hazard-countdown-click. REQ-061 build log notes the close-range / weapon-variety / no-damage-streak / accuracy scoring bonuses shipped on 2026-05-04 in feat/scoring-v2-bonuses. REQ-020 build log notes the south curtain and west pipe organ landmarks shipped on 2026-05-04 in feat/arena-landmarks-curtain-organ.",
   "rows": [
     {
       "id": "REQ-001",
@@ -180,8 +180,8 @@
       "requirement": "Arena landmarks: distinct visual feature per cardinal wall (clock, furnace, curtain, organ).",
       "gddRef": "docs/gdd/20-arena-landmarks.md",
       "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx"],
-      "testRefs": [],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/arenaLandmarks.ts"],
+      "testRefs": ["src/game/arenaLandmarks.test.ts"],
       "followupRefs": []
     },
     {
