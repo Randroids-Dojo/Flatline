@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-03, Damage-direction indicator
+
+- Branch: `feat/damage-direction-indicator`
+- PR: #TBD
+- Changed: when an enemy melee hit lands on the player, a brief red arc now appears at the screen edge in the direction of the attacker so the player can tell which side of them got hit without reading the status line. New pure helper `damageDirectionRadians(playerYaw, sourcePosition, playerPosition)` lives in `src/game/damageDirection.ts` and computes the relative angle in the xz plane (0 = front, +PI/2 = right, +-PI = behind, -PI/2 = left) using the same yaw convention as `forwardFromYawPitch`. `src/components/FlatlineGame.tsx` reads the helper inside the `enemyAttackHit` event branch, stores `{ key, angleRadians }` in a new `damageIndicator` state, and renders a CSS conic-gradient ring under the new `.damage-indicator` rule in `app/globals.css`. The element is keyed by timestamp so each new hit retriggers a 720 ms fade-out animation. Indicator state clears on run start.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (16 files / 66 tests pass, 7 new in `src/game/damageDirection.test.ts`), `npm run build` (success), `npm run test:e2e` (7 passed, 1 skipped).
+- Assumptions: Recommended default angle convention matches the project yaw convention (yaw 0 forward = -z, yaw PI forward = +z). Recommended default arc width is 90 degrees centered on the source bearing, with peak opacity 0.82 and a 720 ms ease-out fade. Hazard damage retains the existing fullscreen flash but does not yet emit a directional indicator since the player is inside the hazard; that is left to a later slice if review demands it.
+- GDD coverage: REQ-039 (HUD damage-direction indicator) gains a new build-log entry. The row remains `partial` because the cartoon-title-card visual treatment for HUD pills is still unaudited, but the explicit "damage direction indicator" line of the required HUD list is now satisfied.
+- Followups: none new.
+
 ## 2026-05-03, Per-shot impact burst
 
 - Branch: `feat/shot-impact-burst`
