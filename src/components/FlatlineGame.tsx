@@ -84,6 +84,16 @@ type ShotBolt = {
   direction: THREE.Vector3
   remainingDistance: number
   ttlMs: number
+  hit: boolean
+  impactSpawned: boolean
+}
+
+type ShotImpact = {
+  mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
+  ageMs: number
+  durationMs: number
+  startScale: number
+  endScale: number
 }
 
 type InkProjectile = {
@@ -139,6 +149,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const runtimeRef = useRef<RuntimeRefs | null>(null)
   const animationRef = useRef<number | null>(null)
   const shotBoltsRef = useRef<ShotBolt[]>([])
+  const shotImpactsRef = useRef<ShotImpact[]>([])
   const inkProjectilesRef = useRef<InkProjectile[]>([])
   const lastTimeRef = useRef<number>(0)
   const positionRef = useRef<Vec3>({ ...initialPlayerPosition })
@@ -350,6 +361,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     touchLookVectorRef.current = { x: 0, y: 0 }
     doorSignalTimersRef.current = {}
     clearShotBolts(runtimeRef.current, shotBoltsRef.current)
+    clearShotImpacts(runtimeRef.current, shotImpactsRef.current)
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
     runningRef.current = true
     pausedRef.current = false
@@ -522,6 +534,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
 
     const shotBolts = shotBoltsRef.current
+    const shotImpacts = shotImpactsRef.current
     const inkProjectiles = inkProjectilesRef.current
     const scene = new THREE.Scene()
     scene.background = new THREE.Color('#101010')
@@ -824,7 +837,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       runtime.muzzleLight.position.copy(runtime.camera.position)
       runtime.muzzleLight.intensity = Math.max(0, runtime.muzzleLight.intensity - delta * 22)
       applyDoorSignals(runtime, doorSignalTimersRef.current, delta * 1000)
-      tickShotBolts(runtime, shotBolts, delta * 1000)
+      tickShotBolts(runtime, shotBolts, shotImpacts, delta * 1000)
+      tickShotImpacts(runtime, shotImpacts, delta * 1000)
       const enemy = enemyRef.current
       const animation = animationForEnemyState(enemy.state)
       const activeCombo = directorRef.current.runMs <= scoreRef.current.comboExpiresAtMs ? scoreRef.current.combo : 0
@@ -875,6 +889,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       }
 
       clearShotBolts(runtimeRef.current, shotBolts)
+      clearShotImpacts(runtimeRef.current, shotImpacts)
       clearInkProjectiles(runtimeRef.current, inkProjectiles)
       disposeEnemyAssets(enemyAssetsRef.current)
       enemyAssetsRef.current = {}
@@ -1639,15 +1654,22 @@ function spawnShotBolt(
   mesh.renderOrder = 4
   runtime.shotGroup.add(mesh)
   shotBoltsLimit(runtime, bolts)
+  const travelDistance = Math.max(0.35, distance - 0.55)
+  // Bolt step is deltaMs * 0.075, so travelDistance / 0.075 ms hits the impact point.
+  // Add a fade buffer so the visual ring opacity has time to drop after spawn.
+  const travelMs = travelDistance / 0.075
+  const fadeBufferMs = hit ? 120 : 180
   bolts.push({
     mesh,
     direction: travelDirection,
-    remainingDistance: Math.max(0.35, distance - 0.55),
-    ttlMs: hit ? 120 : 180
+    remainingDistance: travelDistance,
+    ttlMs: travelMs + fadeBufferMs,
+    hit,
+    impactSpawned: false
   })
 }
 
-function tickShotBolts(runtime: RuntimeRefs, bolts: ShotBolt[], deltaMs: number) {
+function tickShotBolts(runtime: RuntimeRefs, bolts: ShotBolt[], impacts: ShotImpact[], deltaMs: number) {
   for (let index = bolts.length - 1; index >= 0; index -= 1) {
     const bolt = bolts[index]
     const step = Math.min(bolt.remainingDistance, deltaMs * 0.075)
@@ -1656,12 +1678,97 @@ function tickShotBolts(runtime: RuntimeRefs, bolts: ShotBolt[], deltaMs: number)
     bolt.ttlMs -= deltaMs
     bolt.mesh.material.opacity = Math.max(0, Math.min(0.92, bolt.ttlMs / 120))
 
+    if (bolt.remainingDistance <= 0 && !bolt.impactSpawned) {
+      bolt.impactSpawned = true
+      spawnShotImpact(runtime, impacts, bolt.mesh.position, bolt.direction, bolt.hit)
+    }
+
     if (bolt.remainingDistance <= 0 || bolt.ttlMs <= 0) {
       runtime.shotGroup.remove(bolt.mesh)
       bolt.mesh.geometry.dispose()
       bolt.mesh.material.dispose()
       bolts.splice(index, 1)
     }
+  }
+}
+
+function spawnShotImpact(
+  runtime: RuntimeRefs,
+  impacts: ShotImpact[],
+  position: THREE.Vector3,
+  direction: THREE.Vector3,
+  hit: boolean
+) {
+  const innerRadius = hit ? 0.04 : 0.03
+  const outerRadius = hit ? 0.16 : 0.1
+  const mesh = new THREE.Mesh(
+    new THREE.RingGeometry(innerRadius, outerRadius, 18),
+    new THREE.MeshBasicMaterial({
+      color: hit ? '#ff6f63' : '#7be0d2',
+      transparent: true,
+      opacity: hit ? 0.95 : 0.7,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    })
+  )
+  mesh.position.copy(position)
+  const lookTarget = new THREE.Vector3().copy(position).addScaledVector(direction, -1)
+  mesh.lookAt(lookTarget)
+  mesh.renderOrder = 5
+  runtime.shotGroup.add(mesh)
+  shotImpactsLimit(runtime, impacts)
+  impacts.push({
+    mesh,
+    ageMs: 0,
+    durationMs: hit ? 220 : 160,
+    startScale: hit ? 0.6 : 0.5,
+    endScale: hit ? 2.4 : 1.6
+  })
+}
+
+function tickShotImpacts(runtime: RuntimeRefs, impacts: ShotImpact[], deltaMs: number) {
+  for (let index = impacts.length - 1; index >= 0; index -= 1) {
+    const impact = impacts[index]
+    impact.ageMs += deltaMs
+    const t = Math.min(1, impact.ageMs / impact.durationMs)
+    const scale = impact.startScale + (impact.endScale - impact.startScale) * t
+    impact.mesh.scale.setScalar(scale)
+    impact.mesh.material.opacity = Math.max(0, impact.mesh.material.opacity * (1 - t * 0.18) - deltaMs * 0.0015)
+
+    if (impact.ageMs >= impact.durationMs) {
+      runtime.shotGroup.remove(impact.mesh)
+      impact.mesh.geometry.dispose()
+      impact.mesh.material.dispose()
+      impacts.splice(index, 1)
+    }
+  }
+}
+
+function shotImpactsLimit(runtime: RuntimeRefs, impacts: ShotImpact[]) {
+  while (impacts.length >= 12) {
+    const impact = impacts.shift()
+
+    if (!impact) {
+      return
+    }
+
+    runtime.shotGroup.remove(impact.mesh)
+    impact.mesh.geometry.dispose()
+    impact.mesh.material.dispose()
+  }
+}
+
+function clearShotImpacts(runtime: RuntimeRefs | null, impacts: ShotImpact[]) {
+  while (impacts.length > 0) {
+    const impact = impacts.pop()
+
+    if (!impact) {
+      return
+    }
+
+    runtime?.shotGroup.remove(impact.mesh)
+    impact.mesh.geometry.dispose()
+    impact.mesh.material.dispose()
   }
 }
 

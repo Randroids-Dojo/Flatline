@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-03, Per-shot impact burst
+
+- Branch: `feat/shot-impact-burst`
+- PR: #TBD
+- Changed: hitscan bolts now spawn a brief expanding ring at the bolt's terminal point so every shot lands a readable impact mark in world space. Hit impacts are red and slightly larger; misses are teal and quicker. Adds `ShotImpact` type, `shotImpactsRef`, and `spawnShotImpact` / `tickShotImpacts` / `clearShotImpacts` / `shotImpactsLimit` helpers in `src/components/FlatlineGame.tsx`. Wires impact spawn into `tickShotBolts` so the burst fires when a bolt arrives at its target distance, before the bolt mesh is recycled. Capped at 12 concurrent rings; cleared on run reset and component unmount alongside the existing bolts and ink projectiles.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (15 files / 59 tests pass), `npm run build` (success), `npm run test:e2e` (7 passed, 1 skipped).
+- Assumptions: Recommended default for impact appearance is a billboarded ring oriented to face the camera-side of the impact (using `lookAt(position - direction)`). Ring sizes / lifetimes (hit 220 ms, miss 160 ms) are first-pass values that can be tuned without API changes.
+- GDD coverage: REQ-045 and REQ-056 gain new build-log entries in their `docs/gdd/` files. REQ-056 stays `partial` since other feel-pass items (movement around pillars, enemy damage range readability) remain unaudited.
+- Followups: none new.
+
 ## 2026-05-03, Spiral Re-Init
 
 - Branch: `chore/spiral-re-init`
