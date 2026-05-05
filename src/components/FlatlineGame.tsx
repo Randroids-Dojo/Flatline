@@ -1246,18 +1246,37 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       }
     }
 
+    function releaseAllTouches() {
+      const wasActive = joysticks.move.active || joysticks.look.active
+      resetTouchControls(joysticks, keys)
+      touchLookVectorRef.current = { x: 0, y: 0 }
+
+      if (wasActive) {
+        rerenderTouchControls()
+      }
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        releaseAllTouches()
+      }
+    }
+
     window.addEventListener('pointerdown', onPointerDown, { passive: false })
     window.addEventListener('pointermove', onPointerMove, { passive: false })
     window.addEventListener('pointerup', onPointerUp)
     window.addEventListener('pointercancel', onPointerUp)
+    window.addEventListener('blur', releaseAllTouches)
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       window.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
       window.removeEventListener('pointercancel', onPointerUp)
-      resetTouchControls(joysticks, keys)
-      touchLookVectorRef.current = { x: 0, y: 0 }
+      window.removeEventListener('blur', releaseAllTouches)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      releaseAllTouches()
     }
   }, [fire])
 
@@ -1510,8 +1529,6 @@ function TouchControls({ joysticks }: { joysticks: TouchJoysticks }) {
     <div className="touch-controls" data-testid="touch-controls" aria-hidden="true">
       <JoystickVisual joystick={joysticks.move} label="Move" className="move" />
       <JoystickVisual joystick={joysticks.look} label="Aim" className="look" />
-      <div className="touch-zone-label touch-zone-label-left">Move</div>
-      <div className="touch-zone-label touch-zone-label-right">Aim / Fire</div>
     </div>
   )
 }

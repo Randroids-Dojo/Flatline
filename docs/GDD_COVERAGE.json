@@ -90,7 +90,7 @@
       "requirement": "Movement: WASD + mouse aim, fast acceleration, low friction; mobile virtual joystick + look pad.",
       "gddRef": "docs/gdd/10-movement.md",
       "status": "done",
-      "implementationRefs": ["src/game/movement.ts", "src/game/virtualJoystick.ts", "src/components/FlatlineGame.tsx"],
+      "implementationRefs": ["src/game/movement.ts", "src/game/virtualJoystick.ts", "src/components/FlatlineGame.tsx", "app/globals.css"],
       "testRefs": ["src/game/movement.test.ts", "src/game/virtualJoystick.test.ts", "tests/smoke.spec.ts"],
       "followupRefs": []
     },

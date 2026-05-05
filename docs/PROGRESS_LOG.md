@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-05, Mobile thumbsticks render only on touch and clear on tab hide
+
+- Branch: `fix/mobile-thumbsticks`
+- PR: #TBD
+- Changed: removed the always-on `.touch-zone-label-left` ("Move") and `.touch-zone-label-right` ("Aim / Fire") pills from `TouchControls` in `src/components/FlatlineGame.tsx` and dropped the matching `.touch-zone-label*` rules from `app/globals.css`, so the touch overlay renders nothing before the player puts a finger down. Added a `releaseAllTouches` helper inside the touch-effect plus `window.blur` and `document.visibilitychange` listeners that call it, and changed the effect cleanup to call the same helper rather than only mutating the joystick refs. The helper resets both joysticks via `resetTouchControls`, zeroes `touchLookVectorRef`, and (when at least one stick was active) calls `rerenderTouchControls` so React state matches the cleared refs. This addresses a real-device report where stuck thumbstick visuals lingered at the screen origin and near screen center on iPhone Safari, presumably from `pointercancel` events stolen by the OS gesture system.
+- Verification: TBD (will run dash check, `git diff --check`, typecheck, vitest, build, playwright).
+- Assumptions: Recommended default is to remove the always-on touch zone labels entirely, on the strength of the user's "should not render until touched" requirement. The alternative (only hide the labels until the first touch, then keep them visible) adds state with no clear payoff once the player has discovered the dual-stick model. Recommended default for the cleanup helper is to fire `rerenderTouchControls` only when at least one stick was active, so a benign visibilitychange does not trigger a no-op state update.
+- GDD coverage: REQ-010 (movement) gains a build-log entry naming `src/components/FlatlineGame.tsx`, `app/globals.css`, and `tests/smoke.spec.ts`; status stays `done`.
+- Followups: none new.
+
 ## 2026-05-04, Door state machine v1 (opening / open / cooling phases + spawn audio cue)
 
 - Branch: `feat/door-state-machine`

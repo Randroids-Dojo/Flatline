@@ -168,6 +168,40 @@ test('mobile touch controls fit the viewport and block page scroll', async ({ pa
   }).toBe(true)
 })
 
+test('mobile thumbsticks stay hidden until touched and clear on tab hide', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'mobile-only behavior')
+
+  await page.route('**/api/leaderboard**', async (route) => {
+    await route.fulfill({ status: 200, json: { scope: 'all', date: null, entries: [], unavailable: true } })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Start run' }).tap()
+  await expect(page.getByTestId('hud')).toBeVisible()
+  await expect(page.getByTestId('touch-controls')).toBeVisible()
+
+  await expect(page.locator('.touch-stick')).toHaveCount(0)
+  await expect(page.locator('.touch-zone-label')).toHaveCount(0)
+
+  const viewport = page.viewportSize()
+
+  if (!viewport) {
+    throw new Error('missing viewport')
+  }
+
+  await dispatchTouch(page, 'pointerdown', 70, Math.round(viewport.width * 0.25), Math.round(viewport.height * 0.7))
+  await dispatchTouch(page, 'pointerdown', 71, Math.round(viewport.width * 0.75), Math.round(viewport.height * 0.7))
+  await expect(page.locator('.touch-stick-move')).toBeVisible()
+  await expect(page.locator('.touch-stick-look')).toBeVisible()
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+
+  await expect(page.locator('.touch-stick')).toHaveCount(0)
+})
+
 test('mobile tap on Start run begins the run', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-chromium', 'real touch taps only run on the mobile project')
 

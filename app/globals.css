@@ -751,34 +751,6 @@ button {
   background: rgba(255, 176, 79, 0.86);
 }
 
-.touch-zone-label {
-  position: fixed;
-  bottom: max(18px, env(safe-area-inset-bottom));
-  z-index: 4;
-  padding: 6px 8px;
-  border: 1px solid rgba(244, 241, 232, 0.14);
-  border-radius: 6px;
-  background: rgba(10, 10, 10, 0.42);
-  color: rgba(244, 241, 232, 0.46);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.touch-zone-label-left {
-  left: max(12px, env(safe-area-inset-left));
-}
-
-.touch-zone-label-right {
-  right: max(12px, env(safe-area-inset-right));
-}
-
-@media (pointer: fine) {
-  .touch-zone-label {
-    display: none;
-  }
-}
-
 @media (max-width: 720px) {
   .hud {
     top: max(8px, env(safe-area-inset-top));
