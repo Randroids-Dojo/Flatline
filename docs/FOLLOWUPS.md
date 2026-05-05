@@ -39,6 +39,8 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Context: an earlier loop iteration started a pickup audio sting slice but exited mid-slice, leaving `src/game/pickupCue.ts` and `src/game/pickupCue.test.ts` untracked on disk. The helper module is self-consistent (exports `pickupCue` and `pickupCueTotalDurationMs`) and the tests pass on their own, but `FlatlineGame.tsx` was edited to call a `playPickupCue` function that was never written. The 2026-05-04 mobile-touch slice reverted the broken call site at `FlatlineGame.tsx` line 850 back to `playCue(520, settingsRef.current.audio)` so typecheck would pass.
 - Blocker: none.
 - Unblock condition: dev decides whether to revive the slice (write `playPickupCue` against the existing `PickupCueStyle` shape and re-wire the call site) or discard the orphan files via `git clean -fd src/game/pickupCue.*`.
+- Status: done
+- Resolved: 2026-05-04 pickup collection sparkle slice (PR #TBD). Slice revived: `playPickupCue` written in `src/components/FlatlineGame.tsx`, call site re-wired, `pickupCue.ts` and `pickupCue.test.ts` committed.
 
 ## Resolved
 

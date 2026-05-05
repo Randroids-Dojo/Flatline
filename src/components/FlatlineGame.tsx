@@ -31,6 +31,7 @@ import {
 } from '@/game/hudJitter'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
+import { pickupCue, type PickupCueStyle } from '@/game/pickupCue'
 import {
   pickupBounceY,
   pickupGlowIntensity,
@@ -846,7 +847,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             setWeaponAmmo(weaponAmmoRef.current)
             setHealthPickupReady(false)
             setStatus('Supplies collected.')
-            playCue(520, settingsRef.current.audio)
+            playPickupCue(pickupCue('supply'), settingsRef.current.audio)
           }
 
           const projectileHits = tickInkProjectiles(runtime, inkProjectiles, enemyRef.current, delta * 1000)
@@ -2608,6 +2609,46 @@ function playHazardCountdownCue(cue: HazardCountdownStyle, tick: HazardCountdown
   oscillator.start(startTime)
   oscillator.stop(stopTime)
   oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+function playPickupCue(cue: PickupCueStyle, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const startTime = context.currentTime
+  const firstStop = startTime + cue.firstDurationMs / 1000
+  const secondStart = firstStop
+  const secondStop = secondStart + cue.secondDurationMs / 1000
+
+  const firstOsc = context.createOscillator()
+  const firstGain = context.createGain()
+  firstOsc.type = cue.waveform
+  firstOsc.frequency.value = cue.firstFrequency
+  firstGain.gain.setValueAtTime(0, startTime)
+  firstGain.gain.linearRampToValueAtTime(cue.gain, startTime + Math.min(0.012, cue.firstDurationMs / 1000 / 5))
+  firstGain.gain.exponentialRampToValueAtTime(0.0001, firstStop)
+  firstOsc.connect(firstGain)
+  firstGain.connect(context.destination)
+  firstOsc.start(startTime)
+  firstOsc.stop(firstStop)
+
+  const secondOsc = context.createOscillator()
+  const secondGain = context.createGain()
+  secondOsc.type = cue.waveform
+  secondOsc.frequency.value = cue.secondFrequency
+  secondGain.gain.setValueAtTime(0, secondStart)
+  secondGain.gain.linearRampToValueAtTime(cue.gain, secondStart + Math.min(0.012, cue.secondDurationMs / 1000 / 5))
+  secondGain.gain.exponentialRampToValueAtTime(0.0001, secondStop)
+  secondOsc.connect(secondGain)
+  secondGain.connect(context.destination)
+  secondOsc.start(secondStart)
+  secondOsc.stop(secondStop)
+
+  secondOsc.addEventListener('ended', () => {
     context.close()
   })
 }
