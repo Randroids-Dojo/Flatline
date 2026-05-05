@@ -42,4 +42,5 @@ Examples:
 
 ### Build log
 
+- 2026-05-04: Distinct per-enemy-type windup audio cues. New pure helper `src/game/enemyWindupCue.ts` returns `{ frequency, waveform, durationMs, gain }` per enemy type (skitter: 880 Hz sine 110 ms, grunt: 340 Hz square 150 ms, brute: 150 Hz sawtooth 280 ms). The `enemyAttackStarted` event in `src/game/enemies.ts` now carries `enemyType` so the FlatlineGame consumer can pick the right cue without re-deriving it. New local helper `playWindupCue` in `src/components/FlatlineGame.tsx` runs an attack-then-exponential-decay envelope so the cue does not click on stop. Files: `src/game/enemyWindupCue.ts`, `src/game/enemyWindupCue.test.ts`, `src/game/enemies.ts`, `src/game/enemies.test.ts`, `src/components/FlatlineGame.tsx`. PR #TBD. Status `partial` (adaptive music, hazard countdown click, pickup loop sound, full required-SFX list still unaudited).
 - 2026-05-03: Split out of `GDD.md`. Pre-spiral implementation: generated audio cues are wired into `src/components/FlatlineGame.tsx`. Adaptive music layers, the full required-SFX list, and the audio-readability cues have not been individually audited. Status `partial`.

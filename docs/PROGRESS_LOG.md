@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-04, Distinct enemy windup audio cues
+
+- Branch: `feat/enemy-windup-audio-cues`
+- PR: #TBD
+- Changed: every enemy melee windup now plays a per-type audio sting so the player can tell from sound alone which enemy is about to swing, even when the sprite is off-screen or partly obscured. New pure helper `src/game/enemyWindupCue.ts` exposes `enemyWindupCue(type)` returning `{ frequency, waveform, durationMs, gain }`. Skitter cue: 880 Hz sine, 110 ms, gain 0.022 (snappy whistle). Grunt cue: 340 Hz square, 150 ms, gain 0.028 (default melee read). Brute cue: 150 Hz sawtooth, 280 ms, gain 0.038 (bassy inhale). `src/game/enemies.ts` extends the `enemyAttackStarted` event with an `enemyType` field so the consumer can pick the right cue without re-deriving it. `src/components/FlatlineGame.tsx` imports the helper and a new local `playWindupCue(cue, enabled)` companion to `playCue` (separate function because the windup needs its own waveform / envelope / variable duration); the existing `enemyAttackStarted` handler now calls `playWindupCue(enemyWindupCue(event.enemyType), settingsRef.current.audio)` immediately after the existing status-line update. The new helper uses an attack-then-exponential-decay envelope so the cue does not click on the speaker at the end of the oscillator stop.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (21 files / 108 tests pass, 7 new in `src/game/enemyWindupCue.test.ts`), `npm run build` (success), `npm run test:e2e` (7 passed, 1 skipped).
+- Assumptions: Recommended default is one stinger per windup (not a sustained tone) so the cue does not pile up when multiple enemies enter range simultaneously. Recommended default uses different waveforms per type (sine / square / sawtooth) so two cues that overlap stay distinguishable even at similar pitches. Recommended default keeps the cue fully under each enemy's `attackWindupMs` so the player still has time to react after hearing it (skitter 110 ms cue vs 260 ms windup; grunt 150 ms vs 420 ms; brute 280 ms vs 620 ms).
+- GDD coverage: REQ-040 (audio readability cues for grayscale art) gains a build-log entry and adds `src/game/enemyWindupCue.ts` to its `implementationRefs` plus `src/game/enemyWindupCue.test.ts` to its `testRefs`. REQ-040 stays `partial` (adaptive music layers, hazard countdown click, pickup loop sound, and the rest of the required-SFX list remain unaudited). REQ-046 is unaffected; the event payload change is contained to the FlatlineGame consumer that already handled the event.
+- Followups: none new.
+
 ## 2026-05-04, Pickup readability bounce + glow
 
 - Branch: `feat/pickup-readability-bounce`
