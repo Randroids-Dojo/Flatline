@@ -138,8 +138,8 @@ test('mobile touch controls fit the viewport and block page scroll', async ({ pa
     throw new Error('missing viewport')
   }
 
-  await dispatchTouch(page, 'touchstart', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.72))
-  await dispatchTouch(page, 'touchmove', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.52))
+  await dispatchTouch(page, 'pointerdown', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.72))
+  await dispatchTouch(page, 'pointermove', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.52))
 
   await expect(page.locator('.touch-stick-move')).toBeVisible()
   await expect.poll(async () => {
@@ -149,14 +149,14 @@ test('mobile touch controls fit the viewport and block page scroll', async ({ pa
     })
   }).toBe(true)
   await page.waitForTimeout(120)
-  await dispatchTouch(page, 'touchend', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.52))
+  await dispatchTouch(page, 'pointerup', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.52))
   await expect(page.locator('.touch-stick-move')).toBeHidden()
 
   await page.evaluate(() => {
     window.scrollTo(0, 80)
   })
-  await dispatchTouch(page, 'touchstart', 52, Math.round(viewport.width * 0.72), Math.round(viewport.height * 0.62))
-  await dispatchTouch(page, 'touchmove', 52, Math.round(viewport.width * 0.86), Math.round(viewport.height * 0.56))
+  await dispatchTouch(page, 'pointerdown', 52, Math.round(viewport.width * 0.72), Math.round(viewport.height * 0.62))
+  await dispatchTouch(page, 'pointermove', 52, Math.round(viewport.width * 0.86), Math.round(viewport.height * 0.56))
 
   await expect(page.locator('.touch-stick-look')).toBeVisible()
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
@@ -168,28 +168,45 @@ test('mobile touch controls fit the viewport and block page scroll', async ({ pa
   }).toBe(true)
 })
 
+test('mobile tap on Start run begins the run', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'real touch taps only run on the mobile project')
+
+  await page.route('**/api/leaderboard**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      json: { scope: 'all', date: null, entries: [], unavailable: true }
+    })
+  })
+
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Flatline' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start run' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Start run' }).tap()
+
+  await expect(page.getByTestId('hud')).toBeVisible()
+  await expect(page.getByTestId('crosshair')).toBeVisible()
+  await expect(page.getByTestId('touch-controls')).toBeVisible()
+})
+
 async function dispatchTouch(
   page: import('@playwright/test').Page,
-  type: string,
-  identifier: number,
+  type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
+  pointerId: number,
   clientX: number,
   clientY: number
 ) {
-  await page.evaluate(({ eventType, touchId, x, y }) => {
-    const touch = new Touch({
-      identifier: touchId,
-      target: document.body,
-      clientX: x,
-      clientY: y
-    })
-    window.dispatchEvent(new TouchEvent(eventType, {
+  await page.evaluate(({ eventType, id, x, y }) => {
+    window.dispatchEvent(new PointerEvent(eventType, {
       bubbles: true,
       cancelable: true,
-      touches: eventType === 'touchend' || eventType === 'touchcancel' ? [] : [touch],
-      targetTouches: eventType === 'touchend' || eventType === 'touchcancel' ? [] : [touch],
-      changedTouches: [touch]
+      pointerId: id,
+      pointerType: 'touch',
+      clientX: x,
+      clientY: y,
+      isPrimary: true
     }))
-  }, { eventType: type, touchId: identifier, x: clientX, y: clientY })
+  }, { eventType: type, id: pointerId, x: clientX, y: clientY })
 }
 
 async function canvasHasPixels(page: import('@playwright/test').Page) {
