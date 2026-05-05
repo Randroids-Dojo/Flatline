@@ -16,6 +16,8 @@ import {
 } from '@/game/arenaLandmarks'
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
 import { damageDirectionRadians } from '@/game/damageDirection'
+import { doorOpenCue, type DoorCueStyle } from '@/game/doorCue'
+import { DOOR_TOTAL_MS, doorPhaseVisualAtElapsedMs } from '@/game/doorState'
 import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePreview, type DailyArenaConfig, type DailySchedulePreview } from '@/game/dailyArena'
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
@@ -220,6 +222,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const weaponFlashTimeoutRef = useRef<number | null>(null)
   const muzzleFlashTimeoutRef = useRef<number | null>(null)
   const enemyAssetsRef = useRef<Partial<Record<EnemyType, EnemyVisualAsset>>>({})
+  // Time elapsed since each door spawned an enemy, in ms. Doors that
+  // have never spawned (or whose spawn window has fully closed) sit
+  // at or above DOOR_TOTAL_MS, which the door state helper resolves
+  // to the `idle` phase.
   const doorSignalTimersRef = useRef<Record<string, number>>({})
   const [running, setRunning] = useState(false)
   const [paused, setPaused] = useState(false)
@@ -929,7 +935,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               directorTick.spawn.door.position,
               positionRef.current
             )
-            doorSignalTimersRef.current[directorTick.spawn.door.id] = 950
+            doorSignalTimersRef.current[directorTick.spawn.door.id] = 0
+            playDoorOpenCue(doorOpenCue(), settingsRef.current.audio)
             setEnemyHealth(enemyRef.current.health)
             setEnemyType(enemyRef.current.type)
             setStatus(`${enemyLabel(enemyRef.current.type)} entered from ${directorTick.spawn.door.id}.`)
@@ -1831,12 +1838,13 @@ function applyHazardMeshes(runtime: RuntimeRefs, hazards: HazardState[]) {
 
 function applyDoorSignals(runtime: RuntimeRefs, timers: Record<string, number>, deltaMs: number) {
   for (const [id, signal] of Object.entries(runtime.doorSignals)) {
-    const remainingMs = Math.max(0, (timers[id] ?? 0) - deltaMs)
-    timers[id] = remainingMs
+    const elapsedMs = (timers[id] ?? DOOR_TOTAL_MS) + deltaMs
+    timers[id] = Math.min(DOOR_TOTAL_MS, elapsedMs)
+    const visual = doorPhaseVisualAtElapsedMs(elapsedMs)
     const material = signal.material
-    const pulse = remainingMs > 0 ? 0.3 + Math.sin(remainingMs / 70) * 0.12 : 0.08
-    material.opacity = pulse
-    signal.scale.y = remainingMs > 0 ? 0.58 + (remainingMs / 950) * 0.22 : 0.58
+    material.opacity = visual.opacity
+    material.color.set(visual.color)
+    signal.scale.y = visual.scaleY
   }
 }
 
@@ -2649,6 +2657,31 @@ function playPickupCue(cue: PickupCueStyle, enabled: boolean) {
   secondOsc.stop(secondStop)
 
   secondOsc.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+function playDoorOpenCue(cue: DoorCueStyle, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = cue.waveform
+  oscillator.frequency.value = cue.frequency
+  const peak = cue.gain
+  const startTime = context.currentTime
+  const stopTime = startTime + cue.durationMs / 1000
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.012, cue.durationMs / 1000 / 5))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
     context.close()
   })
 }
