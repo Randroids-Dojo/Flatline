@@ -44,8 +44,8 @@ const supplyStyle: PickupCueStyle = {
   firstFrequency: 880,
   secondFrequency: 1320,
   waveform: 'sine',
-  firstDurationMs: 110,
-  secondDurationMs: 150,
+  firstDurationMs: 150,
+  secondDurationMs: 110,
   gain: 0.04
 }
 

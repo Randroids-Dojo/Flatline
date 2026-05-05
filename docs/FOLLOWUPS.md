@@ -33,6 +33,10 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Polish
 
+(none yet)
+
+## Resolved
+
 ### F-004: Resolve orphan pickup-cue work
 
 - Priority: nice-to-have
@@ -40,9 +44,7 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Blocker: none.
 - Unblock condition: dev decides whether to revive the slice (write `playPickupCue` against the existing `PickupCueStyle` shape and re-wire the call site) or discard the orphan files via `git clean -fd src/game/pickupCue.*`.
 - Status: done
-- Resolved: 2026-05-04 pickup collection sparkle slice (PR #TBD). Slice revived: `playPickupCue` written in `src/components/FlatlineGame.tsx`, call site re-wired, `pickupCue.ts` and `pickupCue.test.ts` committed.
-
-## Resolved
+- Resolved: 2026-05-04 pickup collection sparkle slice (PR #61). Slice revived: `playPickupCue` written in `src/components/FlatlineGame.tsx`, call site re-wired, `pickupCue.ts` and `pickupCue.test.ts` committed.
 
 ### F-001: Add package scaffold and standard verification scripts
 
