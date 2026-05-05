@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-04, Pickup readability bounce + glow
+
+- Branch: `feat/pickup-readability-bounce`
+- PR: #TBD
+- Changed: the central altar supply pickup now bounces, breathes its emissive glow, and emits an outward halo pulse so the player can read it against the otherwise mostly grayscale floor. New pure helper module `src/game/pickupReadability.ts` exposes four functions: `pickupBounceY(elapsedMs, ready)` (sin oscillation, 0.08 m amplitude / 1100 ms period when ready, collapses to 0.025 m / 1700 ms on cooldown), `pickupGlowIntensity(elapsedMs, ready)` (breathes between 0.55 and 1.0 emissive intensity when ready, between 0.05 and 0.18 on cooldown), `pickupHaloScale(elapsedMs)` (linear 1 to 1.45 across each 1400 ms cycle), `pickupHaloOpacity(elapsedMs, ready)` (peak 0.55 fading to 0 across the cycle when ready, peak 0.12 on cooldown). `src/components/FlatlineGame.tsx` swaps the altar mesh from the shared `accentMaterial` to a dedicated `pickupMaterial` (`MeshStandardMaterial` with its own emissive intensity), adds an additive-blended `RingGeometry` halo at floor level next to the altar, exposes `pickup: { altar, halo, restY }` from `createRoom`, threads it through `RuntimeRefs`, and ticks it every animate frame via a new `applyPickupReadability(runtime, time, ready)` helper. The bounce and glow run regardless of pause state because they are ambient feel, not gameplay timers, and they react instantly to the existing `healthPickupReadyRef` so a freshly collected pickup visibly dims and slows.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (20 files / 101 tests pass, 13 new in `src/game/pickupReadability.test.ts`), `npm run build` (success), `npm run test:e2e` (7 passed, 1 skipped).
+- Assumptions: Recommended default keeps the altar geometry, position, and collision unchanged; only its material and an added halo sibling drive the new feel. Recommended default uses a sin wave for both the bounce and the glow because a smooth periodic motion reads as a "this is alive" cue without competing with the muzzle flash and impact rings. Recommended default keeps the cooldown variant visually quieter but not invisible so the player can still locate the pickup while it cools down. Loop sound (the fourth bullet in the GDD spec) is left to a separate slice under REQ-040 (audio readability cues).
+- GDD coverage: REQ-036 stays `partial` (loop sound and consistent-zones bullet remain). The row picks up `src/game/pickupReadability.ts` in its `implementationRefs` and `src/game/pickupReadability.test.ts` in its `testRefs`. `docs/gdd/36-pickup-readability.md` gains a new build-log entry.
+- Followups: none new.
+
 ## 2026-05-03, Enemy hurt flash on damage
 
 - Branch: `feat/enemy-hurt-flash`

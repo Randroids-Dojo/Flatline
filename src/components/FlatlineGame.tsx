@@ -10,6 +10,12 @@ import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFl
 import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
+import {
+  pickupBounceY,
+  pickupGlowIntensity,
+  pickupHaloOpacity,
+  pickupHaloScale
+} from '@/game/pickupReadability'
 import { weaponRecoilStyle } from '@/game/weaponRecoil'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
@@ -76,6 +82,11 @@ type RuntimeRefs = {
   shotGroup: THREE.Group
   hazardMeshes: Record<HazardKind, THREE.Mesh>
   movingCover: THREE.Mesh
+  pickup: {
+    altar: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial>
+    halo: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
+    restY: number
+  }
 }
 
 type EnemyVisualAsset = {
@@ -658,7 +669,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       muzzleLight,
       shotGroup,
       hazardMeshes,
-      movingCover
+      movingCover,
+      pickup: roomVisuals.pickup
     }
 
     loadEnemyAtlases().then((assets) => {
@@ -872,6 +884,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       runtime.muzzleLight.position.copy(runtime.camera.position)
       runtime.muzzleLight.intensity = Math.max(0, runtime.muzzleLight.intensity - delta * 22)
       applyDoorSignals(runtime, doorSignalTimersRef.current, delta * 1000)
+      applyPickupReadability(runtime, time, healthPickupReadyRef.current)
       tickShotBolts(runtime, shotBolts, shotImpacts, delta * 1000)
       tickShotImpacts(runtime, shotImpacts, delta * 1000)
       const enemy = enemyRef.current
@@ -1525,6 +1538,12 @@ function createRoom() {
     emissive: '#123d39',
     roughness: 0.72
   })
+  const pickupMaterial = new THREE.MeshStandardMaterial({
+    color: '#50d1c0',
+    emissive: '#1f8e84',
+    emissiveIntensity: 0.6,
+    roughness: 0.5
+  })
   const dangerMaterial = new THREE.MeshStandardMaterial({
     color: '#f05a4f',
     emissive: '#40110f',
@@ -1573,10 +1592,25 @@ function createRoom() {
     group.add(pillar)
   }
 
-  const altar = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.6, 0.45, 24), accentMaterial)
+  const altar = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.6, 0.45, 24), pickupMaterial)
   altar.position.set(0, 0.22, 0)
   altar.receiveShadow = true
   group.add(altar)
+  const altarRestY = altar.position.y
+
+  const pickupHaloMaterial = new THREE.MeshBasicMaterial({
+    color: '#7ff0e0',
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide
+  })
+  const pickupHalo = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.62, 48), pickupHaloMaterial)
+  pickupHalo.position.set(0, 0.045, 0)
+  pickupHalo.rotation.x = -Math.PI / 2
+  pickupHalo.renderOrder = 1
+  group.add(pickupHalo)
 
   const clock = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.045, 12, 60), accentMaterial)
   clock.position.set(0, 2.4, 9.8)
@@ -1595,7 +1629,7 @@ function createRoom() {
   addDoorVisual(group, doorSignals, 'east', { x: 9.78, y: 1.12, z: 0 }, new THREE.BoxGeometry(0.08, 1.8, 2.25), doorMaterial)
   addDoorVisual(group, doorSignals, 'west', { x: -9.78, y: 1.12, z: 0 }, new THREE.BoxGeometry(0.08, 1.8, 2.25), doorMaterial)
 
-  return { group, doorSignals }
+  return { group, doorSignals, pickup: { altar, halo: pickupHalo, restY: altarRestY } }
 }
 
 function addDoorVisual(
@@ -1675,6 +1709,16 @@ function applyDoorSignals(runtime: RuntimeRefs, timers: Record<string, number>, 
     material.opacity = pulse
     signal.scale.y = remainingMs > 0 ? 0.58 + (remainingMs / 950) * 0.22 : 0.58
   }
+}
+
+function applyPickupReadability(runtime: RuntimeRefs, elapsedMs: number, ready: boolean) {
+  const { altar, halo, restY } = runtime.pickup
+  altar.position.y = restY + pickupBounceY(elapsedMs, ready)
+  altar.material.emissiveIntensity = pickupGlowIntensity(elapsedMs, ready)
+
+  const haloScale = pickupHaloScale(elapsedMs)
+  halo.scale.set(haloScale, haloScale, 1)
+  halo.material.opacity = pickupHaloOpacity(elapsedMs, ready)
 }
 
 function opacityForHazardPhase(phase: HazardPhase): number {
