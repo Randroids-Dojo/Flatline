@@ -8,7 +8,8 @@ import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePrevi
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
-import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
+import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
+import { hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
 import {
@@ -187,6 +188,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const healthPickupReadyRef = useRef<boolean>(true)
   const healthPickupCooldownRef = useRef<number>(0)
   const hazardDamageCooldownRef = useRef<number>(0)
+  const prevHazardRunMsRef = useRef<number>(-1)
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const weaponCooldownRef = useRef<WeaponCooldownState>(createWeaponCooldownState())
@@ -387,6 +389,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     healthPickupReadyRef.current = true
     healthPickupCooldownRef.current = 0
     hazardDamageCooldownRef.current = 0
+    prevHazardRunMsRef.current = -1
     selectedWeaponRef.current = startingWeapon
     weaponAmmoRef.current = createWeaponAmmo()
     weaponCooldownRef.current = createWeaponCooldownState()
@@ -752,8 +755,19 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             roomStateMsRef.current += delta * 1000
           }
           hazardDamageCooldownRef.current = Math.max(0, hazardDamageCooldownRef.current - delta * 1000)
-          const hazards = hazardStatesForRunMs(roomStateMsRef.current + (dailyConfig?.hazardOffsetMs ?? 0))
+          const hazardRunMs = roomStateMsRef.current + (dailyConfig?.hazardOffsetMs ?? 0)
+          const hazards = hazardStatesForRunMs(hazardRunMs)
           applyHazardMeshes(runtime, hazards)
+          if (prevHazardRunMsRef.current >= 0 && settingsRef.current.audio) {
+            for (const config of hazardCycleConfigs) {
+              const ticks = hazardCountdownTicksBetween(config.kind, prevHazardRunMsRef.current, hazardRunMs)
+
+              for (const tick of ticks) {
+                playHazardCountdownCue(hazardCountdownCue(tick.kind), tick, settingsRef.current.audio)
+              }
+            }
+          }
+          prevHazardRunMsRef.current = hazardRunMs
           runtime.overhead.intensity = 55 + roomPressureIntensity(roomStateMsRef.current) * 35
           runtime.movingCover.position.x = Math.sin(roomStateMsRef.current / 1800) * 2.2
 
@@ -2453,6 +2467,31 @@ function playWindupCue(cue: EnemyWindupCueStyle, enabled: boolean) {
   const stopTime = startTime + cue.durationMs / 1000
   gain.gain.setValueAtTime(0, startTime)
   gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.02, cue.durationMs / 1000 / 4))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+function playHazardCountdownCue(cue: HazardCountdownStyle, tick: HazardCountdownTick, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = cue.waveform
+  oscillator.frequency.value = tick.isFinal ? cue.finalFrequency : cue.frequency
+  const peak = tick.isFinal ? cue.finalGain : cue.gain
+  const startTime = context.currentTime
+  const stopTime = startTime + cue.durationMs / 1000
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.01, cue.durationMs / 1000 / 4))
   gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
   oscillator.connect(gain)
   gain.connect(context.destination)

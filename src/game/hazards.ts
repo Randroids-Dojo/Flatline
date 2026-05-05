@@ -8,12 +8,34 @@ export type HazardState = {
   phase: HazardPhase
 }
 
+/**
+ * Cycle timing per hazard kind. `cycleMs` is the total period.
+ * `warningMs` is how long the telegraph plays before the hazard activates.
+ * `activeMs` is how long the hazard damages while active. The remainder of
+ * the cycle is idle.
+ *
+ * `offsetMs` is added to `runMs` before the cycle math so different hazards
+ * stagger across the run instead of all firing at once.
+ */
+export type HazardCycleConfig = {
+  kind: HazardKind
+  cycleMs: number
+  warningMs: number
+  activeMs: number
+  offsetMs: number
+}
+
+export const hazardCycleConfigs: readonly HazardCycleConfig[] = [
+  { kind: 'flameLane', cycleMs: 18000, warningMs: 2200, activeMs: 2600, offsetMs: 0 },
+  { kind: 'inkPool', cycleMs: 26000, warningMs: 1800, activeMs: 4200, offsetMs: 7000 },
+  { kind: 'fallingLight', cycleMs: 32000, warningMs: 2400, activeMs: 900, offsetMs: 13000 }
+]
+
 export function hazardStatesForRunMs(runMs: number): HazardState[] {
-  return [
-    { kind: 'flameLane', phase: phaseInCycle(runMs, 18000, 2200, 2600) },
-    { kind: 'inkPool', phase: phaseInCycle(runMs + 7000, 26000, 1800, 4200) },
-    { kind: 'fallingLight', phase: phaseInCycle(runMs + 13000, 32000, 2400, 900) }
-  ]
+  return hazardCycleConfigs.map((config) => ({
+    kind: config.kind,
+    phase: phaseInCycle(runMs + config.offsetMs, config.cycleMs, config.warningMs, config.activeMs)
+  }))
 }
 
 export function hazardDamageAtPosition(position: Vec3, hazards: HazardState[]): number {
