@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-04, Player damage audio sting
+
+- Branch: `feat/player-damage-audio-sting`
+- PR: #TBD
+- Changed: every player damage event now plays a distinct stinger so the player gets an audible confirm in addition to the existing red screen flash and damage-direction arc. New pure helper `src/game/playerDamageCue.ts` exposes `playerDamageCue(source)` returning `{ frequency, waveform, durationMs, gain }` for two damage sources. Enemy melee hit cue: 200 Hz square, 180 ms, gain 0.045 (blunt low punch). Hazard tick cue: 260 Hz triangle, 220 ms, gain 0.05 (medium triangle so it does not collide with the existing windup cues' sine / square / saw set). `src/components/FlatlineGame.tsx` adds a sibling `playPlayerDamageCue` to `playCue` / `playWindupCue` (separate function because the envelope tunes attack to be slightly faster than the windup cue so the punch feels immediate). The enemy-melee branch (the same gate that already drives `setDamagePulse` for the screen flash) now also calls `playPlayerDamageCue(playerDamageCue('enemy'), ...)`. The hazard branch replaces the prior generic `playCue(70, ...)` with `playPlayerDamageCue(playerDamageCue('hazard'), ...)` so hazard ticks now use a tuned envelope and a distinct timbre instead of a 60-ms square blip.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (22 files / 115 tests pass, 7 new in `src/game/playerDamageCue.test.ts`), `npm run build` (success), `npm run test:e2e` (7 passed, 1 skipped).
+- Assumptions: Recommended default is a single stinger per damage event so consecutive hits do not pile up into a continuous tone. Recommended default keeps the player-damage gain (0.045 / 0.05) above the loudest enemy-windup cue (0.038 brute) so the hit-confirm cuts through the windup if the windup cue is still tailing off when contact lands. Recommended default uses a triangle waveform for the hazard cue because the existing audio palette already covers sine / square / sawtooth, so triangle reads as a fourth distinct timbre. Recommended default keeps the audio cue gated on the same `damageEnabled` and audio-settings flags as the existing damage flash and `playCue` calls, so practice-mode `damageEnabled=false` still silences both the flash and the audio cue.
+- GDD coverage: REQ-040 (audio readability cues, required-SFX list) gains a build-log entry and adds `src/game/playerDamageCue.ts` to its `implementationRefs` plus `src/game/playerDamageCue.test.ts` to its `testRefs`. REQ-040 stays `partial` (adaptive music, hazard countdown click, pickup loop sound, weapon fire / enemy hurt / enemy death / pickup / door spawn cue / combo increase / run end SFX still unaudited). REQ-056 (post-MVP feel pass) gains a build-log entry and the same file refs; stays `partial` (movement around pillars and enemy damage range readability still unaudited).
+- Followups: none new.
+
 ## 2026-05-04, Distinct enemy windup audio cues
 
 - Branch: `feat/enemy-windup-audio-cues`

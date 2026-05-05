@@ -17,6 +17,7 @@ import {
   pickupHaloOpacity,
   pickupHaloScale
 } from '@/game/pickupReadability'
+import { playerDamageCue, type PlayerDamageCueStyle } from '@/game/playerDamageCue'
 import { weaponRecoilStyle } from '@/game/weaponRecoil'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
@@ -765,7 +766,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               setPlayerHealth(playerHealthRef.current)
               setDamagePulse((value) => value + 1)
               setStatus(`Hazard hit for ${hazardDamage}.`)
-              playCue(70, settingsRef.current.audio)
+              playPlayerDamageCue(playerDamageCue('hazard'), settingsRef.current.audio)
             }
           }
 
@@ -823,6 +824,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             playerHealthRef.current = result.player.health
             setPlayerHealth(result.player.health)
             setDamagePulse((value) => value + 1)
+            playPlayerDamageCue(playerDamageCue('enemy'), settingsRef.current.audio)
           }
 
           for (const event of result.events) {
@@ -2451,6 +2453,31 @@ function playWindupCue(cue: EnemyWindupCueStyle, enabled: boolean) {
   const stopTime = startTime + cue.durationMs / 1000
   gain.gain.setValueAtTime(0, startTime)
   gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.02, cue.durationMs / 1000 / 4))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+function playPlayerDamageCue(cue: PlayerDamageCueStyle, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = cue.waveform
+  oscillator.frequency.value = cue.frequency
+  const peak = cue.gain
+  const startTime = context.currentTime
+  const stopTime = startTime + cue.durationMs / 1000
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.015, cue.durationMs / 1000 / 5))
   gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
   oscillator.connect(gain)
   gain.connect(context.destination)
