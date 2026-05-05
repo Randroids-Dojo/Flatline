@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
+import { damageDirectionRadians } from '@/game/damageDirection'
 import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePreview, type DailyArenaConfig, type DailySchedulePreview } from '@/game/dailyArena'
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
@@ -188,6 +189,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [combo, setCombo] = useState(0)
   const [runMs, setRunMs] = useState(0)
   const [damagePulse, setDamagePulse] = useState(0)
+  const [damageIndicator, setDamageIndicator] = useState<{ key: number; angleRadians: number } | null>(null)
   const [healthPickupReady, setHealthPickupReady] = useState(true)
   const [selectedWeapon, setSelectedWeapon] = useState<WeaponId>('peashooter')
   const [weaponAmmo, setWeaponAmmo] = useState<WeaponAmmoState>(() => createWeaponAmmo())
@@ -380,6 +382,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setSelectedWeapon(startingWeapon)
     setWeaponAmmo(weaponAmmoRef.current)
     setWeaponReady(true)
+    setDamageIndicator(null)
     setTouchJoysticksView(cloneTouchJoysticks(touchJoysticksRef.current))
     setStatus(isPractice ? 'Practice run started. Tuning changes apply next run.' : 'WASD moves. Mouse aims. Left click fires.')
     requestPointerLock(runtimeRef.current?.renderer.domElement)
@@ -790,6 +793,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
             if (event.type === 'enemyAttackHit') {
               setStatus(`Enemy hit for ${event.damage}.`)
+              const angle = damageDirectionRadians(
+                yawRef.current,
+                enemyRef.current.position,
+                positionRef.current
+              )
+              setDamageIndicator({ key: performance.now(), angleRadians: angle })
             }
 
             if (event.type === 'enemyAttackMissed') {
@@ -1347,6 +1356,15 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       ) : null}
       <div className="crosshair" data-testid="crosshair" />
       {damagePulse > 0 ? <div key={damagePulse} className="damage-flash" data-testid="damage-flash" aria-hidden="true" /> : null}
+      {damageIndicator ? (
+        <div
+          key={damageIndicator.key}
+          className="damage-indicator"
+          data-testid="damage-indicator"
+          aria-hidden="true"
+          style={{ transform: `translate(-50%, -50%) rotate(${damageIndicator.angleRadians}rad)` }}
+        />
+      ) : null}
       <div className={`weapon weapon-${selectedWeapon}${weaponFiring ? ' weapon-firing' : ''}`} data-testid="weapon-sprite" aria-hidden="true" />
       {running && !paused ? <TouchControls joysticks={touchJoysticksView} /> : null}
       <div className="status-line" data-testid="status-line">

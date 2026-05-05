@@ -36,4 +36,5 @@ Examples:
 
 ### Build log
 
+- 2026-05-03: Damage-direction indicator landed. Enemy melee hits now spawn a red conic-gradient arc at the screen edge pointing toward the attacker, fading over 720 ms. Files: `src/game/damageDirection.ts`, `src/game/damageDirection.test.ts`, `src/components/FlatlineGame.tsx`, `app/globals.css`. PR #TBD. Cartoon-title-card visual treatment for HUD pills remains unaudited; status stays `partial`.
 - 2026-05-03: Split out of `GDD.md`. Pre-spiral implementation: HUD elements rendered inside `src/components/FlatlineGame.tsx`. Required-list elements (health, ammo, weapon, score, combo, timer, crosshair) appear; damage-direction indicator and full cartoon-title-card visual treatment have not been individually verified. Status `partial`.
