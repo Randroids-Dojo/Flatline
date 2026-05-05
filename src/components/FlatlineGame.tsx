@@ -136,6 +136,9 @@ type RunSummary = {
   kills: number
   accuracy: number
   bestCombo: number
+  closeRangeKills: number
+  weaponsUsed: number
+  bestNoDamageStreak: number
 }
 
 type Settings = {
@@ -189,6 +192,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const healthPickupCooldownRef = useRef<number>(0)
   const hazardDamageCooldownRef = useRef<number>(0)
   const prevHazardRunMsRef = useRef<number>(-1)
+  const tookDamageSinceLastKillRef = useRef<boolean>(false)
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const weaponCooldownRef = useRef<WeaponCooldownState>(createWeaponCooldownState())
@@ -255,11 +259,21 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
     if (enemy.state !== 'dead') {
       const wasAlive = enemyRef.current.state !== 'dead'
+      const enemyPosition = enemyRef.current.position
       enemyRef.current = damageEnemy(enemyRef.current, damage)
       setEnemyHealth(enemyRef.current.health)
 
       if (wasAlive && enemyRef.current.state === 'dead') {
-        scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs)
+        const playerPos = positionRef.current
+        const dx = enemyPosition.x - playerPos.x
+        const dz = enemyPosition.z - playerPos.z
+        const distance = Math.sqrt(dx * dx + dz * dz)
+        scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs, {
+          distance,
+          weapon: selectedWeaponRef.current,
+          tookDamageSinceLastKill: tookDamageSinceLastKillRef.current
+        })
+        tookDamageSinceLastKillRef.current = false
         setScore(scoreRef.current.score)
         setKills(scoreRef.current.kills)
         setCombo(scoreRef.current.combo)
@@ -390,6 +404,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     healthPickupCooldownRef.current = 0
     hazardDamageCooldownRef.current = 0
     prevHazardRunMsRef.current = -1
+    tookDamageSinceLastKillRef.current = false
     selectedWeaponRef.current = startingWeapon
     weaponAmmoRef.current = createWeaponAmmo()
     weaponCooldownRef.current = createWeaponCooldownState()
@@ -437,7 +452,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       survivalMs: directorRef.current.runMs,
       kills: scoreRef.current.kills,
       accuracy: accuracy(scoreRef.current),
-      bestCombo: scoreRef.current.bestCombo
+      bestCombo: scoreRef.current.bestCombo,
+      closeRangeKills: scoreRef.current.closeRangeKills,
+      weaponsUsed: scoreRef.current.weaponsUsedForKills.length,
+      bestNoDamageStreak: scoreRef.current.bestNoDamageStreak
     }
     setSummary(runSummary)
 
@@ -777,6 +795,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             if (hazardDamage > 0 && practiceSettingsRef.current.damageEnabled) {
               playerHealthRef.current = Math.max(0, playerHealthRef.current - hazardDamage)
               hazardDamageCooldownRef.current = 900
+              tookDamageSinceLastKillRef.current = true
               setPlayerHealth(playerHealthRef.current)
               setDamagePulse((value) => value + 1)
               setStatus(`Hazard hit for ${hazardDamage}.`)
@@ -836,6 +855,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
           if (practiceSettingsRef.current.damageEnabled && result.player.health !== playerHealthRef.current) {
             playerHealthRef.current = result.player.health
+            tookDamageSinceLastKillRef.current = true
             setPlayerHealth(result.player.health)
             setDamagePulse((value) => value + 1)
             playPlayerDamageCue(playerDamageCue('enemy'), settingsRef.current.audio)
@@ -1351,6 +1371,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                 <p>Time {formatTime(summary.survivalMs)}</p>
                 <p>Accuracy {Math.round(summary.accuracy * 100)}%</p>
                 <p>Best combo {summary.bestCombo}</p>
+                <p>Close-range kills {summary.closeRangeKills}</p>
+                <p>Weapons used {summary.weaponsUsed}</p>
+                <p>No-damage streak {summary.bestNoDamageStreak}</p>
               </div>
             ) : isPractice ? (
               <p>Practice room. Tune the run, test weapons, and rehearse pressure without score submission.</p>
