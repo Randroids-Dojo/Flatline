@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-04, Pickup collection sparkle (revive F-004)
+
+- Branch: `feat/pickup-collection-sparkle`
+- PR: #TBD
+- Changed: pickup collection now plays a two-tone ascending sparkle (880 Hz to 1320 Hz, sine, 110 ms then 150 ms, gain 0.04) instead of the generic 60 ms 520 Hz `playCue` blip. The sparkle reads as "good, you got something" against the mostly-grayscale art so audio can carry the collection cue alongside the visual altar bounce + glow + halo from PR #53. Adopted the `src/game/pickupCue.ts` helper and its 9-case test suite that an earlier loop iteration left untracked. Implemented the missing `playPickupCue(cue, enabled)` runtime in `src/components/FlatlineGame.tsx`: two web-audio oscillators chained back-to-back, each with a short attack + exponential decay envelope tuned to the cue's gain. The second oscillator's `ended` listener closes the audio context. Re-wired the call site at `src/components/FlatlineGame.tsx:850` from `playCue(520, settingsRef.current.audio)` to `playPickupCue(pickupCue('supply'), settingsRef.current.audio)`. Added the import for `pickupCue` and `PickupCueStyle`.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (26 files / 179 tests pass; the 9 `pickupCue` cases were already on disk untracked and were now exercised by the full suite via the existing `vitest` config glob), `npm run build` (success), `npm run test:e2e` (8 passed, 2 skipped).
+- Assumptions: Recommended default keeps the existing `pickupCue.ts` helper unchanged because its tests assert the gain band (0.038, 0.05) and the ascending-pitch invariant. Recommended default uses two separate oscillators rather than one with a `setValueAtTime` frequency jump, since browsers respect oscillator stops more reliably than mid-stream frequency changes when both tones are short. Recommended default for the per-tone envelope is the same shape as `playPlayerDamageCue`: a quick linear ramp up to peak (capped at 12 ms or one fifth of tone length), then exponential decay to 0.0001 at stop time. Recommended default schedules `secondStart = firstStop` so the two tones butt together; back-to-back is what the GDD reference calls "sparkle" rather than the slower legato a small gap would imply.
+- GDD coverage: REQ-040 stays `partial` (adaptive music layers and the full required-SFX list remain unaudited) but picks up `src/game/pickupCue.ts`, `src/game/pickupCue.test.ts`, and `src/components/FlatlineGame.tsx` in `implementationRefs` and `src/game/pickupCue.test.ts` in `testRefs`. `docs/gdd/40-audio.md` gains a new build-log entry.
+- Followups: F-004 resolved by this slice.
+
 ## 2026-05-04, Fix mobile menu touch (Start Run unresponsive on phones)
 
 - Branch: `fix/mobile-touch-menus`

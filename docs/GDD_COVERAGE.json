@@ -360,8 +360,8 @@
       "requirement": "Audio: adaptive music intensity, required SFX list, audio readability cues for grayscale art.",
       "gddRef": "docs/gdd/40-audio.md",
       "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/enemyWindupCue.ts", "src/game/playerDamageCue.ts", "src/game/hazardCountdown.ts"],
-      "testRefs": ["src/game/enemyWindupCue.test.ts", "src/game/playerDamageCue.test.ts", "src/game/hazardCountdown.test.ts"],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/enemyWindupCue.ts", "src/game/playerDamageCue.ts", "src/game/hazardCountdown.ts", "src/game/pickupCue.ts"],
+      "testRefs": ["src/game/enemyWindupCue.test.ts", "src/game/playerDamageCue.test.ts", "src/game/hazardCountdown.test.ts", "src/game/pickupCue.test.ts"],
       "followupRefs": []
     },
     {
