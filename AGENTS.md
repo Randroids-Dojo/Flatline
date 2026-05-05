@@ -1,140 +1,161 @@
 # AGENTS.md
 
-Shared rules for every agentic coding tool working in this repo. This file is mandatory reading before writing code, editing docs, opening a PR, or changing task state.
+Shared rules for every agentic coding tool working in Flatline. Claude Code, Codex, Cursor, and any future agent: this file is mandatory reading before you write anything.
 
-This file is the entry point. It points at the documents that govern what to build and how to behave while building it.
+Project pitch: Desktop web Doom-like survival shooter with hand-drawn billboard enemies
 
-## Rule 1: never use em dashes or en dashes
+---
 
-Do not use Unicode em dash U+2014 or Unicode en dash U+2013 in chat, code comments, commit messages, PR descriptions, docs, tests, or generated content.
+## RULE 1: NEVER USE EM-DASHES. EVER.
 
-Use a period, comma, colon, parentheses, or a plain hyphen instead.
+No em-dashes. Not in chat. Not in code comments. Not in commit messages. Not in PR descriptions. Not in docs. Not in test names. Not anywhere.
 
-Before every commit or PR, run:
+Use a period, comma, colon, parentheses, or rewrite the sentence. En-dashes are not substitutes. Plain hyphens are fine for ranges like `pages 10-20` and compound words.
 
-```bash
-grep -rn $'\u2014' .
-grep -rn $'\u2013' .
+Before every tool call that writes text, scan your output for Unicode codepoints U+2014 (em-dash) and U+2013 (en-dash). Rewrite if either is present.
+
+If porting or quoting text from another source, strip all em-dashes from the ported text before committing.
+
+---
+
+## RULE 2: Read the GDD before making design decisions
+
+The Game Design Document at `docs/gdd/` is the source of truth for what Flatline is. Before proposing architecture, adding features, or changing data schemas, read it. If the GDD and your idea disagree, the GDD wins unless explicitly approved.
+
+Before each implementation slice, read:
+
+- `AGENTS.md`
+- `README.md`
+- `docs/IMPLEMENTATION_PLAN.md`
+- `docs/WORKING_AGREEMENT.md`
+- `docs/gdd/` (the relevant requirement files)
+- `docs/PROGRESS_LOG.md`
+- `docs/OPEN_QUESTIONS.md`
+- `docs/FOLLOWUPS.md`
+- `docs/GDD_COVERAGE.json`
+- `docs/PLAYTEST.md` and `docs/FUN_FACTOR_AUDIT.md` when coverage is ≥80% done
+- the current task backlog (Dots or equivalent)
+
+### Path-scoped Rules
+
+Three additional rule files live under `.claude/rules/`. They are loaded automatically:
+
+- **Claude Code** loads them based on the `paths:` glob in their frontmatter.
+- **Codex** loads them via per-directory `AGENTS.md` symlinks (`docs/AGENTS.md`, `docs/gdd/AGENTS.md`) on its root-down walk.
+
+The three rules:
+
+- `.claude/rules/slice-discipline.md` (paths: source-code globs): no drive-by refactors, no speculative abstractions, refactor-in-slice.
+- `.claude/rules/ledger-append-only.md` (paths: the four ledger files): never delete past entries.
+- `.claude/rules/gdd-build-log.md` (paths: GDD section files): append a build log entry on every shipped feature.
+
+When you add a source directory (`src/`, `app/`, `lib/`, `components/`, `pages/`, `tests/`, etc.) to this project, run this once to make slice-discipline visible to Codex inside that tree:
+
+```
+ln -sf ../.claude/rules/slice-discipline.md <src-dir>/AGENTS.md
 ```
 
-Both commands must return nothing, excluding ignored dependency output.
+Claude Code already picks up slice-discipline by path glob without the symlink.
 
-## Rule 2: mandatory reading order
+---
 
-Before starting a slice, read in this order:
+## RULE 3: Stack constraints
 
-1. `README.md` for orientation.
-2. `docs/IMPLEMENTATION_PLAN.md` for what to build, loop shape, slice selection, and definitions of done.
-3. `docs/WORKING_AGREEMENT.md` for branching, commits, PRs, verification, review handling, and deploy behavior.
-4. `GDD.md` for the game design. It is the source of truth.
-5. The most recent dozen entries in `docs/PROGRESS_LOG.md`, then `docs/OPEN_QUESTIONS.md` and `docs/FOLLOWUPS.md`.
-6. `docs/GDD_COVERAGE.json` for implemented requirements and remaining gaps.
+Next.js + Three.js + Vercel + Upstash Redis
 
-If this file conflicts with `docs/IMPLEMENTATION_PLAN.md` or `docs/WORKING_AGREEMENT.md`, those documents win. Fix the conflict in the same PR.
+Do not introduce new dependencies in core categories without explicit user approval.
 
-## Rule 3: GDD is the source of truth
+---
 
-`GDD.md` defines Flatline.
+## RULE 4: Commit messages and PR descriptions
 
-Before adding features, changing game mechanics, choosing architecture, changing routes, renaming data fields, or adding tasks, read the relevant GDD section.
+- Write them as a human would.
+- No AI attribution. No `Co-Authored-By: Claude`. No "Generated with Claude Code" footers. No mention of Claude, Anthropic, or AI assistance.
+- Keep them short, clean, professional. Focus on the why, not the what.
 
-If code and GDD disagree, resolve the disagreement explicitly in the same PR:
+---
 
-- Change the code to match the GDD, or
-- Update the GDD and note the change in `docs/PROGRESS_LOG.md`.
+## RULE 5: Autonomous PR loop
 
-If the GDD is silent on a decision that cannot be reversed cheaply, use the clarification protocol in `docs/WORKING_AGREEMENT.md`.
+Operate continuously until the planned scope is complete. The loop definition lives in `docs/IMPLEMENTATION_PLAN.md`. The process contract lives in `docs/WORKING_AGREEMENT.md`. Follow both on every slice.
 
-## Rule 4: one slice, one branch, one PR
+For every slice:
 
-Implementation work runs the loop in `docs/IMPLEMENTATION_PLAN.md`.
+1. Read the rule, plan, product, progress, question, followup, coverage, and backlog documents listed in Rule 2.
+2. Pick the highest-priority unblocked task from the implementation plan, GDD coverage gaps, followups, and active backlog.
+3. Create one branch for one PR-sized slice. Never push directly to `main`.
+4. Implement the slice fully using existing project patterns.
+5. Add or update tests appropriate to the risk and surface area.
+6. Update `docs/PROGRESS_LOG.md`, `docs/GDD_COVERAGE.json`, `docs/OPEN_QUESTIONS.md`, `docs/FOLLOWUPS.md`, and the GDD section when the work changes them.
+7. Run the local verification suite. At minimum: dash checks, `git diff --check`, type-check, relevant unit tests, broader checks when warranted.
+8. Open a PR.
+9. Inspect all PR review comments, including inline and threaded comments from Copilot or other review bots.
+10. Fix actionable review comments, reply in-thread when the platform supports it, resolve threads when resolved.
+11. After every push to the PR branch, wait for any configured bot reviewer to finish its review pass. The wait is settled only when all required checks are green AND at least 60 seconds have passed since the latest PR branch push or latest bot review activity, whichever is later. Re-inspect reviews and review threads after the settled wait.
+12. Wait for CI and the preview deploy to pass.
+13. Merge only when green, review feedback is handled, bot review has settled, and the preview deploy is healthy.
+14. Pull `main`, verify main CI and production deploy, smoke test production.
+15. Close the completed backlog item with the PR number and verification.
+16. Immediately start the next slice.
 
-- Branch from `main` as `feat/<slice>`, `fix/<slice>`, `chore/<slice>`, or `docs/<slice>`.
-- Never push directly to `main`.
-- Keep one PR per slice.
-- Commit messages follow `<type>(<area>): <imperative summary>`.
-- Do not use `--no-verify`.
-- Do not force push `main` or any branch with someone else's commits.
-- Wait for CI green before merge.
+Do not stop at planning. Do not stop after opening a PR. Do not stop after merge. If blocked, log the blocker, update the backlog item, move to the next unblocked slice.
 
-After merge, sync `main`, watch CI and deploys, and smoke the deployed build if a deploy target exists.
+Never mark work complete with failing tests, unresolved actionable review comments, a bot review still in flight after the latest push, red CI, or a broken deploy.
 
-## Rule 5: always log the loop
+---
 
-Every slice ends with these documentation updates:
+## RULE 6: Destructive and shared-system actions
 
-- Add a new entry to the top of `docs/PROGRESS_LOG.md`.
-- Add or update decisions in `docs/OPEN_QUESTIONS.md`.
-- Add, update, or close deferred work in `docs/FOLLOWUPS.md`.
-- Update `docs/GDD_COVERAGE.json` when a slice implements, scopes, or changes coverage of a GDD requirement.
-- Update Dots task state with `dot on <id>` before work and `dot off <id> -r "<reason>"` when done.
+Always confirm with the user before:
 
-A cold agent must be able to read the mandatory docs and continue without guessing.
+- `git push --force`, `git reset --hard`, `rm -rf`, dropping data stores, deleting files or branches.
+- Direct pushes to `main` or any protected branch.
+- Modifying CI/CD configuration.
+- Uploading content to third-party services.
 
-## Rule 5A: work continuously in the loop
+Prior approval for one destructive action is not approval for all of them. Ask each time.
 
-Do not stop after one completed task while ready or discoverable work remains.
+---
 
-After every merge:
+## RULE 7: When in doubt, ask. And prefer simple consistent flows.
 
-1. Sync `main`.
-2. Watch CI and deployment.
-3. Smoke the deployed build when a deploy target exists.
-4. Close the completed dot with evidence.
-5. Read `dot ready`, `docs/FOLLOWUPS.md`, and `docs/GDD_COVERAGE.json`.
-6. Pick the next highest-priority unblocked task.
-7. Start the next branch.
+- When a UX decision could go branchy (different behavior per route, per state, per user), default to one consistent rule across all cases.
+- Always explain why you are prompting the user for input.
+- If requirements are ambiguous and a reasonable default would be risky, ask. Otherwise choose the simplest consistent path, document the assumption in `docs/OPEN_QUESTIONS.md` with a `Recommended default:`, ship under that default, and keep moving.
 
-Stopping is allowed only when no ready dots, no release-blocking followups, no critical open questions, and no actionable GDD coverage gaps remain, or when a user decision blocks further work.
+---
 
-## Rule 6: review comments are part of the loop
+## RULE 8: Secrets and environment variables
 
-Before merging any PR:
+- Never commit `.env`, `.env.local`, or any file containing credentials.
+- Never print secret values in logs, chat, or commit messages.
+- Document expected env vars in `README.md`. Set them in the deployment dashboard, not in the repo.
 
-1. Check CI status.
-2. Inspect unresolved PR review threads, including inline and threaded comments.
-3. Address actionable feedback with code, tests, or docs.
-4. Reply to each actionable thread with the disposition.
-5. Resolve handled threads.
-6. Re-run the relevant verification.
+---
 
-Do not merge while unresolved actionable review comments remain.
+## RULE 9: Testing expectations
 
-## Rule 7: secrets and services
+- New pure logic must have unit tests.
+- New API routes must have at least one route-handler test plus one smoke test.
+- Do not mark a task complete with failing tests.
 
-- Never commit `.env`, `.env.local`, credentials, private keys, access tokens, or secret values.
-- Never print secret values in logs, chat, commit messages, or PR bodies.
-- Do not add paid services, telemetry, analytics, or production environment variables without explicit confirmation.
-- Prefer local storage and local-only leaderboards until the GDD or a slice explicitly calls for server persistence.
+## RULE 10: Motion and overlay QA
 
-## Rule 8: testing expectations
+When adding auto-scrolling, credits, animated overlays, portals, or modal UI:
 
-Testing scales with risk.
+- Verify the visible pixels move, not just that a control says the animation is active.
+- Add coverage that measures a changing DOM rect, transform, canvas pixel, or other observable movement over time.
+- Do not pause auto-motion on focus by default. Focus can happen on mount and silently disable the feature.
+- For modal overlays, set z-index above every fixed interactive app surface and confirm background controls cannot sit above the dialog.
+- Preserve normal keyboard activation on focused buttons and form controls.
+- Expose toggle state with `aria-pressed` or equivalent accessible state.
 
-- Pure game logic needs unit tests.
-- Routes need route-handler tests and at least one browser smoke.
-- Renderer and input changes need real browser verification when possible.
-- Deterministic systems need deterministic tests.
-- Do not mark a task complete with failing tests, lint errors, type errors, or red CI.
-
-If browser automation is unavailable, say so in the progress log and request manual verification.
-
-## Rule 9: scope discipline
-
-- One slice should fit in one PR.
-- Do not add features the GDD does not require.
-- Do not invent large abstractions before the code asks for them.
-- Do not add comments that restate the code.
-- If a slice grows, split it and create followup dots.
+---
 
 ## Quick pre-commit checklist
 
-1. No U+2014 or U+2013 characters.
-2. No AI attribution in commits or PR bodies.
-3. Tests and checks pass locally.
-4. GDD remains accurate.
-5. `docs/PROGRESS_LOG.md`, `docs/OPEN_QUESTIONS.md`, and `docs/FOLLOWUPS.md` reflect the slice.
-6. `docs/GDD_COVERAGE.json` reflects implemented coverage and gaps.
-7. Dots task state is correct.
-8. No secrets in the diff.
-9. Branch and commits follow `docs/WORKING_AGREEMENT.md`.
+1. No em-dashes. Run `grep -rnP '[\x{2014}\x{2013}]' .` (checks for U+2014 em-dash and U+2013 en-dash). Must return nothing.
+2. No AI attribution in the commit message.
+3. Tests pass locally.
+4. GDD is still accurate, or updated.
+5. No secrets in the diff.
