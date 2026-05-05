@@ -2,7 +2,7 @@
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Rows whose status is partial or done should carry implementationRefs. testRefs are required when there is executable behavior to test (e.g. game logic, routes); they may be empty for doc-only requirements (risk registers, scope fences, design intent files). followupRefs link to F-NNN entries in docs/FOLLOWUPS.md.",
   "updatedAt": "2026-05-03",
-  "_comment_3": "REQ-056 build log notes per-shot impact-ring feedback shipped on 2026-05-03 in feat/shot-impact-burst. REQ-039 build log notes the HUD damage-direction indicator shipped on 2026-05-03 in feat/damage-direction-indicator.",
+  "_comment_3": "REQ-056 build log notes per-shot impact-ring feedback shipped on 2026-05-03 in feat/shot-impact-burst. REQ-039 build log notes the HUD damage-direction indicator shipped on 2026-05-03 in feat/damage-direction-indicator. REQ-045 / REQ-056 / REQ-026 build logs note the foreground muzzle flash overlay shipped on 2026-05-03 in feat/muzzle-flash-overlay.",
   "rows": [
     {
       "id": "REQ-001",
@@ -234,8 +234,8 @@
       "requirement": "Weapon presentation: 2D foreground sprites with idle, fire, cooldown, pickup, HUD icon frames.",
       "gddRef": "docs/gdd/26-weapon-presentation.md",
       "status": "partial",
-      "implementationRefs": ["public/assets/weapons", "scripts/generate-weapon-sprites.mjs", "src/components/FlatlineGame.tsx"],
-      "testRefs": [],
+      "implementationRefs": ["public/assets/weapons", "scripts/generate-weapon-sprites.mjs", "src/components/FlatlineGame.tsx", "src/game/muzzleFlash.ts", "app/globals.css"],
+      "testRefs": ["src/game/muzzleFlash.test.ts"],
       "followupRefs": []
     },
     {
@@ -405,8 +405,8 @@
       "requirement": "Shooting: hitscan raycast for pistol/shotgun, projectile ticks for inkblaster, impact effects.",
       "gddRef": "docs/gdd/45-shooting.md",
       "status": "done",
-      "implementationRefs": ["src/game/shooting.ts"],
-      "testRefs": ["src/game/shooting.test.ts"],
+      "implementationRefs": ["src/game/shooting.ts", "src/game/muzzleFlash.ts", "src/components/FlatlineGame.tsx", "app/globals.css"],
+      "testRefs": ["src/game/shooting.test.ts", "src/game/muzzleFlash.test.ts"],
       "followupRefs": []
     },
     {
@@ -504,8 +504,8 @@
       "requirement": "Post-MVP feel pass: WASD aligns to camera, every shot has readable feedback, first enemy centered.",
       "gddRef": "docs/gdd/56-post-mvp-feel-pass.md",
       "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/movement.ts", "src/game/shooting.ts"],
-      "testRefs": ["src/game/movement.test.ts", "src/game/shooting.test.ts"],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/movement.ts", "src/game/shooting.ts", "src/game/muzzleFlash.ts", "app/globals.css"],
+      "testRefs": ["src/game/movement.test.ts", "src/game/shooting.test.ts", "src/game/muzzleFlash.test.ts"],
       "followupRefs": []
     },
     {

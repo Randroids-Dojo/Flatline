@@ -233,6 +233,53 @@ button {
   background-image: url("/assets/weapons/inkblaster-fire.png");
 }
 
+.muzzle-flash {
+  position: absolute;
+  left: 50%;
+  bottom: min(28vh, 220px);
+  z-index: 3;
+  width: calc(min(22vw, 220px) * var(--muzzle-scale, 1));
+  height: calc(min(22vw, 220px) * var(--muzzle-scale, 1));
+  transform: translate(-50%, 50%) scale(0.4);
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at center,
+    var(--muzzle-color, rgba(255, 220, 140, 0.95)) 0%,
+    rgba(255, 220, 140, 0.32) 38%,
+    rgba(255, 220, 140, 0) 70%
+  );
+  filter: blur(2px);
+  mix-blend-mode: screen;
+  animation: muzzle-flash var(--muzzle-duration, 110ms) ease-out forwards;
+}
+
+.muzzle-flash-inkblaster {
+  background: radial-gradient(
+    circle at center,
+    var(--muzzle-color, rgba(80, 209, 192, 0.92)) 0%,
+    rgba(80, 209, 192, 0.28) 42%,
+    rgba(80, 209, 192, 0) 72%
+  );
+}
+
+@keyframes muzzle-flash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 50%) scale(0.4);
+  }
+
+  35% {
+    opacity: 1;
+    transform: translate(-50%, 50%) scale(1.05);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 50%) scale(0.85);
+  }
+}
+
 .start-panel {
   position: absolute;
   inset: 0;
