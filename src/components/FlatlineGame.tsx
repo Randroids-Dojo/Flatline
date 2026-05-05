@@ -1654,11 +1654,16 @@ function spawnShotBolt(
   mesh.renderOrder = 4
   runtime.shotGroup.add(mesh)
   shotBoltsLimit(runtime, bolts)
+  const travelDistance = Math.max(0.35, distance - 0.55)
+  // Bolt step is deltaMs * 0.075, so travelDistance / 0.075 ms hits the impact point.
+  // Add a fade buffer so the visual ring opacity has time to drop after spawn.
+  const travelMs = travelDistance / 0.075
+  const fadeBufferMs = hit ? 120 : 180
   bolts.push({
     mesh,
     direction: travelDirection,
-    remainingDistance: Math.max(0.35, distance - 0.55),
-    ttlMs: hit ? 120 : 180,
+    remainingDistance: travelDistance,
+    ttlMs: travelMs + fadeBufferMs,
     hit,
     impactSpawned: false
   })
@@ -1740,7 +1745,7 @@ function tickShotImpacts(runtime: RuntimeRefs, impacts: ShotImpact[], deltaMs: n
 }
 
 function shotImpactsLimit(runtime: RuntimeRefs, impacts: ShotImpact[]) {
-  while (impacts.length > 12) {
+  while (impacts.length >= 12) {
     const impact = impacts.shift()
 
     if (!impact) {
