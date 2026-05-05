@@ -70,6 +70,91 @@ button {
   font-size: 13px;
   line-height: 1.2;
   text-transform: uppercase;
+  animation: hud-wobble var(--hud-wobble-period, 1700ms) ease-in-out infinite;
+  will-change: transform;
+}
+
+.hud-pill:nth-child(2n) {
+  animation-direction: alternate-reverse;
+}
+
+.hud-pill:nth-child(3n) {
+  animation-delay: 220ms;
+}
+
+@keyframes hud-wobble {
+  0% {
+    transform: translate3d(calc(var(--hud-wobble-px, 0.55px) * -1), 0, 0)
+      rotate(calc(var(--hud-wobble-deg, 0.32deg) * -1));
+  }
+
+  50% {
+    transform: translate3d(var(--hud-wobble-px, 0.55px), calc(var(--hud-wobble-px, 0.55px) * 0.5), 0)
+      rotate(var(--hud-wobble-deg, 0.32deg));
+  }
+
+  100% {
+    transform: translate3d(calc(var(--hud-wobble-px, 0.55px) * -1), 0, 0)
+      rotate(calc(var(--hud-wobble-deg, 0.32deg) * -1));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-pill {
+    animation: none;
+    transform: none;
+  }
+
+  .hud-grain {
+    animation: none;
+  }
+}
+
+.hud-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: var(--hud-grain-opacity, 0.06);
+  mix-blend-mode: overlay;
+  background-image: radial-gradient(
+      rgba(244, 241, 232, 0.55) 1px,
+      transparent 1.4px
+    ),
+    radial-gradient(rgba(16, 16, 16, 0.55) 1px, transparent 1.4px);
+  background-size: 3px 3px, 5px 5px;
+  background-position: 0 0, 1px 2px;
+  animation: hud-grain-drift 480ms steps(2) infinite;
+}
+
+@keyframes hud-grain-drift {
+  0% {
+    background-position: 0 0, 1px 2px;
+  }
+
+  50% {
+    background-position: 1px 2px, 2px 0;
+  }
+
+  100% {
+    background-position: 2px 1px, 0 1px;
+  }
+}
+
+.hud-splatter {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: calc(var(--hud-splatter-intensity, 0) * 0.85);
+  background-image:
+    radial-gradient(circle at 4% 8%, rgba(16, 4, 4, 0.85) 0, rgba(16, 4, 4, 0.55) 5vmin, rgba(16, 4, 4, 0) 13vmin),
+    radial-gradient(circle at 96% 6%, rgba(16, 4, 4, 0.85) 0, rgba(16, 4, 4, 0.55) 4vmin, rgba(16, 4, 4, 0) 11vmin),
+    radial-gradient(circle at 6% 96%, rgba(16, 4, 4, 0.78) 0, rgba(16, 4, 4, 0.4) 6vmin, rgba(16, 4, 4, 0) 14vmin),
+    radial-gradient(circle at 94% 94%, rgba(16, 4, 4, 0.78) 0, rgba(16, 4, 4, 0.4) 5vmin, rgba(16, 4, 4, 0) 12vmin),
+    radial-gradient(ellipse 60vmin 24vmin at 50% 0%, rgba(16, 4, 4, 0.5) 0, rgba(16, 4, 4, 0.15) 60%, rgba(16, 4, 4, 0) 100%),
+    radial-gradient(ellipse 60vmin 24vmin at 50% 100%, rgba(16, 4, 4, 0.5) 0, rgba(16, 4, 4, 0.15) 60%, rgba(16, 4, 4, 0) 100%);
+  filter: blur(0.4px);
 }
 
 .hud-pill strong {
