@@ -2,7 +2,7 @@
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Rows whose status is partial or done should carry implementationRefs. testRefs are required when there is executable behavior to test (e.g. game logic, routes); they may be empty for doc-only requirements (risk registers, scope fences, design intent files). followupRefs link to F-NNN entries in docs/FOLLOWUPS.md.",
   "updatedAt": "2026-05-03",
-  "_comment_3": "REQ-056 build log notes per-shot impact-ring feedback shipped on 2026-05-03 in feat/shot-impact-burst. REQ-039 build log notes the HUD damage-direction indicator shipped on 2026-05-03 in feat/damage-direction-indicator. REQ-045 / REQ-056 / REQ-026 build logs note the foreground muzzle flash overlay shipped on 2026-05-03 in feat/muzzle-flash-overlay. REQ-056 / REQ-026 build logs note the weapon recoil sprite kick shipped on 2026-05-03 in feat/weapon-recoil-kick.",
+  "_comment_3": "REQ-056 build log notes per-shot impact-ring feedback shipped on 2026-05-03 in feat/shot-impact-burst. REQ-039 build log notes the HUD damage-direction indicator shipped on 2026-05-03 in feat/damage-direction-indicator. REQ-045 / REQ-056 / REQ-026 build logs note the foreground muzzle flash overlay shipped on 2026-05-03 in feat/muzzle-flash-overlay. REQ-056 / REQ-026 build logs note the weapon recoil sprite kick shipped on 2026-05-03 in feat/weapon-recoil-kick. REQ-046 / REQ-056 build logs note the enemy hurt flash on damage shipped on 2026-05-03 in feat/enemy-hurt-flash.",
   "rows": [
     {
       "id": "REQ-001",
@@ -414,8 +414,8 @@
       "requirement": "Per-frame render: animation lookup, angle bucket, frame index, UV swap, plane rotation, scale, hurt flash.",
       "gddRef": "docs/gdd/46-billboard-rendering-details.md",
       "status": "done",
-      "implementationRefs": ["src/game/billboard.ts", "src/game/spriteAtlas.ts", "src/components/FlatlineGame.tsx"],
-      "testRefs": ["src/game/billboard.test.ts", "src/game/spriteAtlas.test.ts"],
+      "implementationRefs": ["src/game/billboard.ts", "src/game/spriteAtlas.ts", "src/game/enemyHurtFlash.ts", "src/components/FlatlineGame.tsx"],
+      "testRefs": ["src/game/billboard.test.ts", "src/game/spriteAtlas.test.ts", "src/game/enemyHurtFlash.test.ts"],
       "followupRefs": []
     },
     {
@@ -504,8 +504,8 @@
       "requirement": "Post-MVP feel pass: WASD aligns to camera, every shot has readable feedback, first enemy centered.",
       "gddRef": "docs/gdd/56-post-mvp-feel-pass.md",
       "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/movement.ts", "src/game/shooting.ts", "src/game/muzzleFlash.ts", "src/game/weaponRecoil.ts", "app/globals.css"],
-      "testRefs": ["src/game/movement.test.ts", "src/game/shooting.test.ts", "src/game/muzzleFlash.test.ts", "src/game/weaponRecoil.test.ts"],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/movement.ts", "src/game/shooting.ts", "src/game/muzzleFlash.ts", "src/game/weaponRecoil.ts", "src/game/enemyHurtFlash.ts", "app/globals.css"],
+      "testRefs": ["src/game/movement.test.ts", "src/game/shooting.test.ts", "src/game/muzzleFlash.test.ts", "src/game/weaponRecoil.test.ts", "src/game/enemyHurtFlash.test.ts"],
       "followupRefs": []
     },
     {

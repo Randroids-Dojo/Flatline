@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-03, Enemy hurt flash on damage
+
+- Branch: `feat/enemy-hurt-flash`
+- PR: #TBD
+- Changed: every successful hit on an enemy now briefly snaps the billboard sprite toward white so the player gets an unmissable confirmation of damage in addition to the existing health bar / status line update. New pure helper module `src/game/enemyHurtFlash.ts` exposes `enemyHurtFlashStyle(type)` (returns `{ peakIntensity, holdMs, decayMs, flashColor }`) and `enemyHurtFlashIntensity(style, elapsedMs)` (instant rise to peak, hold, then linear decay). Grunt: peakIntensity 0.85 / hold 60 ms / decay 140 ms with pure white flash; skitter: peakIntensity 0.95 / hold 40 ms / decay 110 ms (snappier for a one-shot enemy); brute: peakIntensity 0.7 / hold 90 ms / decay 220 ms with a slightly warm flash so the bigger silhouette reads as a meatier, longer hit. `src/components/FlatlineGame.tsx` adds the import, allocates a single scratch `enemyHurtFlashColor` THREE.Color outside the animate loop, and replaces the previous `if (enemy.state !== 'hurt')` tint write with a branch that lerps the base tint toward the flash color by the computed intensity whenever the enemy is in `'hurt'` or `'dead'` state. Both states reset `animationTimeMs` to 0 inside `damageEnemy`, so that field is the elapsed-since-hit clock the helper consumes.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (19 files / 88 tests pass, 10 new in `src/game/enemyHurtFlash.test.ts`), `npm run build` (success), `npm run test:e2e` (7 passed, 1 skipped).
+- Assumptions: Recommended default flash color is pure white for grunt and skitter (highest contrast against the existing tints) and a faintly warm tone for the brute so its already-warm tint does not blow out. Recommended default curve is instant rise + short hold + linear decay because a perceptual flash needs to peak immediately on the same frame as the hitscan resolution, not ramp up. Recommended default total flash window is shorter than each enemy type's `hurtDurationMs` so the flash resolves before the state transitions back to `chase`.
+- GDD coverage: REQ-046 (billboard rendering details, "hurt flash") and REQ-056 (post-MVP feel pass) gain new build-log entries. REQ-046 stays `done` since the existing render pipeline already covered animation lookup, angle bucket, frame index, UV swap, plane rotation, and scale; this slice closed the only remaining sub-bullet (hurt flash) without changing the row status. REQ-056 stays `partial` (movement around pillars and enemy damage range readability still unaudited).
+- Followups: none new.
+
 ## 2026-05-03, Weapon recoil sprite kick
 
 - Branch: `feat/weapon-recoil-kick`
