@@ -8,6 +8,7 @@ import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePrevi
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { updatePlayerPosition } from '@/game/movement'
+import { muzzleFlashStyle } from '@/game/muzzleFlash'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, tickDirector, type DirectorState } from '@/game/spawnDirector'
@@ -176,6 +177,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const weaponCooldownRef = useRef<WeaponCooldownState>(createWeaponCooldownState())
   const practiceSettingsRef = useRef<PracticeSettings>(createPracticeSettings())
   const weaponFlashTimeoutRef = useRef<number | null>(null)
+  const muzzleFlashTimeoutRef = useRef<number | null>(null)
   const enemyAssetsRef = useRef<Partial<Record<EnemyType, EnemyVisualAsset>>>({})
   const doorSignalTimersRef = useRef<Record<string, number>>({})
   const [running, setRunning] = useState(false)
@@ -190,6 +192,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [runMs, setRunMs] = useState(0)
   const [damagePulse, setDamagePulse] = useState(0)
   const [damageIndicator, setDamageIndicator] = useState<{ key: number; angleRadians: number } | null>(null)
+  const [muzzleFlash, setMuzzleFlash] = useState<{ key: number; weapon: WeaponId } | null>(null)
   const [healthPickupReady, setHealthPickupReady] = useState(true)
   const [selectedWeapon, setSelectedWeapon] = useState<WeaponId>('peashooter')
   const [weaponAmmo, setWeaponAmmo] = useState<WeaponAmmoState>(() => createWeaponAmmo())
@@ -293,6 +296,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       setWeaponFiring(false)
       weaponFlashTimeoutRef.current = null
     }, 220)
+
+    if (muzzleFlashTimeoutRef.current !== null) {
+      window.clearTimeout(muzzleFlashTimeoutRef.current)
+    }
+
+    const flashStyle = muzzleFlashStyle(weapon)
+    setMuzzleFlash({ key: nowMs, weapon })
+    muzzleFlashTimeoutRef.current = window.setTimeout(() => {
+      setMuzzleFlash(null)
+      muzzleFlashTimeoutRef.current = null
+    }, flashStyle.durationMs)
     playCue(weapon === 'boomstick' ? 120 : 180, settingsRef.current.audio)
 
     const direction = forwardFromYawPitch(yawRef.current, pitchRef.current)
@@ -383,6 +397,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setWeaponAmmo(weaponAmmoRef.current)
     setWeaponReady(true)
     setDamageIndicator(null)
+    setMuzzleFlash(null)
+
+    if (muzzleFlashTimeoutRef.current !== null) {
+      window.clearTimeout(muzzleFlashTimeoutRef.current)
+      muzzleFlashTimeoutRef.current = null
+    }
     setTouchJoysticksView(cloneTouchJoysticks(touchJoysticksRef.current))
     setStatus(isPractice ? 'Practice run started. Tuning changes apply next run.' : 'WASD moves. Mouse aims. Left click fires.')
     requestPointerLock(runtimeRef.current?.renderer.domElement)
@@ -1198,6 +1218,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     if (weaponFlashTimeoutRef.current !== null) {
       window.clearTimeout(weaponFlashTimeoutRef.current)
     }
+
+    if (muzzleFlashTimeoutRef.current !== null) {
+      window.clearTimeout(muzzleFlashTimeoutRef.current)
+    }
   }, [])
 
   useEffect(() => {
@@ -1366,6 +1390,24 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         />
       ) : null}
       <div className={`weapon weapon-${selectedWeapon}${weaponFiring ? ' weapon-firing' : ''}`} data-testid="weapon-sprite" aria-hidden="true" />
+      {muzzleFlash ? (
+        (() => {
+          const flashStyle = muzzleFlashStyle(muzzleFlash.weapon)
+          return (
+            <div
+              key={muzzleFlash.key}
+              className={`muzzle-flash muzzle-flash-${muzzleFlash.weapon}`}
+              data-testid="muzzle-flash"
+              aria-hidden="true"
+              style={{
+                ['--muzzle-color' as string]: flashStyle.color,
+                ['--muzzle-scale' as string]: String(flashStyle.scale),
+                ['--muzzle-duration' as string]: `${flashStyle.durationMs}ms`
+              }}
+            />
+          )
+        })()
+      ) : null}
       {running && !paused ? <TouchControls joysticks={touchJoysticksView} /> : null}
       <div className="status-line" data-testid="status-line">
         {status}

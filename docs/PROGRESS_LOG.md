@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-03, Foreground muzzle flash overlay
+
+- Branch: `feat/muzzle-flash-overlay`
+- PR: #TBD
+- Changed: every weapon fire now pops a brief radial-gradient flash overlay above the foreground weapon sprite so the gun visually punctuates the shot, not just the world-space bolt and 3D point light. New pure helper `muzzleFlashStyle(weapon)` in `src/game/muzzleFlash.ts` returns `{ color, scale, durationMs }` per weapon: warm gold for the peashooter and boomstick (bigger and longer for the boomstick), teal cell-energy color for the inkblaster. `src/components/FlatlineGame.tsx` triggers the flash inside the existing `fire` callback (right after the `weaponFlashTimeoutRef` setup), stores `{ key, weapon }` in a new `muzzleFlash` state keyed by `performance.now()`, and renders a `.muzzle-flash` element with `--muzzle-color`, `--muzzle-scale`, and `--muzzle-duration` CSS custom properties. New `.muzzle-flash` rule in `app/globals.css` uses `mix-blend-mode: screen` plus a small blur and a 0.4 to 1.05 to 0.85 scale animation across the configured duration. Flash state clears on run start and component unmount alongside the existing weapon-firing timeout.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (17 files / 72 tests pass, 6 new in `src/game/muzzleFlash.test.ts`), `npm run build` (success), `npm run test:e2e` (7 passed, 1 skipped).
+- Assumptions: Recommended default flash position is centered horizontally over the weapon sprite (matching `weapon` `left: 50%`) and anchored at `bottom: min(28vh, 220px)` so it sits at the muzzle of the foreground sprite at common aspect ratios. Recommended default sizing pegs the peashooter at 1x and tunes boomstick / inkblaster relative to that. Recommended default durations are 110 / 150 / 130 ms; anything under 80 ms reads as a flicker, anything over 200 ms competes with the bolt-impact ring.
+- GDD coverage: REQ-045, REQ-056, and REQ-026 gain new build-log entries in their `docs/gdd/` files. REQ-026 stays `partial` (per-weapon idle / fire / cooldown frame audit still open). REQ-056 stays `partial` (movement around pillars and enemy damage range readability still unaudited). REQ-045 stays `done`.
+- Followups: none new.
+
 ## 2026-05-03, Damage-direction indicator
 
 - Branch: `feat/damage-direction-indicator`
