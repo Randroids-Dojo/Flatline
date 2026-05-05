@@ -22,6 +22,13 @@ import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFl
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
 import { hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
+import {
+  hudGrainOpacity,
+  hudPillWobbleAmplitudePx,
+  hudPillWobblePeriodMs,
+  hudPillWobbleRotationDeg,
+  hudSplatterIntensity
+} from '@/game/hudJitter'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
 import {
@@ -1319,7 +1326,15 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     <main className="game-shell">
       <div ref={mountRef} className="render-root" data-testid="render-root" />
       {running ? (
-        <div className="hud" data-testid="hud">
+        <div
+          className="hud"
+          data-testid="hud"
+          style={{
+            ['--hud-wobble-px' as string]: `${hudPillWobbleAmplitudePx(playerHealth)}px`,
+            ['--hud-wobble-deg' as string]: `${hudPillWobbleRotationDeg(playerHealth)}deg`,
+            ['--hud-wobble-period' as string]: `${hudPillWobblePeriodMs()}ms`
+          }}
+        >
           <div className="hud-pill">
             Health
             <strong>{playerHealth}</strong>
@@ -1457,6 +1472,22 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         </section>
       ) : null}
       <div className="crosshair" data-testid="crosshair" />
+      {running ? (
+        <div
+          className="hud-grain"
+          data-testid="hud-grain"
+          aria-hidden="true"
+          style={{ ['--hud-grain-opacity' as string]: hudGrainOpacity(playerHealth).toFixed(3) }}
+        />
+      ) : null}
+      {running && hudSplatterIntensity(playerHealth) > 0 ? (
+        <div
+          className="hud-splatter"
+          data-testid="hud-splatter"
+          aria-hidden="true"
+          style={{ ['--hud-splatter-intensity' as string]: hudSplatterIntensity(playerHealth).toFixed(3) }}
+        />
+      ) : null}
       {damagePulse > 0 ? <div key={damagePulse} className="damage-flash" data-testid="damage-flash" aria-hidden="true" /> : null}
       {damageIndicator ? (
         <div
