@@ -53,4 +53,5 @@ But add fake depth:
 
 ### Build log
 
+- 2026-05-03: Hurt flash now lerps the enemy material toward white (or a warm tint for the brute) on damage. Files: `src/game/enemyHurtFlash.ts`, `src/game/enemyHurtFlash.test.ts`, `src/components/FlatlineGame.tsx`. PR #TBD.
 - 2026-05-03: Split out of `GDD.md`. Pre-spiral implementation: `src/game/billboard.ts`, `src/game/spriteAtlas.ts`, scene wiring in `src/components/FlatlineGame.tsx`.

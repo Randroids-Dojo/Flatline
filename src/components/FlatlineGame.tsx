@@ -6,6 +6,7 @@ import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/g
 import { damageDirectionRadians } from '@/game/damageDirection'
 import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePreview, type DailyArenaConfig, type DailySchedulePreview } from '@/game/dailyArena'
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel, type EnemyType } from '@/game/enemies'
+import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
@@ -689,6 +690,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       runtimeRef.current.renderer.setSize(width, height)
     }
 
+    const enemyHurtFlashColor = new THREE.Color()
+
     function animate(time: number) {
       animationRef.current = requestAnimationFrame(animate)
       const runtime = runtimeRef.current
@@ -877,8 +880,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
       setCombo((current) => current === activeCombo ? current : activeCombo)
 
-      if (enemy.state !== 'hurt') {
-        runtime.enemyMaterial.color.set(enemyConfigs[enemy.type].tint)
+      const baseTint = enemyConfigs[enemy.type].tint
+      if (enemy.state === 'hurt' || enemy.state === 'dead') {
+        const flashStyle = enemyHurtFlashStyle(enemy.type)
+        const intensity = enemyHurtFlashIntensity(flashStyle, enemy.animationTimeMs)
+        enemyHurtFlashColor.setRGB(flashStyle.flashColor.r, flashStyle.flashColor.g, flashStyle.flashColor.b)
+        runtime.enemyMaterial.color.set(baseTint).lerp(enemyHurtFlashColor, intensity)
+      } else {
+        runtime.enemyMaterial.color.set(baseTint)
       }
 
       const bucket = angleToPlayerBucket(enemy.position, enemy.facingAngle, positionRef.current)
