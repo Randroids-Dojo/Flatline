@@ -2,6 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import {
+  CURTAIN_DOOR_HALF_GAP_M,
+  CURTAIN_HEIGHT_M,
+  CURTAIN_PANEL_COUNT,
+  CURTAIN_PANEL_DEPTH_M,
+  CURTAIN_SIDE_WIDTH_M,
+  ORGAN_DOOR_OFFSET_M,
+  ORGAN_PIPE_HEIGHTS_M,
+  ORGAN_PIPE_RADIUS_M,
+  ORGAN_PIPE_SPACING_M,
+  landmarkForWall
+} from '@/game/arenaLandmarks'
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
 import { damageDirectionRadians } from '@/game/damageDirection'
 import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePreview, type DailyArenaConfig, type DailySchedulePreview } from '@/game/dailyArena'
@@ -1653,17 +1665,104 @@ function createRoom() {
   pickupHalo.renderOrder = 1
   group.add(pickupHalo)
 
+  const clockLandmark = landmarkForWall('north')!
   const clock = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.045, 12, 60), accentMaterial)
-  clock.position.set(0, 2.4, 9.8)
+  clock.position.set(clockLandmark.position.x, clockLandmark.position.y, clockLandmark.position.z)
   group.add(clock)
 
+  const clockHand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.85, 0.04), accentMaterial)
+  clockHand.position.set(clockLandmark.position.x, clockLandmark.position.y + 0.35, clockLandmark.position.z - 0.04)
+  clockHand.rotation.z = Math.PI / 8
+  group.add(clockHand)
+
+  const furnaceLandmark = landmarkForWall('east')!
   const furnaceLeft = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.7, 1.4), dangerMaterial)
-  furnaceLeft.position.set(9.8, 1, -1)
+  furnaceLeft.position.set(furnaceLandmark.position.x, furnaceLandmark.position.y, furnaceLandmark.position.z - 1)
   group.add(furnaceLeft)
 
   const furnaceRight = furnaceLeft.clone()
-  furnaceRight.position.z = 1
+  furnaceRight.position.z = furnaceLandmark.position.z + 1
   group.add(furnaceRight)
+
+  const curtainLandmark = landmarkForWall('south')!
+  const curtainMaterial = new THREE.MeshStandardMaterial({
+    color: '#8a2828',
+    emissive: '#220606',
+    roughness: 0.95
+  })
+  const curtainPanelSpacing = CURTAIN_SIDE_WIDTH_M / CURTAIN_PANEL_COUNT
+  const curtainPanelWidth = curtainPanelSpacing * 0.92
+  const curtainBaseY = curtainLandmark.position.y
+  const curtainZ = curtainLandmark.position.z + 0.18
+  for (const sideSign of [-1, 1] as const) {
+    for (let i = 0; i < CURTAIN_PANEL_COUNT; i += 1) {
+      // First panel sits just outside the door gap; subsequent panels move
+      // outward toward the corners.
+      const offsetFromDoor = CURTAIN_DOOR_HALF_GAP_M + (i + 0.5) * curtainPanelSpacing
+      const panel = new THREE.Mesh(
+        new THREE.BoxGeometry(curtainPanelWidth, CURTAIN_HEIGHT_M, CURTAIN_PANEL_DEPTH_M),
+        curtainMaterial
+      )
+      panel.position.set(
+        curtainLandmark.position.x + sideSign * offsetFromDoor,
+        curtainBaseY,
+        curtainZ
+      )
+      group.add(panel)
+    }
+  }
+  const curtainRailMaterial = new THREE.MeshStandardMaterial({
+    color: '#c9a23a',
+    emissive: '#3a2c0c',
+    roughness: 0.6
+  })
+  const curtainRailLength = (CURTAIN_DOOR_HALF_GAP_M + CURTAIN_SIDE_WIDTH_M) * 2 + 0.4
+  const curtainRail = new THREE.Mesh(
+    new THREE.BoxGeometry(curtainRailLength, 0.12, 0.18),
+    curtainRailMaterial
+  )
+  curtainRail.position.set(
+    curtainLandmark.position.x,
+    curtainBaseY + CURTAIN_HEIGHT_M / 2 + 0.06,
+    curtainZ
+  )
+  group.add(curtainRail)
+
+  const organLandmark = landmarkForWall('west')!
+  const organPipeMaterial = new THREE.MeshStandardMaterial({
+    color: '#9aa7b4',
+    emissive: '#1a2530',
+    roughness: 0.55,
+    metalness: 0.45
+  })
+  const organBaseMaterial = new THREE.MeshStandardMaterial({
+    color: '#3c2f24',
+    roughness: 0.85
+  })
+  const organCenterZ = organLandmark.position.z
+  const organSurfaceX = organLandmark.position.x + 0.22
+  for (const sideSign of [-1, 1] as const) {
+    for (let i = 0; i < ORGAN_PIPE_HEIGHTS_M.length; i += 1) {
+      const height = ORGAN_PIPE_HEIGHTS_M[i]
+      const offsetFromDoor = ORGAN_DOOR_OFFSET_M + i * ORGAN_PIPE_SPACING_M
+      const pipe = new THREE.Mesh(
+        new THREE.CylinderGeometry(ORGAN_PIPE_RADIUS_M, ORGAN_PIPE_RADIUS_M, height, 14),
+        organPipeMaterial
+      )
+      pipe.position.set(organSurfaceX, height / 2, organCenterZ + sideSign * offsetFromDoor)
+      group.add(pipe)
+    }
+  }
+  for (const sideSign of [-1, 1] as const) {
+    const baseLength = (ORGAN_PIPE_HEIGHTS_M.length - 1) * ORGAN_PIPE_SPACING_M + ORGAN_PIPE_RADIUS_M * 2 + 0.2
+    const baseCenterOffset = ORGAN_DOOR_OFFSET_M + (ORGAN_PIPE_HEIGHTS_M.length - 1) * ORGAN_PIPE_SPACING_M / 2
+    const organBase = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 0.32, baseLength),
+      organBaseMaterial
+    )
+    organBase.position.set(organSurfaceX, 0.16, organCenterZ + sideSign * baseCenterOffset)
+    group.add(organBase)
+  }
 
   addDoorVisual(group, doorSignals, 'north', { x: 0, y: 1.12, z: 9.78 }, new THREE.BoxGeometry(2.25, 1.8, 0.08), doorMaterial)
   addDoorVisual(group, doorSignals, 'south', { x: 0, y: 1.12, z: -9.78 }, new THREE.BoxGeometry(2.25, 1.8, 0.08), doorMaterial)
