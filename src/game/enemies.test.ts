@@ -38,7 +38,7 @@ describe('enemy AI', () => {
     const result = tickEnemy(enemy, player, 16, gruntConfig)
 
     expect(result.enemy.state).toBe('attackWindup')
-    expect(result.events).toContainEqual({ type: 'enemyAttackStarted', enemyId: 'grunt-1' })
+    expect(result.events).toContainEqual({ type: 'enemyAttackStarted', enemyId: 'grunt-1', enemyType: 'grunt' })
   })
 
   it('damages the player on attack release if still in range', () => {

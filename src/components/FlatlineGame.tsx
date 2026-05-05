@@ -7,6 +7,7 @@ import { damageDirectionRadians } from '@/game/damageDirection'
 import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePreview, type DailyArenaConfig, type DailySchedulePreview } from '@/game/dailyArena'
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
+import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
@@ -827,6 +828,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           for (const event of result.events) {
             if (event.type === 'enemyAttackStarted') {
               setStatus('Enemy windup. Backpedal or sidestep.')
+              playWindupCue(enemyWindupCue(event.enemyType), settingsRef.current.audio)
             }
 
             if (event.type === 'enemyAttackHit') {
@@ -2429,6 +2431,31 @@ function playCue(frequency: number, enabled: boolean) {
   gain.connect(context.destination)
   oscillator.start()
   oscillator.stop(context.currentTime + 0.06)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+function playWindupCue(cue: EnemyWindupCueStyle, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = cue.waveform
+  oscillator.frequency.value = cue.frequency
+  const peak = cue.gain
+  const startTime = context.currentTime
+  const stopTime = startTime + cue.durationMs / 1000
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.02, cue.durationMs / 1000 / 4))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
   oscillator.addEventListener('ended', () => {
     context.close()
   })

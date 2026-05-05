@@ -44,7 +44,7 @@ export type EnemyTickResult = {
 }
 
 export type EnemyEvent =
-  | { type: 'enemyAttackStarted'; enemyId: string }
+  | { type: 'enemyAttackStarted'; enemyId: string; enemyType: EnemyType }
   | { type: 'enemyAttackHit'; enemyId: string; damage: number }
   | { type: 'enemyAttackMissed'; enemyId: string }
   | { type: 'enemyRecovered'; enemyId: string }
@@ -203,7 +203,7 @@ export function tickEnemy(
     nextEnemy.state = 'attackWindup'
     nextEnemy.animationTimeMs = 0
     nextEnemy.velocity = { x: 0, y: 0, z: 0 }
-    events.push({ type: 'enemyAttackStarted', enemyId: nextEnemy.id })
+    events.push({ type: 'enemyAttackStarted', enemyId: nextEnemy.id, enemyType: nextEnemy.type })
     return { enemy: nextEnemy, player: nextPlayer, events }
   }
 
