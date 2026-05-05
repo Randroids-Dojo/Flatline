@@ -233,6 +233,24 @@ button {
   background-image: url("/assets/weapons/inkblaster-fire.png");
 }
 
+.weapon.weapon-firing {
+  animation: weapon-recoil var(--weapon-recoil-duration, 140ms) ease-out forwards;
+}
+
+@keyframes weapon-recoil {
+  0% {
+    transform: translateX(-50%) translateY(0) rotate(0deg);
+  }
+
+  35% {
+    transform: translateX(-50%) translateY(var(--weapon-recoil-kick, 6px)) rotate(var(--weapon-recoil-rotate, -1.2deg));
+  }
+
+  100% {
+    transform: translateX(-50%) translateY(0) rotate(0deg);
+  }
+}
+
 .muzzle-flash {
   position: absolute;
   left: 50%;

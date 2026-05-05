@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-03, Weapon recoil sprite kick
+
+- Branch: `feat/weapon-recoil-kick`
+- PR: #51
+- Changed: every weapon fire now physically kicks the foreground gun sprite down and tilts it slightly back, then settles, instead of only swapping to the firing image. New pure helper `weaponRecoilStyle(weapon)` in `src/game/weaponRecoil.ts` returns `{ kickPx, rotateDeg, durationMs }`. Peashooter uses 6 px / -1.2 deg / 140 ms; inkblaster 10 px / -2.2 deg / 180 ms; boomstick 18 px / -3.5 deg / 240 ms (kick magnitude tracks the muzzle flash scale ordering). `src/components/FlatlineGame.tsx` adds a `weaponFireKey` counter incremented inside the existing `fire` callback. The `.weapon` JSX is wrapped in an IIFE that pulls the recoil style and applies CSS custom properties (`--weapon-recoil-kick`, `--weapon-recoil-rotate`, `--weapon-recoil-duration`) plus a unique React `key` so consecutive shots restart the keyframe animation cleanly. New `.weapon.weapon-firing` rule in `app/globals.css` defines the `weapon-recoil` keyframe (translateX(-50%) composed with translateY + rotate at 35% and snap back at 100%).
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (18 files / 78 tests pass, 6 new in `src/game/weaponRecoil.test.ts`), `npm run build` (success), `npm run test:e2e` (7 passed, 1 skipped).
+- Assumptions: Recommended default is a kick that peaks at 35 percent of the duration so the snap-back reads as fast as the kick. Recommended default kick / rotation magnitudes scale with the existing muzzle flash scale ordering so the sprite physical reaction matches the visual punch. Recommended default duration stays under the 220 ms `weapon-firing` class hold so the animation finishes before the class drops; consecutive shots retrigger via the React `key` change rather than via class toggling.
+- GDD coverage: REQ-056 and REQ-026 build logs both gain a new entry. Both rows stay `partial` (REQ-026 still has full per-weapon idle / fire / cooldown frame audit pending; REQ-056 still has movement around pillars and enemy damage range readability unaudited).
+- Followups: none new.
+
 ## 2026-05-03, Foreground muzzle flash overlay
 
 - Branch: `feat/muzzle-flash-overlay`

@@ -9,6 +9,7 @@ import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn,
 import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
+import { weaponRecoilStyle } from '@/game/weaponRecoil'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, tickDirector, type DirectorState } from '@/game/spawnDirector'
@@ -197,6 +198,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [selectedWeapon, setSelectedWeapon] = useState<WeaponId>('peashooter')
   const [weaponAmmo, setWeaponAmmo] = useState<WeaponAmmoState>(() => createWeaponAmmo())
   const [weaponFiring, setWeaponFiring] = useState(false)
+  const [weaponFireKey, setWeaponFireKey] = useState(0)
   const [weaponReady, setWeaponReady] = useState(true)
   const [touchJoysticksView, setTouchJoysticksView] = useState<TouchJoysticks>(() => ({
     move: createJoystick(),
@@ -287,6 +289,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
     runtime.muzzleLight.intensity = weapon === 'boomstick' ? 7 : 4.5
     setWeaponFiring(true)
+    setWeaponFireKey((value) => value + 1)
 
     if (weaponFlashTimeoutRef.current !== null) {
       window.clearTimeout(weaponFlashTimeoutRef.current)
@@ -1389,7 +1392,22 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           style={{ transform: `translate(-50%, -50%) rotate(${damageIndicator.angleRadians}rad)` }}
         />
       ) : null}
-      <div className={`weapon weapon-${selectedWeapon}${weaponFiring ? ' weapon-firing' : ''}`} data-testid="weapon-sprite" aria-hidden="true" />
+      {(() => {
+        const recoilStyle = weaponRecoilStyle(selectedWeapon)
+        return (
+          <div
+            key={`weapon-${selectedWeapon}-${weaponFiring ? 'firing' : 'idle'}-${weaponFireKey}`}
+            className={`weapon weapon-${selectedWeapon}${weaponFiring ? ' weapon-firing' : ''}`}
+            data-testid="weapon-sprite"
+            aria-hidden="true"
+            style={{
+              ['--weapon-recoil-kick' as string]: `${recoilStyle.kickPx}px`,
+              ['--weapon-recoil-rotate' as string]: `${recoilStyle.rotateDeg}deg`,
+              ['--weapon-recoil-duration' as string]: `${recoilStyle.durationMs}ms`
+            }}
+          />
+        )
+      })()}
       {muzzleFlash ? (
         (() => {
           const flashStyle = muzzleFlashStyle(muzzleFlash.weapon)
