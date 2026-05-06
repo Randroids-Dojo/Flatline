@@ -1288,7 +1288,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             const wave = encounterWaveSignal(directorRef.current.runMs)
             const baseTarget = targetPressureForRunMs(directorRef.current.runMs) + wave.targetDelta
             const ratio = baseTarget > 0 ? activePressure / baseTarget : 0
-            const gainNow = musicIntensityGain(ratio) * MUSIC_PEAK_GAIN
+            const audioEnabled = settingsRef.current.audio
+            const gainNow = audioEnabled ? musicIntensityGain(ratio) * MUSIC_PEAK_GAIN : 0
             musicLayer.masterGain.gain.setTargetAtTime(gainNow, musicLayer.context.currentTime, 0.12)
           }
 
