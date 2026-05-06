@@ -53,15 +53,6 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Unblock condition: pure helpers for projectile motion, telegraph, and audio cue; integration in `FlatlineGame.tsx`.
 - Status: open
 
-### F-009: Hitstop on confirmed hit
-
-- Priority: nice-to-have
-- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. The contact moment is the highest-leverage feel beat in any shooter. Add a 30 to 60 ms hitstop (per-weapon tuned) when a player shot lands on an enemy. This is a global time-scale dip that affects the simulation tick scaling for one frame budget.
-- Blocker: none.
-- Unblock condition: pure helper that returns `{ scale, durationMs }` per weapon; consumer wires it into the animate loop's delta calculation.
-- Status: done
-- Resolved: 2026-05-05 hitstop-on-confirmed-hit slice. New helper `src/game/hitstop.ts` exposes `hitstopStyle(weapon)` and `hitstopScaleAtElapsedMs(style, elapsedMs)`; `src/components/FlatlineGame.tsx` adds `hitstopStateRef`, sets it inside `damageCurrentEnemy` on every confirmed hit, multiplies the per-frame `delta` by the helper's return value, clears the ref once the window has elapsed, and resets the ref on `startRun`.
-
 ### F-010: Enemy knockback on damage
 
 - Priority: nice-to-have
@@ -110,6 +101,21 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Unblock condition: pure helper that maps pressure ratio to gain envelope; consumer wires a single sustained oscillator pair into the existing audio context lifecycle.
 - Status: open
 
+## Polish
+
+(none yet)
+
+## Resolved
+
+### F-009: Hitstop on confirmed hit
+
+- Priority: nice-to-have
+- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. The contact moment is the highest-leverage feel beat in any shooter. Add a 30 to 60 ms hitstop (per-weapon tuned) when a player shot lands on an enemy. This is a global time-scale dip that affects the simulation tick scaling for one frame budget.
+- Blocker: none.
+- Unblock condition: pure helper that returns `{ scale, durationMs }` per weapon; consumer wires it into the animate loop's delta calculation.
+- Status: done
+- Resolved: PR #64. New helper `src/game/hitstop.ts` exposes `hitstopStyle(weapon)` and `hitstopScaleAtElapsedMs(style, elapsedMs)`; `src/components/FlatlineGame.tsx` adds `hitstopStateRef`, sets it inside `damageCurrentEnemy` on every confirmed hit, multiplies the per-frame `delta` by the helper's return value, clears the ref once the window has elapsed, and resets the ref on `startRun`. View rotation reads `viewDelta` (raw) so the camera stays responsive during the freeze.
+
 ### F-005: Confirm root cause of mobile (0, 0) phantom pointerdown
 
 - Priority: nice-to-have
@@ -117,13 +123,7 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Blocker: not reproducible from Playwright tap injection on Pixel 5, iPhone 12, iPhone 13 Mini, or narrow Desktop Chrome.
 - Unblock condition: capture a real-device console log of the pointer event stream that produces the phantom (event type, `pointerType`, `clientX`, `clientY`, `target.tagName`) so the source can be identified and the guard can be retired or replaced with something more targeted.
 - Status: done
-- Resolved: 2026-05-05. The (0, 0) guard was dropped because it caused a real-device regression (thumbsticks failing to appear on first run, recovering only after backgrounding and foregrounding the browser). The original phantom-flash symptom was reported only from PC Chrome with phone-size emulation and was never reproduced on a real device, so the band-aid was removed. If the phantom returns on a real device with diagnostic logging, file a fresh follow-up with the captured pointer-event payload.
-
-## Polish
-
-(none yet)
-
-## Resolved
+- Resolved: PR #64. The (0, 0) guard was dropped because it caused a real-device regression (thumbsticks failing to appear on first run on Android Chrome, recovering only after backgrounding and foregrounding the browser). After also adding a snap-on-move helper, real-device retest still showed the move stick anchored at the top-left, which led to switching the joystick handlers from `PointerEvent` to `TouchEvent` to bypass the stale-`clientX/Y` bug at its source. If the original phantom flash returns on a real device with diagnostic logging, file a fresh follow-up with the captured pointer-event payload.
 
 ### F-004: Resolve orphan pickup-cue work
 
