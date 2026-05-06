@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Dash on Shift (F-006)
+
+- Branch: `feat/dash-on-shift`
+- PR: #TBD
+- Changed: tapping Shift now fires an instant 180 ms dash that displaces the player ~3.2 m in the active WASD direction (or view forward when no movement key is held), with a 1400 ms cooldown before the next dash. New pure helper `src/game/dash.ts` exposes `DASH_DURATION_MS`, `DASH_DISTANCE_M`, `DASH_COOLDOWN_MS`, a derived `DASH_SPEED_MPS`, plus `dashWorldDirection(input, yaw)`, `dashCooldownRemainingMs`, `dashReadyAt`, `startDash`, and `dashStep`. `src/components/FlatlineGame.tsx` adds `dashStateRef` + `lastDashStartMsRef`, hooks `ShiftLeft` / `ShiftRight` keydown in the existing `updateKey` (gated by `runningRef.current && !pausedRef.current && dashReadyAt`), applies the dash velocity on top of the existing `updatePlayerPosition` output each frame (clamped to `movementConfig.bounds`), drops the state once `dashStep` returns inactive, updates a new `dashReady` HUD pill (`data-testid="dash-ready"`) that flips between "Ready" and "Cooling", and resets both refs on `startRun`. Audio: a new local `playDashCue` plays a 180 ms sine swoop from 1100 Hz down to 700 Hz at gain 0.038 with a 12 ms attack and an exponential decay tail. The dash uses the hitstop-scaled `delta` so it freezes together with the rest of the simulation during the contact moment.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (32 files / 252 tests pass, 23 new in `src/game/dash.test.ts`), `npm run build` (success), `npm run test:e2e` (9 passed, 3 skipped).
+- Assumptions: Recommended default uses constant velocity across the dash window rather than ease-out because the 180 ms window is short enough that the player perceives it as a single displacement, and constant velocity makes the helper's distance integral exact at any sample rate. Recommended default fallback when no WASD key is held is the player's view-forward direction so a tap-with-no-movement still does something useful, matching the documented intent in `docs/gdd/10-movement.md`. Recommended default keeps the dash on the simulation `delta` (not the raw `viewDelta`) so a hitstop frame freezes the dash together with everything else; this is consistent with how the dash reads as part of the player's world-space motion rather than a view-space input.
+- GDD coverage: REQ-010 (movement) gains a build-log entry naming `src/game/dash.ts`, `src/game/dash.test.ts`, and `src/components/FlatlineGame.tsx`; status stays `done`. The row picks up `src/game/dash.ts` in `implementationRefs` and `src/game/dash.test.ts` in `testRefs`. The Shift line in the GDD prose is updated from "Shift: dash, later" to "Shift: dash" since the verb shipped.
+- Followups: F-006 is satisfied by this slice (will be marked resolved on merge).
+
 ## 2026-05-05, Hitstop spares the touch-look camera (PR #64 review fix)
 
 - Branch: `feat/hitstop-on-hit`

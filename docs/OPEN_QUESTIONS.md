@@ -25,16 +25,6 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 
 ## Open
 
-### Q-006: Should Shift be a held sprint or an instant dash?
-
-- Context: `docs/gdd/10-movement.md` lists `Shift: dash, later`. The player currently runs at a constant 6.8 m/s with no movement modifier. Adding an expressive movement verb is the highest-leverage Doom-feel move (see `docs/FUN_FACTOR_AUDIT.md`, 2026-05-05). Two shapes are in scope.
-- Options:
-  - A. Held sprint. Holding Shift sets the player to 1.35x base speed for up to 1.2s of continuous run, then a 0.6s cooldown after release. Reads as "I can choose to commit to a flank."
-  - B. Instant dash. Tapping Shift fires a 0.18s impulse that displaces the player ~3.2 m in current input direction, with a 1.4s cooldown. Reads as "I just got out of a brute swing."
-  - C. Both. Tap = dash, hold = sprint.
-- Recommended default: B. A short dash is a single tuned impulse with a clear cooldown, the cleanest mapping for a one-room arena where evading a windup matters more than crossing distance, and the cheapest first slice. Sprint can layer in later as Q-006B if the player feedback asks for it.
-- Status: open
-
 ### Q-007: What does the rage / berserk powerup actually do?
 
 - Context: Doom 1993 berserk gave 100 health, made fists one-shot most enemies, and tinted the screen red. Quake's quad damage was time-limited 4x damage with audio cue. Flatline currently has no power pickup. The audit (`docs/FUN_FACTOR_AUDIT.md`, 2026-05-05) calls for one. The shape decides what the buff means.
@@ -56,6 +46,17 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 - Status: open
 
 ## Resolved
+
+### Q-006: Should Shift be a held sprint or an instant dash?
+
+- Context: `docs/gdd/10-movement.md` lists `Shift: dash, later`. The player currently runs at a constant 6.8 m/s with no movement modifier. Adding an expressive movement verb is the highest-leverage Doom-feel move (see `docs/FUN_FACTOR_AUDIT.md`, 2026-05-05). Two shapes are in scope.
+- Options:
+  - A. Held sprint. Holding Shift sets the player to 1.35x base speed for up to 1.2s of continuous run, then a 0.6s cooldown after release. Reads as "I can choose to commit to a flank."
+  - B. Instant dash. Tapping Shift fires a 0.18s impulse that displaces the player ~3.2 m in current input direction, with a 1.4s cooldown. Reads as "I just got out of a brute swing."
+  - C. Both. Tap = dash, hold = sprint.
+- Recommended default: B. A short dash is a single tuned impulse with a clear cooldown, the cleanest mapping for a one-room arena where evading a windup matters more than crossing distance, and the cheapest first slice. Sprint can layer in later as Q-006B if the player feedback asks for it.
+- Status: resolved
+- Resolution: Shipped under Recommended default B (instant dash). 180 ms duration, 3.2 m displacement, 1.4 s cooldown. Sprint variant (A) deferred unless playtest asks for it. Decided 2026-05-06 in PR #TBD (F-006).
 
 ### Q-001: Should MVP use mostly grayscale with accent colors?
 
