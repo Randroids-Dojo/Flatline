@@ -46,7 +46,7 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
   - C. Damage + speed + invuln window. Full B plus 80% incoming damage reduction for the duration. Reads as a Doom invuln sphere blended with berserk.
 - Recommended default: B. Stacking damage + speed + fire-rate creates a multiplicative power fantasy without removing player agency the way invuln does. A clean Web Audio pulse layer plus a screen-edge tint conveys the state. The 10s window keeps it rare and memorable. Difficulty stays honest because the player still has to play.
 - Status: resolved
-- Resolution: Shipped under Recommended default B (damage + speed + fire-rate, no invuln) in PR #TBD (F-011). 10 s window, 1.5x damage, 1.3x speed, 1.5x fire rate, screen-edge red tint, sawtooth swoop cue on grant. Sustained pulse audio layer deferred. Decided 2026-05-06.
+- Resolution: Shipped under Recommended default B (damage + speed + fire-rate, no invuln) in PR #69 (F-011). 10 s window, 1.5x damage, 1.3x speed, 1.5x fire rate, screen-edge red tint, sawtooth swoop cue on grant. Sustained pulse audio layer deferred. Decided 2026-05-06.
 
 ### Q-006: Should Shift be a held sprint or an instant dash?
 
@@ -57,7 +57,7 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
   - C. Both. Tap = dash, hold = sprint.
 - Recommended default: B. A short dash is a single tuned impulse with a clear cooldown, the cleanest mapping for a one-room arena where evading a windup matters more than crossing distance, and the cheapest first slice. Sprint can layer in later as Q-006B if the player feedback asks for it.
 - Status: resolved
-- Resolution: Shipped under Recommended default B (instant dash). 180 ms duration, 3.2 m displacement, 1.4 s cooldown. Sprint variant (A) deferred unless playtest asks for it. Decided 2026-05-06 in PR #TBD (F-006).
+- Resolution: Shipped under Recommended default B (instant dash). 180 ms duration, 3.2 m displacement, 1.4 s cooldown. Sprint variant (A) deferred unless playtest asks for it. Decided 2026-05-06 in PR #67 (F-006).
 
 ### Q-001: Should MVP use mostly grayscale with accent colors?
 
