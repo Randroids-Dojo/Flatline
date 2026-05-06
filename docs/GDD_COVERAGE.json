@@ -9,13 +9,8 @@
       "requirement": "Vision: arcade-style single-room first-person shooter for the web with hand-drawn billboard enemies.",
       "gddRef": "docs/gdd/01-vision.md",
       "status": "done",
-      "implementationRefs": [
-        "app/page.tsx",
-        "src/components/FlatlineGame.tsx"
-      ],
-      "testRefs": [
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["app/page.tsx", "src/components/FlatlineGame.tsx"],
+      "testRefs": ["tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -23,9 +18,7 @@
       "requirement": "Design pillars: instant violence, one room many states, 2D in 3D, fast runs.",
       "gddRef": "docs/gdd/02-design-pillars.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx"],
       "testRefs": [],
       "followupRefs": []
     },
@@ -34,14 +27,8 @@
       "requirement": "Target platform: desktop web first, mobile / gamepad / PWA secondary.",
       "gddRef": "docs/gdd/03-target-platform.md",
       "status": "done",
-      "implementationRefs": [
-        "app/page.tsx",
-        "src/game/virtualJoystick.ts"
-      ],
-      "testRefs": [
-        "src/game/virtualJoystick.test.ts",
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["app/page.tsx", "src/game/virtualJoystick.ts"],
+      "testRefs": ["src/game/virtualJoystick.test.ts", "tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -49,16 +36,8 @@
       "requirement": "Technical base: Next.js + React + Three.js + TypeScript + Vitest + Playwright + Upstash Redis.",
       "gddRef": "docs/gdd/04-technical-base.md",
       "status": "done",
-      "implementationRefs": [
-        "package.json",
-        "next.config.ts",
-        "playwright.config.ts",
-        "vitest.config.ts",
-        "tsconfig.json"
-      ],
-      "testRefs": [
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["package.json", "next.config.ts", "playwright.config.ts", "vitest.config.ts", "tsconfig.json"],
+      "testRefs": ["tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -66,12 +45,8 @@
       "requirement": "Core game loop: open, title, countdown, spawn, kill, dodge, die, summary, restart.",
       "gddRef": "docs/gdd/05-core-loop.md",
       "status": "done",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx"
-      ],
-      "testRefs": [
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx"],
+      "testRefs": ["tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -79,16 +54,8 @@
       "requirement": "Endless mode: survive in single room with multi-axis scoring.",
       "gddRef": "docs/gdd/06-mode-endless.md",
       "status": "done",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game/scoring.ts",
-        "src/game/spawnDirector.ts"
-      ],
-      "testRefs": [
-        "src/game/scoring.test.ts",
-        "src/game/spawnDirector.test.ts",
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/scoring.ts", "src/game/spawnDirector.ts"],
+      "testRefs": ["src/game/scoring.test.ts", "src/game/spawnDirector.test.ts", "tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -96,16 +63,8 @@
       "requirement": "Daily mode: deterministic seed shared across players, daily-scoped leaderboard.",
       "gddRef": "docs/gdd/07-mode-daily.md",
       "status": "done",
-      "implementationRefs": [
-        "app/arena/daily/page.tsx",
-        "src/game/dailyArena.ts",
-        "src/lib/dailySeed.ts"
-      ],
-      "testRefs": [
-        "src/game/dailyArena.test.ts",
-        "src/lib/dailySeed.test.ts",
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["app/arena/daily/page.tsx", "src/game/dailyArena.ts", "src/lib/dailySeed.ts"],
+      "testRefs": ["src/game/dailyArena.test.ts", "src/lib/dailySeed.test.ts", "tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -113,14 +72,8 @@
       "requirement": "Practice mode: tuning controls, no leaderboard submission.",
       "gddRef": "docs/gdd/08-mode-practice.md",
       "status": "done",
-      "implementationRefs": [
-        "app/arena/practice/page.tsx",
-        "src/game/spawnDirector.ts"
-      ],
-      "testRefs": [
-        "src/game/spawnDirector.test.ts",
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["app/arena/practice/page.tsx", "src/game/spawnDirector.ts"],
+      "testRefs": ["src/game/spawnDirector.test.ts", "tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -128,12 +81,8 @@
       "requirement": "First-person camera: FOV 75, height 1.7, mouse look, weapon foreground sprite.",
       "gddRef": "docs/gdd/09-camera.md",
       "status": "done",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx"
-      ],
-      "testRefs": [
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx"],
+      "testRefs": ["tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -141,17 +90,8 @@
       "requirement": "Movement: WASD + mouse aim, fast acceleration, low friction; mobile virtual joystick + look pad.",
       "gddRef": "docs/gdd/10-movement.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/movement.ts",
-        "src/game/virtualJoystick.ts",
-        "src/components/FlatlineGame.tsx",
-        "app/globals.css"
-      ],
-      "testRefs": [
-        "src/game/movement.test.ts",
-        "src/game/virtualJoystick.test.ts",
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["src/game/movement.ts", "src/game/virtualJoystick.ts", "src/components/FlatlineGame.tsx", "app/globals.css"],
+      "testRefs": ["src/game/movement.test.ts", "src/game/virtualJoystick.test.ts", "tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -159,14 +99,8 @@
       "requirement": "Billboard perspective: flat plane always faces camera; sprite chosen from player relative angle.",
       "gddRef": "docs/gdd/11-billboard-perspective.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/billboard.ts",
-        "src/game/spriteAtlas.ts"
-      ],
-      "testRefs": [
-        "src/game/billboard.test.ts",
-        "src/game/spriteAtlas.test.ts"
-      ],
+      "implementationRefs": ["src/game/billboard.ts", "src/game/spriteAtlas.ts"],
+      "testRefs": ["src/game/billboard.test.ts", "src/game/spriteAtlas.test.ts"],
       "followupRefs": []
     },
     {
@@ -174,11 +108,7 @@
       "requirement": "Art direction: mostly grayscale with teal interactable accent and red danger color (Q-001).",
       "gddRef": "docs/gdd/12-art-direction.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "public/assets/enemies",
-        "public/assets/weapons"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "public/assets/enemies", "public/assets/weapons"],
       "testRefs": [],
       "followupRefs": []
     },
@@ -187,15 +117,8 @@
       "requirement": "Character art: 8-direction animation engine with 5-angle mirroring shortcut allowed (Q-002).",
       "gddRef": "docs/gdd/13-character-art-angles.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/game/billboard.ts",
-        "public/assets/enemies/grunt",
-        "public/assets/enemies/skitter",
-        "public/assets/enemies/brute"
-      ],
-      "testRefs": [
-        "src/game/billboard.test.ts"
-      ],
+      "implementationRefs": ["src/game/billboard.ts", "public/assets/enemies/grunt", "public/assets/enemies/skitter", "public/assets/enemies/brute"],
+      "testRefs": ["src/game/billboard.test.ts"],
       "followupRefs": []
     },
     {
@@ -203,11 +126,7 @@
       "requirement": "Animation frame budget: per-asset cap on angles, frames per anim, animations.",
       "gddRef": "docs/gdd/14-frame-budget.md",
       "status": "partial",
-      "implementationRefs": [
-        "public/assets/enemies/grunt/grunt.atlas.json",
-        "public/assets/enemies/skitter/skitter.atlas.json",
-        "public/assets/enemies/brute/brute.atlas.json"
-      ],
+      "implementationRefs": ["public/assets/enemies/grunt/grunt.atlas.json", "public/assets/enemies/skitter/skitter.atlas.json", "public/assets/enemies/brute/brute.atlas.json"],
       "testRefs": [],
       "followupRefs": []
     },
@@ -216,12 +135,8 @@
       "requirement": "Enemy entity model: Enemy struct with id, type, position, velocity, health, state, facing, animation, cooldown.",
       "gddRef": "docs/gdd/15-enemy-entity-model.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/enemies.ts"
-      ],
-      "testRefs": [
-        "src/game/enemies.test.ts"
-      ],
+      "implementationRefs": ["src/game/enemies.ts"],
+      "testRefs": ["src/game/enemies.test.ts"],
       "followupRefs": []
     },
     {
@@ -229,12 +144,8 @@
       "requirement": "Billboard rendering: plane camera-facing, sprite enemy-facing-aware.",
       "gddRef": "docs/gdd/16-billboard-rendering.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/billboard.ts"
-      ],
-      "testRefs": [
-        "src/game/billboard.test.ts"
-      ],
+      "implementationRefs": ["src/game/billboard.ts"],
+      "testRefs": ["src/game/billboard.test.ts"],
       "followupRefs": []
     },
     {
@@ -242,12 +153,8 @@
       "requirement": "Angle bucket selection: 8-bucket math from relative player angle.",
       "gddRef": "docs/gdd/17-angle-bucket-selection.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/billboard.ts"
-      ],
-      "testRefs": [
-        "src/game/billboard.test.ts"
-      ],
+      "implementationRefs": ["src/game/billboard.ts"],
+      "testRefs": ["src/game/billboard.test.ts"],
       "followupRefs": []
     },
     {
@@ -255,15 +162,8 @@
       "requirement": "Sprite atlas format: per-enemy PNG + atlas.json with frames and clips.",
       "gddRef": "docs/gdd/18-sprite-atlas.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/spriteAtlas.ts",
-        "public/assets/enemies/grunt/grunt.atlas.json",
-        "public/assets/enemies/skitter/skitter.atlas.json",
-        "public/assets/enemies/brute/brute.atlas.json"
-      ],
-      "testRefs": [
-        "src/game/spriteAtlas.test.ts"
-      ],
+      "implementationRefs": ["src/game/spriteAtlas.ts", "public/assets/enemies/grunt/grunt.atlas.json", "public/assets/enemies/skitter/skitter.atlas.json", "public/assets/enemies/brute/brute.atlas.json"],
+      "testRefs": ["src/game/spriteAtlas.test.ts"],
       "followupRefs": []
     },
     {
@@ -271,12 +171,8 @@
       "requirement": "Arena shape: rectangular room, central pillars, 4 enemy doors, 4 corner pickup zones, center risk zone.",
       "gddRef": "docs/gdd/19-arena-shape.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx"
-      ],
-      "testRefs": [
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx"],
+      "testRefs": ["tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -284,13 +180,8 @@
       "requirement": "Arena landmarks: distinct visual feature per cardinal wall (clock, furnace, curtain, organ).",
       "gddRef": "docs/gdd/20-arena-landmarks.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game/arenaLandmarks.ts"
-      ],
-      "testRefs": [
-        "src/game/arenaLandmarks.test.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/arenaLandmarks.ts"],
+      "testRefs": ["src/game/arenaLandmarks.test.ts"],
       "followupRefs": []
     },
     {
@@ -298,9 +189,7 @@
       "requirement": "Arena cover: pillars, broken walls, low crates, hanging props, moving partitions; enemies path around cover.",
       "gddRef": "docs/gdd/21-arena-cover.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx"],
       "testRefs": [],
       "followupRefs": []
     },
@@ -309,12 +198,8 @@
       "requirement": "Arena hazards: 3 telegraphed types (flame vent, ink pool, falling light) with audio sting.",
       "gddRef": "docs/gdd/22-arena-hazards.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/hazards.ts"
-      ],
-      "testRefs": [
-        "src/game/hazards.test.ts"
-      ],
+      "implementationRefs": ["src/game/hazards.ts"],
+      "testRefs": ["src/game/hazards.test.ts"],
       "followupRefs": []
     },
     {
@@ -322,14 +207,8 @@
       "requirement": "Weapon Peashooter: infinite ammo hitscan pistol, low damage, fast firing, good accuracy.",
       "gddRef": "docs/gdd/23-weapon-peashooter.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/weapons.ts",
-        "src/game/shooting.ts"
-      ],
-      "testRefs": [
-        "src/game/weapons.test.ts",
-        "src/game/shooting.test.ts"
-      ],
+      "implementationRefs": ["src/game/weapons.ts", "src/game/shooting.ts"],
+      "testRefs": ["src/game/weapons.test.ts", "src/game/shooting.test.ts"],
       "followupRefs": []
     },
     {
@@ -337,14 +216,8 @@
       "requirement": "Weapon Boomstick: limited-ammo shotgun, wide spread, knockback, group damage.",
       "gddRef": "docs/gdd/24-weapon-boomstick.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/weapons.ts",
-        "src/game/shooting.ts"
-      ],
-      "testRefs": [
-        "src/game/weapons.test.ts",
-        "src/game/shooting.test.ts"
-      ],
+      "implementationRefs": ["src/game/weapons.ts", "src/game/shooting.ts"],
+      "testRefs": ["src/game/weapons.test.ts", "src/game/shooting.test.ts"],
       "followupRefs": []
     },
     {
@@ -352,14 +225,8 @@
       "requirement": "Weapon Inkblaster: slow projectile splash damage, area denial.",
       "gddRef": "docs/gdd/25-weapon-inkblaster.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/weapons.ts",
-        "src/game/shooting.ts"
-      ],
-      "testRefs": [
-        "src/game/weapons.test.ts",
-        "src/game/shooting.test.ts"
-      ],
+      "implementationRefs": ["src/game/weapons.ts", "src/game/shooting.ts"],
+      "testRefs": ["src/game/weapons.test.ts", "src/game/shooting.test.ts"],
       "followupRefs": []
     },
     {
@@ -367,18 +234,8 @@
       "requirement": "Weapon presentation: 2D foreground sprites with idle, fire, cooldown, pickup, HUD icon frames.",
       "gddRef": "docs/gdd/26-weapon-presentation.md",
       "status": "partial",
-      "implementationRefs": [
-        "public/assets/weapons",
-        "scripts/generate-weapon-sprites.mjs",
-        "src/components/FlatlineGame.tsx",
-        "src/game/muzzleFlash.ts",
-        "src/game/weaponRecoil.ts",
-        "app/globals.css"
-      ],
-      "testRefs": [
-        "src/game/muzzleFlash.test.ts",
-        "src/game/weaponRecoil.test.ts"
-      ],
+      "implementationRefs": ["public/assets/weapons", "scripts/generate-weapon-sprites.mjs", "src/components/FlatlineGame.tsx", "src/game/muzzleFlash.ts", "src/game/weaponRecoil.ts", "app/globals.css"],
+      "testRefs": ["src/game/muzzleFlash.test.ts", "src/game/weaponRecoil.test.ts"],
       "followupRefs": []
     },
     {
@@ -386,12 +243,8 @@
       "requirement": "Weapon: no reloads in MVP (Q-005 decision).",
       "gddRef": "docs/gdd/27-weapon-no-reloads.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/weapons.ts"
-      ],
-      "testRefs": [
-        "src/game/weapons.test.ts"
-      ],
+      "implementationRefs": ["src/game/weapons.ts"],
+      "testRefs": ["src/game/weapons.test.ts"],
       "followupRefs": []
     },
     {
@@ -399,14 +252,8 @@
       "requirement": "Enemy Grunt: melee chaser, dies quickly, teaches movement and shooting.",
       "gddRef": "docs/gdd/28-enemy-grunt.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/enemies.ts",
-        "public/assets/enemies/grunt/grunt.png",
-        "public/assets/enemies/grunt/grunt.atlas.json"
-      ],
-      "testRefs": [
-        "src/game/enemies.test.ts"
-      ],
+      "implementationRefs": ["src/game/enemies.ts", "public/assets/enemies/grunt/grunt.png", "public/assets/enemies/grunt/grunt.atlas.json"],
+      "testRefs": ["src/game/enemies.test.ts"],
       "followupRefs": []
     },
     {
@@ -414,14 +261,8 @@
       "requirement": "Enemy Skitter: fast low-health pressure enemy that forces tracking.",
       "gddRef": "docs/gdd/29-enemy-skitter.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/enemies.ts",
-        "public/assets/enemies/skitter/skitter.png",
-        "public/assets/enemies/skitter/skitter.atlas.json"
-      ],
-      "testRefs": [
-        "src/game/enemies.test.ts"
-      ],
+      "implementationRefs": ["src/game/enemies.ts", "public/assets/enemies/skitter/skitter.png", "public/assets/enemies/skitter/skitter.atlas.json"],
+      "testRefs": ["src/game/enemies.test.ts"],
       "followupRefs": []
     },
     {
@@ -429,14 +270,8 @@
       "requirement": "Enemy Brute: slow high-health blocker that creates pathing pressure.",
       "gddRef": "docs/gdd/30-enemy-brute.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/enemies.ts",
-        "public/assets/enemies/brute/brute.png",
-        "public/assets/enemies/brute/brute.atlas.json"
-      ],
-      "testRefs": [
-        "src/game/enemies.test.ts"
-      ],
+      "implementationRefs": ["src/game/enemies.ts", "public/assets/enemies/brute/brute.png", "public/assets/enemies/brute/brute.atlas.json"],
+      "testRefs": ["src/game/enemies.test.ts"],
       "followupRefs": []
     },
     {
@@ -453,12 +288,8 @@
       "requirement": "Spawn director: pressure-budget ramp; avoids unfair spawns; encourages movement.",
       "gddRef": "docs/gdd/32-spawn-director.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/spawnDirector.ts"
-      ],
-      "testRefs": [
-        "src/game/spawnDirector.test.ts"
-      ],
+      "implementationRefs": ["src/game/spawnDirector.ts"],
+      "testRefs": ["src/game/spawnDirector.test.ts"],
       "followupRefs": []
     },
     {
@@ -466,9 +297,7 @@
       "requirement": "Pickup Health: small (10) common and large (35) rare in dangerous locations.",
       "gddRef": "docs/gdd/33-pickup-health.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx"],
       "testRefs": [],
       "followupRefs": []
     },
@@ -477,10 +306,7 @@
       "requirement": "Pickup Ammo: shells (Boomstick) and ink cells (Inkblaster); pistol stays infinite.",
       "gddRef": "docs/gdd/34-pickup-ammo.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/game/weapons.ts",
-        "src/components/FlatlineGame.tsx"
-      ],
+      "implementationRefs": ["src/game/weapons.ts", "src/components/FlatlineGame.tsx"],
       "testRefs": [],
       "followupRefs": []
     },
@@ -498,13 +324,8 @@
       "requirement": "Pickup readability: bounce, glow, rim light, loop sound, consistent zones.",
       "gddRef": "docs/gdd/36-pickup-readability.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game/pickupReadability.ts"
-      ],
-      "testRefs": [
-        "src/game/pickupReadability.test.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/pickupReadability.ts"],
+      "testRefs": ["src/game/pickupReadability.test.ts"],
       "followupRefs": []
     },
     {
@@ -512,12 +333,8 @@
       "requirement": "Scoring formula: kill + survival + combo + accuracy + close-call + hazard-kill bonuses; combo break rules.",
       "gddRef": "docs/gdd/37-scoring-formula.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/scoring.ts"
-      ],
-      "testRefs": [
-        "src/game/scoring.test.ts"
-      ],
+      "implementationRefs": ["src/game/scoring.ts"],
+      "testRefs": ["src/game/scoring.test.ts"],
       "followupRefs": []
     },
     {
@@ -525,15 +342,8 @@
       "requirement": "End-of-run summary: score, time, kills, accuracy, combo, weapon, damage, PB compare, leaderboard rank.",
       "gddRef": "docs/gdd/38-run-summary.md",
       "status": "done",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/lib/sharedLeaderboard.ts",
-        "src/lib/leaderboard.ts"
-      ],
-      "testRefs": [
-        "src/lib/leaderboard.test.ts",
-        "src/lib/sharedLeaderboard.test.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/lib/sharedLeaderboard.ts", "src/lib/leaderboard.ts"],
+      "testRefs": ["src/lib/leaderboard.test.ts", "src/lib/sharedLeaderboard.test.ts"],
       "followupRefs": []
     },
     {
@@ -541,17 +351,8 @@
       "requirement": "HUD: health, ammo, weapon, score, combo, timer, damage-direction indicator, crosshair; cartoon-title-card visual style.",
       "gddRef": "docs/gdd/39-hud.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game/damageDirection.ts",
-        "src/game/hudJitter.ts",
-        "app/globals.css"
-      ],
-      "testRefs": [
-        "tests/smoke.spec.ts",
-        "src/game/damageDirection.test.ts",
-        "src/game/hudJitter.test.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/damageDirection.ts", "src/game/hudJitter.ts", "app/globals.css"],
+      "testRefs": ["tests/smoke.spec.ts", "src/game/damageDirection.test.ts", "src/game/hudJitter.test.ts"],
       "followupRefs": []
     },
     {
@@ -559,21 +360,8 @@
       "requirement": "Audio: adaptive music intensity, required SFX list, audio readability cues for grayscale art.",
       "gddRef": "docs/gdd/40-audio.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game/enemyWindupCue.ts",
-        "src/game/playerDamageCue.ts",
-        "src/game/hazardCountdown.ts",
-        "src/game/pickupCue.ts",
-        "src/game/doorCue.ts"
-      ],
-      "testRefs": [
-        "src/game/enemyWindupCue.test.ts",
-        "src/game/playerDamageCue.test.ts",
-        "src/game/hazardCountdown.test.ts",
-        "src/game/pickupCue.test.ts",
-        "src/game/doorCue.test.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/enemyWindupCue.ts", "src/game/playerDamageCue.ts", "src/game/hazardCountdown.ts", "src/game/pickupCue.ts", "src/game/doorCue.ts"],
+      "testRefs": ["src/game/enemyWindupCue.test.ts", "src/game/playerDamageCue.test.ts", "src/game/hazardCountdown.test.ts", "src/game/pickupCue.test.ts", "src/game/doorCue.test.ts"],
       "followupRefs": []
     },
     {
@@ -581,16 +369,8 @@
       "requirement": "Routes: /, /arena/daily, /arena/practice, /api/leaderboard (GET fetch + POST submit).",
       "gddRef": "docs/gdd/41-routes.md",
       "status": "done",
-      "implementationRefs": [
-        "app/page.tsx",
-        "app/arena/daily/page.tsx",
-        "app/arena/practice/page.tsx",
-        "app/api/leaderboard/route.ts"
-      ],
-      "testRefs": [
-        "tests/smoke.spec.ts",
-        "tests/api.leaderboard.test.ts"
-      ],
+      "implementationRefs": ["app/page.tsx", "app/arena/daily/page.tsx", "app/arena/practice/page.tsx", "app/api/leaderboard/route.ts"],
+      "testRefs": ["tests/smoke.spec.ts", "tests/api.leaderboard.test.ts"],
       "followupRefs": []
     },
     {
@@ -598,11 +378,7 @@
       "requirement": "Source layout: components/ for React, game/ for pure simulation, lib/ for shared infra.",
       "gddRef": "docs/gdd/42-source-layout.md",
       "status": "done",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game",
-        "src/lib"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game", "src/lib"],
       "testRefs": [],
       "followupRefs": []
     },
@@ -611,15 +387,8 @@
       "requirement": "Game loop architecture: React lifecycle + Three.js render + pure tick(); shared GameState shape.",
       "gddRef": "docs/gdd/43-game-loop-architecture.md",
       "status": "done",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game"
-      ],
-      "testRefs": [
-        "src/game/movement.test.ts",
-        "src/game/scoring.test.ts",
-        "src/game/spawnDirector.test.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game"],
+      "testRefs": ["src/game/movement.test.ts", "src/game/scoring.test.ts", "src/game/spawnDirector.test.ts"],
       "followupRefs": []
     },
     {
@@ -627,14 +396,8 @@
       "requirement": "Collision: 2D circles for player and enemies, line-segment walls, no vertical gameplay in MVP.",
       "gddRef": "docs/gdd/44-collision.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/movement.ts",
-        "src/game/shooting.ts"
-      ],
-      "testRefs": [
-        "src/game/movement.test.ts",
-        "src/game/shooting.test.ts"
-      ],
+      "implementationRefs": ["src/game/movement.ts", "src/game/shooting.ts"],
+      "testRefs": ["src/game/movement.test.ts", "src/game/shooting.test.ts"],
       "followupRefs": []
     },
     {
@@ -642,16 +405,8 @@
       "requirement": "Shooting: hitscan raycast for pistol/shotgun, projectile ticks for inkblaster, impact effects.",
       "gddRef": "docs/gdd/45-shooting.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/shooting.ts",
-        "src/game/muzzleFlash.ts",
-        "src/components/FlatlineGame.tsx",
-        "app/globals.css"
-      ],
-      "testRefs": [
-        "src/game/shooting.test.ts",
-        "src/game/muzzleFlash.test.ts"
-      ],
+      "implementationRefs": ["src/game/shooting.ts", "src/game/muzzleFlash.ts", "src/components/FlatlineGame.tsx", "app/globals.css"],
+      "testRefs": ["src/game/shooting.test.ts", "src/game/muzzleFlash.test.ts"],
       "followupRefs": []
     },
     {
@@ -659,17 +414,8 @@
       "requirement": "Per-frame render: animation lookup, angle bucket, frame index, UV swap, plane rotation, scale, hurt flash.",
       "gddRef": "docs/gdd/46-billboard-rendering-details.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/billboard.ts",
-        "src/game/spriteAtlas.ts",
-        "src/game/enemyHurtFlash.ts",
-        "src/components/FlatlineGame.tsx"
-      ],
-      "testRefs": [
-        "src/game/billboard.test.ts",
-        "src/game/spriteAtlas.test.ts",
-        "src/game/enemyHurtFlash.test.ts"
-      ],
+      "implementationRefs": ["src/game/billboard.ts", "src/game/spriteAtlas.ts", "src/game/enemyHurtFlash.ts", "src/components/FlatlineGame.tsx"],
+      "testRefs": ["src/game/billboard.test.ts", "src/game/spriteAtlas.test.ts", "src/game/enemyHurtFlash.test.ts"],
       "followupRefs": []
     },
     {
@@ -677,16 +423,8 @@
       "requirement": "Arena mutations: lighting, door, hazard, cover phases that change with pressure.",
       "gddRef": "docs/gdd/47-arena-mutations.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game/spawnDirector.ts",
-        "src/game/doorState.ts",
-        "src/game/doorCue.ts"
-      ],
-      "testRefs": [
-        "src/game/doorState.test.ts",
-        "src/game/doorCue.test.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/spawnDirector.ts", "src/game/doorState.ts", "src/game/doorCue.ts"],
+      "testRefs": ["src/game/doorState.test.ts", "src/game/doorCue.test.ts"],
       "followupRefs": []
     },
     {
@@ -694,15 +432,8 @@
       "requirement": "MVP scope: must-have list and can-fake list both satisfied.",
       "gddRef": "docs/gdd/48-mvp-scope.md",
       "status": "done",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game",
-        "src/lib",
-        "app"
-      ],
-      "testRefs": [
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game", "src/lib", "app"],
+      "testRefs": ["tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -710,15 +441,8 @@
       "requirement": "Vertical slices 1-5: walk-and-shoot, billboard enemy, AI, spawn director, polish.",
       "gddRef": "docs/gdd/49-vertical-slices.md",
       "status": "done",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game",
-        "src/lib",
-        "app"
-      ],
-      "testRefs": [
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game", "src/lib", "app"],
+      "testRefs": ["tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -726,28 +450,8 @@
       "requirement": "Testing strategy: vitest unit tests for pure logic; playwright smoke for critical flows.",
       "gddRef": "docs/gdd/50-testing-strategy.md",
       "status": "done",
-      "implementationRefs": [
-        "vitest.config.ts",
-        "playwright.config.ts"
-      ],
-      "testRefs": [
-        "src/game/movement.test.ts",
-        "src/game/scoring.test.ts",
-        "src/game/spawnDirector.test.ts",
-        "src/game/billboard.test.ts",
-        "src/game/enemies.test.ts",
-        "src/game/hazards.test.ts",
-        "src/game/weapons.test.ts",
-        "src/game/shooting.test.ts",
-        "src/game/spriteAtlas.test.ts",
-        "src/lib/leaderboard.test.ts",
-        "src/lib/sharedLeaderboard.test.ts",
-        "src/lib/dailySeed.test.ts",
-        "src/game/dailyArena.test.ts",
-        "src/game/virtualJoystick.test.ts",
-        "tests/smoke.spec.ts",
-        "tests/api.leaderboard.test.ts"
-      ],
+      "implementationRefs": ["vitest.config.ts", "playwright.config.ts"],
+      "testRefs": ["src/game/movement.test.ts", "src/game/scoring.test.ts", "src/game/spawnDirector.test.ts", "src/game/billboard.test.ts", "src/game/enemies.test.ts", "src/game/hazards.test.ts", "src/game/weapons.test.ts", "src/game/shooting.test.ts", "src/game/spriteAtlas.test.ts", "src/lib/leaderboard.test.ts", "src/lib/sharedLeaderboard.test.ts", "src/lib/dailySeed.test.ts", "src/game/dailyArena.test.ts", "src/game/virtualJoystick.test.ts", "tests/smoke.spec.ts", "tests/api.leaderboard.test.ts"],
       "followupRefs": []
     },
     {
@@ -755,9 +459,7 @@
       "requirement": "Performance budget: 60 FPS desktop, 30 FPS low-end; soft cap 25, hard cap 40 enemies; React HUD throttled.",
       "gddRef": "docs/gdd/51-performance-budget.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx"],
       "testRefs": [],
       "followupRefs": []
     },
@@ -766,14 +468,8 @@
       "requirement": "Data model: RunSubmission, LeaderboardEntry, ArenaConfig schemas with zod validation.",
       "gddRef": "docs/gdd/52-data-model.md",
       "status": "done",
-      "implementationRefs": [
-        "src/lib/sharedLeaderboard.ts",
-        "app/api/leaderboard/route.ts"
-      ],
-      "testRefs": [
-        "src/lib/sharedLeaderboard.test.ts",
-        "tests/api.leaderboard.test.ts"
-      ],
+      "implementationRefs": ["src/lib/sharedLeaderboard.ts", "app/api/leaderboard/route.ts"],
+      "testRefs": ["src/lib/sharedLeaderboard.test.ts", "tests/api.leaderboard.test.ts"],
       "followupRefs": []
     },
     {
@@ -781,15 +477,8 @@
       "requirement": "Asset pipeline: enemy concept -> turnaround -> animate front -> validate -> animate other angles -> atlas pack.",
       "gddRef": "docs/gdd/53-asset-pipeline.md",
       "status": "done",
-      "implementationRefs": [
-        "docs/ART_PIPELINE.md",
-        "scripts/generate-grunt-atlas.mjs",
-        "scripts/generate-enemy-variant-atlases.mjs",
-        "scripts/generate-weapon-sprites.mjs"
-      ],
-      "testRefs": [
-        "src/game/spriteAtlas.test.ts"
-      ],
+      "implementationRefs": ["docs/ART_PIPELINE.md", "scripts/generate-grunt-atlas.mjs", "scripts/generate-enemy-variant-atlases.mjs", "scripts/generate-weapon-sprites.mjs"],
+      "testRefs": ["src/game/spriteAtlas.test.ts"],
       "followupRefs": []
     },
     {
@@ -797,9 +486,7 @@
       "requirement": "Risks register: art cost, readability, performance, controls; documented mitigations.",
       "gddRef": "docs/gdd/54-risks.md",
       "status": "done",
-      "implementationRefs": [
-        "docs/gdd/54-risks.md"
-      ],
+      "implementationRefs": ["docs/gdd/54-risks.md"],
       "testRefs": [],
       "followupRefs": []
     },
@@ -808,12 +495,8 @@
       "requirement": "Recommended first build: smallest fun version with one room, one weapon, one enemy.",
       "gddRef": "docs/gdd/55-recommended-first-build.md",
       "status": "done",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx"
-      ],
-      "testRefs": [
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx"],
+      "testRefs": ["tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {
@@ -821,26 +504,8 @@
       "requirement": "Post-MVP feel pass: WASD aligns to camera, every shot has readable feedback, first enemy centered.",
       "gddRef": "docs/gdd/56-post-mvp-feel-pass.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game/movement.ts",
-        "src/game/shooting.ts",
-        "src/game/muzzleFlash.ts",
-        "src/game/weaponRecoil.ts",
-        "src/game/enemyHurtFlash.ts",
-        "src/game/playerDamageCue.ts",
-        "app/globals.css",
-        "src/game/hitstop.ts"
-      ],
-      "testRefs": [
-        "src/game/movement.test.ts",
-        "src/game/shooting.test.ts",
-        "src/game/muzzleFlash.test.ts",
-        "src/game/weaponRecoil.test.ts",
-        "src/game/enemyHurtFlash.test.ts",
-        "src/game/playerDamageCue.test.ts",
-        "src/game/hitstop.test.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/movement.ts", "src/game/shooting.ts", "src/game/muzzleFlash.ts", "src/game/weaponRecoil.ts", "src/game/enemyHurtFlash.ts", "src/game/playerDamageCue.ts", "src/game/hitstop.ts", "app/globals.css"],
+      "testRefs": ["src/game/movement.test.ts", "src/game/shooting.test.ts", "src/game/muzzleFlash.test.ts", "src/game/weaponRecoil.test.ts", "src/game/enemyHurtFlash.test.ts", "src/game/playerDamageCue.test.ts", "src/game/hitstop.test.ts"],
       "followupRefs": []
     },
     {
@@ -848,14 +513,8 @@
       "requirement": "Post-MVP weapons V1: Peashooter + Boomstick + Inkblaster shipped with role-distinct feel.",
       "gddRef": "docs/gdd/57-post-mvp-weapons-v1.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/weapons.ts",
-        "src/game/shooting.ts"
-      ],
-      "testRefs": [
-        "src/game/weapons.test.ts",
-        "src/game/shooting.test.ts"
-      ],
+      "implementationRefs": ["src/game/weapons.ts", "src/game/shooting.ts"],
+      "testRefs": ["src/game/weapons.test.ts", "src/game/shooting.test.ts"],
       "followupRefs": []
     },
     {
@@ -863,15 +522,8 @@
       "requirement": "Post-MVP enemies V1: Grunt + Skitter + Brute shipped with distinct silhouettes and timing.",
       "gddRef": "docs/gdd/58-post-mvp-enemies-v1.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/enemies.ts",
-        "public/assets/enemies/grunt",
-        "public/assets/enemies/skitter",
-        "public/assets/enemies/brute"
-      ],
-      "testRefs": [
-        "src/game/enemies.test.ts"
-      ],
+      "implementationRefs": ["src/game/enemies.ts", "public/assets/enemies/grunt", "public/assets/enemies/skitter", "public/assets/enemies/brute"],
+      "testRefs": ["src/game/enemies.test.ts"],
       "followupRefs": []
     },
     {
@@ -879,17 +531,8 @@
       "requirement": "Post-MVP room V1: door state machine, moving cover, breakable props, named landmarks.",
       "gddRef": "docs/gdd/59-post-mvp-room-v1.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/components/FlatlineGame.tsx",
-        "src/game/doorState.ts",
-        "src/game/doorCue.ts",
-        "src/game/arenaLandmarks.ts"
-      ],
-      "testRefs": [
-        "src/game/doorState.test.ts",
-        "src/game/doorCue.test.ts",
-        "src/game/arenaLandmarks.test.ts"
-      ],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/doorState.ts", "src/game/doorCue.ts", "src/game/arenaLandmarks.ts"],
+      "testRefs": ["src/game/doorState.test.ts", "src/game/doorCue.test.ts", "src/game/arenaLandmarks.test.ts"],
       "followupRefs": []
     },
     {
@@ -897,12 +540,8 @@
       "requirement": "Post-MVP hazards V1: flame vent + ink pool + falling light, telegraphed and pressure-scaled.",
       "gddRef": "docs/gdd/60-post-mvp-hazards-v1.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/hazards.ts"
-      ],
-      "testRefs": [
-        "src/game/hazards.test.ts"
-      ],
+      "implementationRefs": ["src/game/hazards.ts"],
+      "testRefs": ["src/game/hazards.test.ts"],
       "followupRefs": []
     },
     {
@@ -910,13 +549,8 @@
       "requirement": "Post-MVP scoring V2: close-range bonus, weapon variety bonus, no-damage streak bonus, leaderboard columns.",
       "gddRef": "docs/gdd/61-post-mvp-scoring-v2.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/game/scoring.ts",
-        "src/components/FlatlineGame.tsx"
-      ],
-      "testRefs": [
-        "src/game/scoring.test.ts"
-      ],
+      "implementationRefs": ["src/game/scoring.ts", "src/components/FlatlineGame.tsx"],
+      "testRefs": ["src/game/scoring.test.ts"],
       "followupRefs": []
     },
     {
@@ -924,16 +558,8 @@
       "requirement": "Post-MVP daily V2: deterministic seed across spawns, pickups, hazards; daily-only leaderboard.",
       "gddRef": "docs/gdd/62-post-mvp-daily-v2.md",
       "status": "done",
-      "implementationRefs": [
-        "src/game/dailyArena.ts",
-        "src/lib/dailySeed.ts",
-        "app/arena/daily/page.tsx",
-        "app/api/leaderboard/route.ts"
-      ],
-      "testRefs": [
-        "src/game/dailyArena.test.ts",
-        "src/lib/dailySeed.test.ts"
-      ],
+      "implementationRefs": ["src/game/dailyArena.ts", "src/lib/dailySeed.ts", "app/arena/daily/page.tsx", "app/api/leaderboard/route.ts"],
+      "testRefs": ["src/game/dailyArena.test.ts", "src/lib/dailySeed.test.ts"],
       "followupRefs": []
     },
     {
@@ -941,13 +567,8 @@
       "requirement": "Post-MVP practice mode: enemy/spawn/damage/ammo controls, debug overlays, room state freeze.",
       "gddRef": "docs/gdd/63-post-mvp-practice.md",
       "status": "done",
-      "implementationRefs": [
-        "app/arena/practice/page.tsx",
-        "src/game/spawnDirector.ts"
-      ],
-      "testRefs": [
-        "src/game/spawnDirector.test.ts"
-      ],
+      "implementationRefs": ["app/arena/practice/page.tsx", "src/game/spawnDirector.ts"],
+      "testRefs": ["src/game/spawnDirector.test.ts"],
       "followupRefs": []
     },
     {
@@ -955,14 +576,8 @@
       "requirement": "Post-MVP completion: 3 weapons, 3 enemies, 3 hazards, daily + all-time boards, practice, intentional feel.",
       "gddRef": "docs/gdd/64-post-mvp-completion.md",
       "status": "partial",
-      "implementationRefs": [
-        "src/game",
-        "src/lib",
-        "app"
-      ],
-      "testRefs": [
-        "tests/smoke.spec.ts"
-      ],
+      "implementationRefs": ["src/game", "src/lib", "app"],
+      "testRefs": ["tests/smoke.spec.ts"],
       "followupRefs": []
     },
     {

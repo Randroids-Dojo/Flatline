@@ -59,7 +59,8 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. The contact moment is the highest-leverage feel beat in any shooter. Add a 30 to 60 ms hitstop (per-weapon tuned) when a player shot lands on an enemy. This is a global time-scale dip that affects the simulation tick scaling for one frame budget.
 - Blocker: none.
 - Unblock condition: pure helper that returns `{ scale, durationMs }` per weapon; consumer wires it into the animate loop's delta calculation.
-- Status: open
+- Status: done
+- Resolved: 2026-05-05 hitstop-on-confirmed-hit slice. New helper `src/game/hitstop.ts` exposes `hitstopStyle(weapon)` and `hitstopScaleAtElapsedMs(style, elapsedMs)`; `src/components/FlatlineGame.tsx` adds `hitstopStateRef`, sets it inside `damageCurrentEnemy` on every confirmed hit, multiplies the per-frame `delta` by the helper's return value, clears the ref once the window has elapsed, and resets the ref on `startRun`.
 
 ### F-010: Enemy knockback on damage
 

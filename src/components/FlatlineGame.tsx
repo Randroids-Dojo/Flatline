@@ -771,7 +771,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       const rawDeltaSeconds = Math.min((time - lastTimeRef.current) / 1000 || 0, 0.05)
       lastTimeRef.current = time
       const hitstopState = hitstopStateRef.current
-      const hitstopElapsedMs = hitstopState ? time - hitstopState.startMs : 0
+      const hitstopElapsedMs = hitstopState ? performance.now() - hitstopState.startMs : 0
       const hitstopScale = hitstopScaleAtElapsedMs(hitstopState?.style ?? null, hitstopElapsedMs)
 
       if (hitstopState && hitstopElapsedMs >= hitstopState.style.durationMs) {
