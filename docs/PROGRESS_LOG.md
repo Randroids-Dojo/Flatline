@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-05, Hitstop on confirmed hit
+
+- Branch: `feat/hitstop-on-hit`
+- PR: #TBD
+- Changed: every player shot that lands on an enemy now triggers a brief simulation-wide time-scale dip so the contact moment lands with weight. New pure helper `src/game/hitstop.ts` exposes `hitstopStyle(weapon)` returning `{ scale, durationMs }` per weapon (peashooter `{ 0.05, 30 }`, inkblaster `{ 0.04, 45 }`, boomstick `{ 0.02, 60 }`) and `hitstopScaleAtElapsedMs(style, elapsedMs)` returning the active scale inside the window and `1` outside. `src/components/FlatlineGame.tsx` adds a `hitstopStateRef` carrying `{ style, startMs }`, sets it inside `damageCurrentEnemy` on every confirmed hit (gated by the existing `enemy.state !== 'dead'` branch using `selectedWeaponRef.current` for the weapon attribution), reads the helper once per animate frame to compute `hitstopScale`, multiplies the per-frame `delta` by that scale before any consumer reads it, clears the ref once the elapsed window has passed, and resets the ref on `startRun`. The scale propagates to player movement, hazard ticks, hazard countdown ticks, projectile motion, enemy AI, the spawn director, door signal timers, shot bolt motion, and shot impact decay through the single `delta` variable. Camera updates and renders run on raw wall-clock time so the player view does not visibly stutter; only the simulated world freezes. Originated from the 2026-05-05 fun-factor audit (F-009 in `docs/FOLLOWUPS.md`); merged the research branch into this feature branch so the audit, Q-006/Q-007/Q-008, F-006..F-015, and the Doom-feel implement dots ride along.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (29 files / 208 tests pass, 10 new in `src/game/hitstop.test.ts`), `npm run build` (success), `npm run test:e2e` (10 passed, 4 skipped).
+- Assumptions: Recommended default scales `delta` once at the top of the animate loop so every consumer freezes together; the alternative (scale per-consumer) is louder and risks drift. Recommended default attributes the hitstop to `selectedWeaponRef.current` rather than threading the weapon through `damageCurrentEnemy` because the only mismatch case (player switches weapons after firing an inkblaster projectile and the projectile lands later) is rare and the cross-weapon scale delta is small enough to ignore. Recommended default leaves render and camera on wall-clock so a hiccup reads as a frozen world rather than a frozen view; freezing the camera would compound the dropped-frame illusion.
+- GDD coverage: REQ-056 (post-MVP feel pass) gains a build-log entry; status stays `partial` (movement around pillars and enemy damage range readability are still unaudited). The row picks up `src/game/hitstop.ts` in `implementationRefs` and `src/game/hitstop.test.ts` in `testRefs`.
+- Followups: F-009 in `docs/FOLLOWUPS.md` is satisfied by this slice (will be marked resolved on merge).
+
 ## 2026-05-05, Mobile thumbsticks ignore (0, 0) origin pointerdown
 
 - Branch: `fix/mobile-thumbsticks`

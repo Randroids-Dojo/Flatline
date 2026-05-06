@@ -24,6 +24,7 @@ import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFl
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
 import { hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
+import { hitstopScaleAtElapsedMs, hitstopStyle, type HitstopStyle } from '@/game/hitstop'
 import {
   hudGrainOpacity,
   hudPillWobbleAmplitudePx,
@@ -215,6 +216,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const hazardDamageCooldownRef = useRef<number>(0)
   const prevHazardRunMsRef = useRef<number>(-1)
   const tookDamageSinceLastKillRef = useRef<boolean>(false)
+  const hitstopStateRef = useRef<{ style: HitstopStyle; startMs: number } | null>(null)
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const weaponCooldownRef = useRef<WeaponCooldownState>(createWeaponCooldownState())
@@ -288,6 +290,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       const enemyPosition = enemyRef.current.position
       enemyRef.current = damageEnemy(enemyRef.current, damage)
       setEnemyHealth(enemyRef.current.health)
+      hitstopStateRef.current = {
+        style: hitstopStyle(selectedWeaponRef.current),
+        startMs: performance.now()
+      }
 
       if (wasAlive && enemyRef.current.state === 'dead') {
         const playerPos = positionRef.current
@@ -431,6 +437,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     hazardDamageCooldownRef.current = 0
     prevHazardRunMsRef.current = -1
     tookDamageSinceLastKillRef.current = false
+    hitstopStateRef.current = null
     selectedWeaponRef.current = startingWeapon
     weaponAmmoRef.current = createWeaponAmmo()
     weaponCooldownRef.current = createWeaponCooldownState()
@@ -761,8 +768,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         return
       }
 
-      const delta = Math.min((time - lastTimeRef.current) / 1000 || 0, 0.05)
+      const rawDeltaSeconds = Math.min((time - lastTimeRef.current) / 1000 || 0, 0.05)
       lastTimeRef.current = time
+      const hitstopState = hitstopStateRef.current
+      const hitstopElapsedMs = hitstopState ? time - hitstopState.startMs : 0
+      const hitstopScale = hitstopScaleAtElapsedMs(hitstopState?.style ?? null, hitstopElapsedMs)
+
+      if (hitstopState && hitstopElapsedMs >= hitstopState.style.durationMs) {
+        hitstopStateRef.current = null
+      }
+
+      const delta = rawDeltaSeconds * hitstopScale
       const selectedWeaponId = selectedWeaponRef.current
       const selectedWeaponReady = canFireWeaponAt(
         selectedWeaponId,
