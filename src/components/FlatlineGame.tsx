@@ -19,7 +19,7 @@ import { damageDirectionRadians } from '@/game/damageDirection'
 import { doorOpenCue, type DoorCueStyle } from '@/game/doorCue'
 import { DOOR_TOTAL_MS, doorPhaseVisualAtElapsedMs } from '@/game/doorState'
 import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePreview, type DailyArenaConfig, type DailySchedulePreview } from '@/game/dailyArena'
-import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel, type EnemyType } from '@/game/enemies'
+import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
@@ -124,15 +124,22 @@ const weaponIdsForSelect = [...weaponIds]
 const enemyTypesForSelect: EnemyType[] = ['grunt', 'skitter', 'brute', 'spitter']
 const enemyAtlasTypes: EnemyType[] = ['grunt', 'skitter', 'brute']
 
+const MAX_ENEMIES = 3
+
+type EnemyRenderSlot = {
+  material: THREE.MeshBasicMaterial
+  mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+  arrow: THREE.ArrowHelper
+  texture: THREE.Texture | null
+  textureType: EnemyType | null
+}
+
 type RuntimeRefs = {
   renderer: THREE.WebGLRenderer
   camera: THREE.PerspectiveCamera
   scene: THREE.Scene
   overhead: THREE.PointLight
-  enemyMaterial: THREE.MeshBasicMaterial
-  enemyTexture: THREE.Texture | null
-  enemyMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
-  enemyFacingArrow: THREE.ArrowHelper
+  enemySlots: EnemyRenderSlot[]
   doorSignals: Record<string, THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>>
   muzzleLight: THREE.PointLight
   shotGroup: THREE.Group
@@ -245,7 +252,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const runningRef = useRef<boolean>(false)
   const pausedRef = useRef<boolean>(false)
   const settingsRef = useRef<Settings>({ sensitivity: 1, fov: 75, audio: true })
-  const enemyRef = useRef<EnemyModel>(createGrunt('grunt-1', { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition))
+  const enemiesRef = useRef<EnemyModel[]>([createGrunt('grunt-1', { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)])
+  const enemySpawnSeqRef = useRef<number>(1)
   const playerHealthRef = useRef<number>(100)
   const directorRef = useRef<DirectorState>(createDirectorState())
   const roomStateMsRef = useRef<number>(0)
@@ -343,21 +351,30 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [status, setStatus] = useState('Start a run to lock the pointer and enter the room.')
   const isPractice = arenaMode === 'practice'
 
-  const damageCurrentEnemy = useCallback((damage: number, hurtStatus: string, killStatus: string, hitDistance?: number) => {
-    const enemy = enemyRef.current
-    const runtime = runtimeRef.current
+  const damageEnemyById = useCallback(
+    (enemyId: string, damage: number, hurtStatus: string, killStatus: string, hitDistance?: number) => {
+      const enemies = enemiesRef.current
+      const index = enemies.findIndex((candidate) => candidate.id === enemyId)
 
-    if (enemy.state !== 'dead') {
-      const wasAlive = enemyRef.current.state !== 'dead'
-      const enemyPosition = enemyRef.current.position
-      enemyRef.current = damageEnemy(enemyRef.current, damage)
-      setEnemyHealth(enemyRef.current.health)
+      if (index === -1) {
+        return
+      }
+
+      const enemy = enemies[index]
+
+      if (enemy.state === 'dead') {
+        return
+      }
+
+      const enemyPosition = enemy.position
+      const damaged = damageEnemy(enemy, damage)
+      enemies[index] = damaged
       hitstopStateRef.current = {
         style: hitstopStyle(selectedWeaponRef.current),
         startMs: performance.now()
       }
 
-      if (wasAlive && enemyRef.current.state === 'dead') {
+      if (damaged.state === 'dead') {
         const playerPos = positionRef.current
         const dx = enemyPosition.x - playerPos.x
         const dz = enemyPosition.z - playerPos.z
@@ -378,10 +395,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         playCue(320, settingsRef.current.audio)
       }
 
-      setStatus(enemyRef.current.state === 'dead' ? killStatus : hurtStatus)
-      runtime?.enemyMaterial.color.set('#f05a4f')
-    }
-  }, [])
+      setEnemyHealth(damaged.health)
+      setEnemyType(damaged.type)
+      setStatus(damaged.state === 'dead' ? killStatus : hurtStatus)
+    },
+    []
+  )
 
   const fire = useCallback(() => {
     const runtime = runtimeRef.current
@@ -453,16 +472,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       return
     }
 
-    const enemy = enemyRef.current
-    const targets: SphereTarget[] = enemy.state === 'dead'
-      ? []
-      : [
-          {
-            id: enemy.id,
-            center: { x: enemy.position.x, y: 1.35, z: enemy.position.z },
-            radius: 0.72
-          }
-        ]
+    const aliveEnemies = enemiesRef.current.filter((candidate) => candidate.state !== 'dead')
+    const targets: SphereTarget[] = aliveEnemies.map((candidate) => ({
+      id: candidate.id,
+      center: { x: candidate.position.x, y: 1.35, z: candidate.position.z },
+      radius: 0.72
+    }))
     const spread = weaponConfigs[weapon].spreadRadians
     const hits = spread
       .map((yawOffset) => {
@@ -476,30 +491,49 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     scoreRef.current = recordShot(scoreRef.current, hits.length > 0)
 
     if (hits.length > 0) {
-      const enemyBeforeDamage = enemyRef.current
-      const closestHitDistance = hits.reduce((min, h) => Math.min(min, h.distance), Number.POSITIVE_INFINITY)
+      // Group hits by target id so a boomstick burst that lands multiple
+      // pellets on the same enemy still applies the per-pellet damage
+      // count to that enemy and a different enemy hit by another pellet
+      // gets its own damage entry.
+      const hitsById = new Map<string, { count: number; closestDistance: number }>()
+      for (const hit of hits) {
+        const entry = hitsById.get(hit.targetId) ?? { count: 0, closestDistance: Number.POSITIVE_INFINITY }
+        entry.count += 1
+        entry.closestDistance = Math.min(entry.closestDistance, hit.distance)
+        hitsById.set(hit.targetId, entry)
+      }
+
+      setHits((value) => value + hits.length)
+
       const xzLen = Math.hypot(direction.x, direction.z)
       const knockbackDir = xzLen > 0
         ? { x: direction.x / xzLen, y: 0, z: direction.z / xzLen }
         : { x: 0, y: 0, z: 1 }
-      enemyRef.current = knockEnemyBack(
-        enemyBeforeDamage,
-        knockbackDir,
-        knockbackDistance(weapon, closestHitDistance, enemyBeforeDamage.type)
-      )
 
-      setHits((value) => value + hits.length)
-      const baseDamage = weapon === 'boomstick' ? hits.length : weaponConfigs.peashooter.damage
-      damageCurrentEnemy(
-        Math.max(1, Math.round(baseDamage * buff.damage)),
-        weapon === 'boomstick' ? 'Boomstick blast landed.' : 'Billboard enemy hurt.',
-        weapon === 'boomstick' ? 'Boomstick dropped the enemy.' : 'Billboard enemy dropped.',
-        closestHitDistance
-      )
+      for (const [enemyId, entry] of hitsById) {
+        const enemyIndex = enemiesRef.current.findIndex((candidate) => candidate.id === enemyId)
+        if (enemyIndex === -1) continue
+
+        const enemyBeforeDamage = enemiesRef.current[enemyIndex]
+        enemiesRef.current[enemyIndex] = knockEnemyBack(
+          enemyBeforeDamage,
+          knockbackDir,
+          knockbackDistance(weapon, entry.closestDistance, enemyBeforeDamage.type)
+        )
+
+        const baseDamage = weapon === 'boomstick' ? entry.count : weaponConfigs.peashooter.damage
+        damageEnemyById(
+          enemyId,
+          Math.max(1, Math.round(baseDamage * buff.damage)),
+          weapon === 'boomstick' ? 'Boomstick blast landed.' : 'Billboard enemy hurt.',
+          weapon === 'boomstick' ? 'Boomstick dropped the enemy.' : 'Billboard enemy dropped.',
+          entry.closestDistance
+        )
+      }
     } else {
       setStatus(`${weaponConfigs[weapon].label} missed. Track the target and fire again.`)
     }
-  }, [damageCurrentEnemy])
+  }, [damageEnemyById])
 
   const startRun = useCallback(() => {
     const firstEnemyType = practiceEnemyTypeForSpawn(0, practiceSettingsRef.current, isPractice)
@@ -511,7 +545,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     directorRef.current = createDirectorState()
     roomStateMsRef.current = 0
     scoreRef.current = createScoreState()
-    enemyRef.current = createEnemy(firstEnemyType, `${firstEnemyType}-1`, { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)
+    enemySpawnSeqRef.current = 1
+    enemiesRef.current = [createEnemy(firstEnemyType, `${firstEnemyType}-${enemySpawnSeqRef.current}`, { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)]
     healthPickupReadyRef.current = true
     healthPickupCooldownRef.current = 0
     hazardDamageCooldownRef.current = 0
@@ -554,8 +589,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setSummary(null)
     setHits(0)
     setPlayerHealth(100)
-    setEnemyHealth(enemyRef.current.health)
-    setEnemyType(enemyRef.current.type)
+    setEnemyHealth(enemiesRef.current[0]?.health ?? 0)
+    setEnemyType(enemiesRef.current[0]?.type ?? 'grunt')
     setScore(0)
     setKills(0)
     setCombo(0)
@@ -784,17 +819,33 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     const roomVisuals = createRoom()
     scene.add(roomVisuals.group)
 
-    const enemyMaterial = new THREE.MeshBasicMaterial({
-      color: '#ffffff',
-      transparent: true,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    })
-    const enemyMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), enemyMaterial)
-    enemyMesh.name = 'debug-billboard-enemy'
-    enemyMesh.position.set(0, 1.05, 3.5)
-    enemyMesh.renderOrder = 2
-    scene.add(enemyMesh)
+    const enemySlots: EnemyRenderSlot[] = []
+
+    for (let i = 0; i < MAX_ENEMIES; i += 1) {
+      const material = new THREE.MeshBasicMaterial({
+        color: '#ffffff',
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      })
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), material)
+      mesh.name = `debug-billboard-enemy-${i}`
+      mesh.position.set(0, 1.05, 3.5)
+      mesh.renderOrder = 2
+      mesh.visible = false
+      scene.add(mesh)
+
+      const arrow = new THREE.ArrowHelper(
+        new THREE.Vector3(0, 0, -1),
+        new THREE.Vector3(0, 0.08, 3.5),
+        1.15,
+        '#f05a4f'
+      )
+      arrow.visible = false
+      scene.add(arrow)
+
+      enemySlots.push({ material, mesh, arrow, texture: null, textureType: null })
+    }
 
     const dummyMarker = new THREE.Mesh(
       new THREE.TorusGeometry(0.82, 0.025, 8, 40),
@@ -812,23 +863,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     blobShadow.rotation.x = -Math.PI / 2
     scene.add(blobShadow)
 
-    const enemyFacingArrow = new THREE.ArrowHelper(
-      new THREE.Vector3(0, 0, -1),
-      new THREE.Vector3(0, 0.08, 3.5),
-      1.15,
-      '#f05a4f'
-    )
-    scene.add(enemyFacingArrow)
-
     runtimeRef.current = {
       renderer,
       camera,
       scene,
       overhead,
-      enemyMaterial,
-      enemyTexture: null,
-      enemyMesh,
-      enemyFacingArrow,
+      enemySlots,
       doorSignals: roomVisuals.doorSignals,
       muzzleLight,
       shotGroup,
@@ -846,7 +886,6 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       }
 
       enemyAssetsRef.current = assets
-      setEnemyVisualAsset(runtime, assets.grunt)
     }).catch(() => {
       setStatus('Sprite atlas failed to load.')
     })
@@ -1009,25 +1048,40 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             }
           }
 
-          if (enemyRef.current.id !== lastHazardDamagedEnemyIdRef.current) {
-            enemyHazardCooldownRef.current = 0
-            lastHazardDamagedEnemyIdRef.current = enemyRef.current.id
-          }
+          if (enemyHazardCooldownRef.current === 0) {
+            const enemiesNow = enemiesRef.current
+            let appliedAny = false
+            let lastBurnedLabel: string | null = null
+            let lastBurnedKilled = false
 
-          if (enemyHazardCooldownRef.current === 0 && enemyRef.current.state !== 'dead') {
-            const enemyHazardSource = hazardDamageAtPosition(enemyRef.current.position, hazards)
-            const enemyHazardDamage = Math.max(0, Math.round(enemyHazardSource * 0.5))
+            for (let i = 0; i < enemiesNow.length; i += 1) {
+              const candidate = enemiesNow[i]
 
-            if (enemyHazardDamage > 0) {
-              enemyRef.current = damageEnemy(enemyRef.current, enemyHazardDamage)
-              setEnemyHealth(enemyRef.current.health)
+              if (candidate.state === 'dead') {
+                continue
+              }
+
+              const enemyHazardSource = hazardDamageAtPosition(candidate.position, hazards)
+              const enemyHazardDamage = Math.max(0, Math.round(enemyHazardSource * 0.5))
+
+              if (enemyHazardDamage > 0) {
+                const damaged = damageEnemy(candidate, enemyHazardDamage)
+                enemiesNow[i] = damaged
+                appliedAny = true
+                lastBurnedLabel = enemyLabel(damaged.type)
+                lastBurnedKilled = damaged.state === 'dead'
+              }
+            }
+
+            if (appliedAny && lastBurnedLabel !== null) {
               enemyHazardCooldownRef.current = 900
               setStatus(
-                enemyRef.current.state === 'dead'
-                  ? `Hazard finished the ${enemyLabel(enemyRef.current.type)}.`
-                  : `Hazard scorched the ${enemyLabel(enemyRef.current.type)}.`
+                lastBurnedKilled
+                  ? `Hazard finished the ${lastBurnedLabel}.`
+                  : `Hazard scorched the ${lastBurnedLabel}.`
               )
               playCue(180, settingsRef.current.audio)
+              setEnemyHealth(enemiesRef.current[0]?.health ?? 0)
             }
           }
 
@@ -1083,77 +1137,95 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             playPickupCue(pickupCue('supply'), settingsRef.current.audio)
           }
 
-          const projectileHits = tickInkProjectiles(runtime, inkProjectiles, enemyRef.current, delta * 1000)
+          const projectileHits = tickInkProjectiles(
+            runtime,
+            inkProjectiles,
+            enemiesRef.current,
+            positionRef.current,
+            delta * 1000
+          )
 
-          if (projectileHits > 0) {
-            const enemyBefore = enemyRef.current
-            const dx = enemyBefore.position.x - positionRef.current.x
-            const dz = enemyBefore.position.z - positionRef.current.z
-            const hitDistance = Math.hypot(dx, dz)
-            const knockbackDir = hitDistance > 0
-              ? { x: dx / hitDistance, y: 0, z: dz / hitDistance }
-              : { x: 0, y: 0, z: 1 }
-            enemyRef.current = knockEnemyBack(
-              enemyBefore,
-              knockbackDir,
-              knockbackDistance('inkblaster', hitDistance, enemyBefore.type)
-            )
-
+          if (projectileHits.length > 0) {
             scoreRef.current = {
               ...scoreRef.current,
-              shotsHit: scoreRef.current.shotsHit + projectileHits
+              shotsHit: scoreRef.current.shotsHit + projectileHits.length
             }
-            setHits((value) => value + projectileHits)
+            setHits((value) => value + projectileHits.length)
             const inkBuff = rageMultipliers(rageBuffStateRef.current, performance.now())
-            damageCurrentEnemy(
-              Math.max(1, Math.round(projectileHits * weaponConfigs.inkblaster.damage * inkBuff.damage)),
-              'Ink splash landed.',
-              'Inkblaster dropped the enemy.',
-              hitDistance
-            )
+
+            for (const hit of projectileHits) {
+              const enemyIndex = enemiesRef.current.findIndex((candidate) => candidate.id === hit.enemyId)
+              if (enemyIndex === -1) continue
+
+              const enemyBefore = enemiesRef.current[enemyIndex]
+              const dx = enemyBefore.position.x - positionRef.current.x
+              const dz = enemyBefore.position.z - positionRef.current.z
+              const hitDistance = Math.hypot(dx, dz)
+              const knockbackDir = hitDistance > 0
+                ? { x: dx / hitDistance, y: 0, z: dz / hitDistance }
+                : { x: 0, y: 0, z: 1 }
+              enemiesRef.current[enemyIndex] = knockEnemyBack(
+                enemyBefore,
+                knockbackDir,
+                knockbackDistance('inkblaster', hitDistance, enemyBefore.type)
+              )
+
+              damageEnemyById(
+                hit.enemyId,
+                Math.max(1, Math.round(weaponConfigs.inkblaster.damage * inkBuff.damage)),
+                'Ink splash landed.',
+                'Inkblaster dropped the enemy.',
+                hitDistance
+              )
+            }
           }
 
-          const result = tickEnemy(
-            enemyRef.current,
-            {
-              position: positionRef.current,
-              radius: 0.4,
-              health: practiceSettingsRef.current.damageEnabled ? playerHealthRef.current : 999
-            },
-            delta * 1000,
-            enemyConfigs[enemyRef.current.type]
-          )
-          enemyRef.current = result.enemy
+          const playerCombatState = {
+            position: positionRef.current,
+            radius: 0.4,
+            health: practiceSettingsRef.current.damageEnabled ? playerHealthRef.current : 999
+          }
+          let runningPlayerHealth = playerCombatState.health
+          const aggregatedEvents: EnemyEvent[] = []
 
-          if (practiceSettingsRef.current.damageEnabled && result.player.health !== playerHealthRef.current) {
-            playerHealthRef.current = result.player.health
+          for (let i = 0; i < enemiesRef.current.length; i += 1) {
+            const candidate = enemiesRef.current[i]
+            const result = tickEnemy(
+              candidate,
+              { ...playerCombatState, health: runningPlayerHealth },
+              delta * 1000,
+              enemyConfigs[candidate.type]
+            )
+            enemiesRef.current[i] = result.enemy
+            runningPlayerHealth = result.player.health
+
+            for (const event of result.events) {
+              aggregatedEvents.push(event)
+            }
+          }
+
+          if (practiceSettingsRef.current.damageEnabled && runningPlayerHealth !== playerHealthRef.current) {
+            playerHealthRef.current = runningPlayerHealth
             tookDamageSinceLastKillRef.current = true
-            setPlayerHealth(result.player.health)
+            setPlayerHealth(runningPlayerHealth)
             setDamagePulse((value) => value + 1)
             playPlayerDamageCue(playerDamageCue('enemy'), settingsRef.current.audio)
           }
 
-          for (const event of result.events) {
+          for (const event of aggregatedEvents) {
             if (event.type === 'enemyAttackStarted') {
               setStatus('Enemy windup. Backpedal or sidestep.')
               playWindupCue(enemyWindupCue(event.enemyType), settingsRef.current.audio)
-            }
-
-            if (event.type === 'enemyAttackHit') {
+            } else if (event.type === 'enemyAttackHit') {
               setStatus(`Enemy hit for ${event.damage}.`)
-              const angle = damageDirectionRadians(
-                yawRef.current,
-                enemyRef.current.position,
-                positionRef.current
-              )
-              setDamageIndicator({ key: performance.now(), angleRadians: angle })
-            }
-
-            if (event.type === 'enemyAttackMissed') {
+              const attacker = enemiesRef.current.find((candidate) => candidate.id === event.enemyId)
+              if (attacker) {
+                const angle = damageDirectionRadians(yawRef.current, attacker.position, positionRef.current)
+                setDamageIndicator({ key: performance.now(), angleRadians: angle })
+              }
+            } else if (event.type === 'enemyAttackMissed') {
               setStatus('Enemy missed.')
-            }
-
-            if (event.type === 'enemyProjectileFired') {
+            } else if (event.type === 'enemyProjectileFired') {
               spitterProjectileSeqRef.current += 1
               const projectileId = `spitter-projectile-${spitterProjectileSeqRef.current}`
               spawnSpitterProjectile(
@@ -1171,6 +1243,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             spitterProjectilesRef.current,
             positionRef.current,
             0.4,
+            enemiesRef.current,
             delta * 1000,
             (damage) => {
               if (!practiceSettingsRef.current.damageEnabled) {
@@ -1182,14 +1255,30 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               setDamagePulse((value) => value + 1)
               setStatus(`Spitter splashed for ${damage}.`)
               playPlayerDamageCue(playerDamageCue('hazard'), settingsRef.current.audio)
+            },
+            (enemyId, damage) => {
+              const idx = enemiesRef.current.findIndex((candidate) => candidate.id === enemyId)
+              if (idx === -1) {
+                return
+              }
+              const damaged = damageEnemy(enemiesRef.current[idx], damage)
+              enemiesRef.current[idx] = damaged
+              setStatus(
+                damaged.state === 'dead'
+                  ? `Crossfire finished the ${enemyLabel(damaged.type)}.`
+                  : `Crossfire splashed the ${enemyLabel(damaged.type)}.`
+              )
+              playCue(180, settingsRef.current.audio)
             }
           )
 
-          if (practiceSettingsRef.current.damageEnabled && result.player.health === 0) {
+          if (practiceSettingsRef.current.damageEnabled && playerHealthRef.current === 0) {
             finishRun()
           }
 
-          const activePressure = enemyRef.current.state === 'dead' ? 0 : 1
+          const activePressure = enemiesRef.current.reduce((acc, candidate) => {
+            return candidate.state === 'dead' ? acc : acc + enemyConfigs[candidate.type].pressureCost
+          }, 0)
           const musicLayer = musicLayerRef.current
 
           if (musicLayer !== null) {
@@ -1210,23 +1299,41 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           )
           directorRef.current = directorTick.state
 
-          if (directorTick.spawn && enemyRef.current.state === 'dead' && enemyRef.current.animationTimeMs > 800) {
+          // Cull enemies that have been dead long enough to finish their
+          // death animation. Keeps the array tight so render slots can
+          // be reused for fresh spawns.
+          enemiesRef.current = enemiesRef.current.filter((candidate) => {
+            return candidate.state !== 'dead' || candidate.animationTimeMs <= 1000
+          })
+
+          const aliveCount = enemiesRef.current.reduce(
+            (acc, candidate) => (candidate.state === 'dead' ? acc : acc + 1),
+            0
+          )
+
+          const hasFreshKill = enemiesRef.current.some(
+            (candidate) => candidate.state === 'dead' && candidate.animationTimeMs < 800
+          )
+
+          if (directorTick.spawn && aliveCount < MAX_ENEMIES && !hasFreshKill) {
             const nextType = practiceEnemyTypeForSpawn(
               applyDailySpawnOffset(directorRef.current.spawnCount, dailyConfig),
               practiceSettingsRef.current,
               isPractice
             )
-            enemyRef.current = createEnemy(
+            enemySpawnSeqRef.current += 1
+            const newEnemy = createEnemy(
               nextType,
-              `${nextType}-${directorRef.current.spawnCount}`,
+              `${nextType}-${enemySpawnSeqRef.current}`,
               directorTick.spawn.door.position,
               positionRef.current
             )
+            enemiesRef.current = [...enemiesRef.current, newEnemy]
             doorSignalTimersRef.current[directorTick.spawn.door.id] = 0
             playDoorOpenCue(doorOpenCue(), settingsRef.current.audio)
-            setEnemyHealth(enemyRef.current.health)
-            setEnemyType(enemyRef.current.type)
-            setStatus(`${enemyLabel(enemyRef.current.type)} entered from ${directorTick.spawn.door.id}.`)
+            setEnemyHealth(newEnemy.health)
+            setEnemyType(newEnemy.type)
+            setStatus(`${enemyLabel(newEnemy.type)} entered from ${directorTick.spawn.door.id}.`)
           }
         }
       }
@@ -1265,47 +1372,76 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       applyPickupReadability(runtime, time, healthPickupReadyRef.current)
       tickShotBolts(runtime, shotBolts, shotImpacts, delta * 1000)
       tickShotImpacts(runtime, shotImpacts, delta * 1000)
-      const enemy = enemyRef.current
-      const animation = animationForEnemyState(enemy.state)
       const activeCombo = directorRef.current.runMs <= scoreRef.current.comboExpiresAtMs ? scoreRef.current.combo : 0
-
       setCombo((current) => current === activeCombo ? current : activeCombo)
 
-      const baseTint = enemyConfigs[enemy.type].tint
-      if (enemy.state === 'hurt' || enemy.state === 'dead') {
-        const flashStyle = enemyHurtFlashStyle(enemy.type)
-        const intensity = enemyHurtFlashIntensity(flashStyle, enemy.animationTimeMs)
-        enemyHurtFlashColor.setRGB(flashStyle.flashColor.r, flashStyle.flashColor.g, flashStyle.flashColor.b)
-        runtime.enemyMaterial.color.set(baseTint).lerp(enemyHurtFlashColor, intensity)
+      const enemiesNow = enemiesRef.current
+      const debugBillboardEnemy = enemiesNow[0] ?? null
+      let debugAngle: BillboardAngle = 'front'
+      let debugBucket = 0
+      let debugAnimation: AnimationName = 'idle'
+      const debugOverlays = runningRef.current && practiceSettingsRef.current.debugOverlays
+
+      for (let i = 0; i < runtime.enemySlots.length; i += 1) {
+        const slot = runtime.enemySlots[i]
+        const enemy = i < enemiesNow.length ? enemiesNow[i] : null
+
+        if (enemy === null) {
+          slot.mesh.visible = false
+          slot.arrow.visible = false
+          continue
+        }
+
+        const baseTint = enemyConfigs[enemy.type].tint
+
+        if (enemy.state === 'hurt' || enemy.state === 'dead') {
+          const flashStyle = enemyHurtFlashStyle(enemy.type)
+          const intensity = enemyHurtFlashIntensity(flashStyle, enemy.animationTimeMs)
+          enemyHurtFlashColor.setRGB(flashStyle.flashColor.r, flashStyle.flashColor.g, flashStyle.flashColor.b)
+          slot.material.color.set(baseTint).lerp(enemyHurtFlashColor, intensity)
+        } else {
+          slot.material.color.set(baseTint)
+        }
+
+        const angle = angleToPlayerName(enemy.position, enemy.facingAngle, positionRef.current)
+        const animation = animationForEnemyState(enemy.state)
+        const enemyAsset = enemyAssetsRef.current[enemy.type] ?? enemyAssetsRef.current.grunt ?? null
+
+        if (enemyAsset) {
+          setEnemySlotAsset(slot, enemy.type, enemyAsset)
+        }
+
+        applyEnemyFrame(slot, enemyAsset?.atlas ?? null, animation, angle, enemy.animationTimeMs)
+        slot.mesh.position.set(enemy.position.x, enemy.position.y, enemy.position.z)
+        slot.mesh.scale.setScalar(enemyConfigs[enemy.type].scale)
+        slot.mesh.lookAt(runtime.camera.position)
+        slot.mesh.visible = enemy.state !== 'dead' || enemy.animationTimeMs < 1000
+        slot.arrow.position.set(enemy.position.x, 0.08, enemy.position.z)
+        slot.arrow.setDirection(new THREE.Vector3(Math.cos(enemy.facingAngle), 0, Math.sin(enemy.facingAngle)))
+        slot.arrow.visible = debugOverlays && enemy.state !== 'dead'
+
+        if (debugBillboardEnemy !== null && enemy.id === debugBillboardEnemy.id) {
+          debugAngle = angle
+          debugBucket = angleToPlayerBucket(enemy.position, enemy.facingAngle, positionRef.current)
+          debugAnimation = animation
+        }
+      }
+
+      if (debugBillboardEnemy !== null) {
+        dummyMarker.position.set(debugBillboardEnemy.position.x, 0.04, debugBillboardEnemy.position.z)
+        dummyMarker.visible = debugBillboardEnemy.state !== 'dead'
       } else {
-        runtime.enemyMaterial.color.set(baseTint)
+        dummyMarker.visible = false
       }
 
-      const bucket = angleToPlayerBucket(enemy.position, enemy.facingAngle, positionRef.current)
-      const angle = angleToPlayerName(enemy.position, enemy.facingAngle, positionRef.current)
-      const enemyAsset = enemyAssetsRef.current[enemy.type] ?? enemyAssetsRef.current.grunt ?? null
-
-      if (enemyAsset) {
-        setEnemyVisualAsset(runtime, enemyAsset)
-      }
-
-      applyEnemyFrame(runtime, enemyAsset?.atlas ?? null, animation, angle, enemy.animationTimeMs)
-      runtime.enemyMesh.position.set(enemy.position.x, enemy.position.y, enemy.position.z)
-      runtime.enemyMesh.scale.setScalar(enemyConfigs[enemy.type].scale)
-      runtime.enemyMesh.lookAt(runtime.camera.position)
-      runtime.enemyFacingArrow.position.set(enemy.position.x, 0.08, enemy.position.z)
-      runtime.enemyFacingArrow.setDirection(new THREE.Vector3(Math.cos(enemy.facingAngle), 0, Math.sin(enemy.facingAngle)))
-      dummyMarker.position.set(enemy.position.x, 0.04, enemy.position.z)
       dummyMarker.rotation.z += delta * 1.4
-      dummyMarker.visible = enemy.state !== 'dead'
-      runtime.enemyMesh.visible = enemy.state !== 'dead' || enemy.animationTimeMs < 1000
-      runtime.enemyFacingArrow.visible = runningRef.current && practiceSettingsRef.current.debugOverlays
+
       setDebug((current) => {
-        if (current.angle === angle && current.bucket === bucket && current.animation === animation) {
+        if (current.angle === debugAngle && current.bucket === debugBucket && current.animation === debugAnimation) {
           return current
         }
 
-        return { angle, bucket, animation }
+        return { angle: debugAngle, bucket: debugBucket, animation: debugAnimation }
       })
       runtime.renderer.render(runtime.scene, runtime.camera)
     }
@@ -1326,13 +1462,16 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
       stopMusicLayer(musicLayerRef.current)
       musicLayerRef.current = null
+      if (runtimeRef.current) {
+        disposeEnemySlots(runtimeRef.current.enemySlots)
+      }
       disposeEnemyAssets(enemyAssetsRef.current)
       enemyAssetsRef.current = {}
       renderer.dispose()
       mount.removeChild(renderer.domElement)
       runtimeRef.current = null
     }
-  }, [dailyConfig, damageCurrentEnemy, finishRun, isPractice])
+  }, [dailyConfig, damageEnemyById, finishRun, isPractice])
 
   useEffect(() => {
     function updateKey(event: KeyboardEvent, pressed: boolean) {
@@ -2510,13 +2649,19 @@ function spawnInkProjectile(
   })
 }
 
+type InkProjectileHit = {
+  enemyId: string
+  hitDistance: number
+}
+
 function tickInkProjectiles(
   runtime: RuntimeRefs,
   projectiles: InkProjectile[],
-  enemy: EnemyModel,
+  enemies: EnemyModel[],
+  playerPosition: Vec3,
   deltaMs: number
-): number {
-  let hits = 0
+): InkProjectileHit[] {
+  const hits: InkProjectileHit[] = []
 
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index]
@@ -2527,17 +2672,33 @@ function tickInkProjectiles(
     const pulse = 1 + Math.sin(projectile.ageMs / 72) * 0.16
     projectile.halo.scale.setScalar(pulse)
 
-    const enemyDistance = Math.hypot(
-      projectile.group.position.x - enemy.position.x,
-      projectile.group.position.z - enemy.position.z
-    )
-    const hitEnemy = enemy.state !== 'dead' && enemyDistance <= enemy.radius + projectile.splashRadius
+    let hitEnemyId: string | null = null
 
-    if (hitEnemy || projectile.remainingDistance <= 0) {
-      if (hitEnemy) {
-        hits += 1
+    for (const candidate of enemies) {
+      if (candidate.state === 'dead') {
+        continue
       }
 
+      const candidateDistance = Math.hypot(
+        projectile.group.position.x - candidate.position.x,
+        projectile.group.position.z - candidate.position.z
+      )
+
+      if (candidateDistance <= candidate.radius + projectile.splashRadius) {
+        hitEnemyId = candidate.id
+        break
+      }
+    }
+
+    if (hitEnemyId !== null) {
+      const target = enemies.find((candidate) => candidate.id === hitEnemyId)
+      const hitDistance = target
+        ? Math.hypot(target.position.x - playerPosition.x, target.position.z - playerPosition.z)
+        : 0
+      hits.push({ enemyId: hitEnemyId, hitDistance })
+    }
+
+    if (hitEnemyId !== null || projectile.remainingDistance <= 0) {
       disposeInkProjectile(runtime, projectile)
       projectiles.splice(index, 1)
     }
@@ -2593,8 +2754,10 @@ function tickAndResolveSpitterProjectiles(
   projectiles: SpitterProjectileRuntime[],
   playerPosition: Vec3,
   playerRadius: number,
+  enemies: EnemyModel[],
   deltaMs: number,
-  onPlayerHit: (damage: number) => void
+  onPlayerHit: (damage: number) => void,
+  onEnemyHit: (enemyId: string, damage: number) => void
 ) {
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index]
@@ -2609,6 +2772,44 @@ function tickAndResolveSpitterProjectiles(
 
     if (spitterProjectileHitsPlayer(projectile.state, playerPosition, playerRadius)) {
       onPlayerHit(projectile.state.damage)
+      disposeSpitterProjectile(runtime, projectile)
+      projectiles.splice(index, 1)
+      continue
+    }
+
+    let crossfireHitId: string | null = null
+
+    for (const candidate of enemies) {
+      if (candidate.state === 'dead') {
+        continue
+      }
+
+      // Skip the spitter that fired the projectile so its own splash
+      // does not blast itself in the back.
+      if (candidate.type === 'spitter') {
+        const projectileFromCandidate = Math.hypot(
+          projectile.state.position.x - candidate.position.x,
+          projectile.state.position.z - candidate.position.z
+        )
+        if (projectileFromCandidate < candidate.radius + 0.6) {
+          continue
+        }
+      }
+
+      const candidateDistance = Math.hypot(
+        projectile.state.position.x - candidate.position.x,
+        projectile.state.position.z - candidate.position.z
+      )
+
+      if (candidateDistance <= candidate.radius + 0.18) {
+        crossfireHitId = candidate.id
+        break
+      }
+    }
+
+    if (crossfireHitId !== null) {
+      const crossfireDamage = Math.max(1, Math.round(projectile.state.damage * 0.5))
+      onEnemyHit(crossfireHitId, crossfireDamage)
       disposeSpitterProjectile(runtime, projectile)
       projectiles.splice(index, 1)
       continue
@@ -3418,14 +3619,21 @@ async function loadEnemyAtlas(type: EnemyType): Promise<[EnemyType, EnemyVisualA
   return [type, { atlas, texture }]
 }
 
-function setEnemyVisualAsset(runtime: RuntimeRefs, asset: EnemyVisualAsset) {
-  if (runtime.enemyTexture === asset.texture) {
+function setEnemySlotAsset(slot: EnemyRenderSlot, type: EnemyType, asset: EnemyVisualAsset) {
+  if (slot.textureType === type && slot.texture !== null) {
     return
   }
 
-  runtime.enemyTexture = asset.texture
-  runtime.enemyMaterial.map = asset.texture
-  runtime.enemyMaterial.needsUpdate = true
+  if (slot.texture !== null) {
+    slot.texture.dispose()
+  }
+
+  const cloned = asset.texture.clone()
+  cloned.needsUpdate = true
+  slot.texture = cloned
+  slot.textureType = type
+  slot.material.map = cloned
+  slot.material.needsUpdate = true
 }
 
 function disposeEnemyAssets(assets: Partial<Record<EnemyType, EnemyVisualAsset>>) {
@@ -3435,21 +3643,33 @@ function disposeEnemyAssets(assets: Partial<Record<EnemyType, EnemyVisualAsset>>
 }
 
 function applyEnemyFrame(
-  runtime: RuntimeRefs,
+  slot: EnemyRenderSlot,
   atlas: SpriteAtlas | null,
   animationName: AnimationName,
   angle: BillboardAngle,
   timeMs: number
 ) {
-  if (!atlas || !runtime.enemyTexture) {
+  if (!atlas || !slot.texture) {
     return
   }
 
   const clip = selectAnimationClip(atlas, animationName, angle)
   const frame = selectSpriteFrame(clip, timeMs)
   const transform = frameToUvTransform(frame, atlas.imageWidth, atlas.imageHeight)
-  runtime.enemyTexture.repeat.set(transform.repeatX, transform.repeatY)
-  runtime.enemyTexture.offset.set(transform.offsetX, transform.offsetY)
+  slot.texture.repeat.set(transform.repeatX, transform.repeatY)
+  slot.texture.offset.set(transform.offsetX, transform.offsetY)
+}
+
+function disposeEnemySlots(slots: EnemyRenderSlot[]) {
+  for (const slot of slots) {
+    if (slot.texture !== null) {
+      slot.texture.dispose()
+      slot.texture = null
+      slot.textureType = null
+    }
+    slot.material.dispose()
+    slot.mesh.geometry.dispose()
+  }
 }
 
 function requestPointerLock(canvas: HTMLCanvasElement | undefined) {

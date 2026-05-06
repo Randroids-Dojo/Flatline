@@ -49,9 +49,9 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 - Priority: nice-to-have
 - Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. Q-008 picks the damage rule; recommended default is 50%. Lands cleanly *after* F-008 (spitter) is in, since the spitter is the first enemy with a projectile that can naturally hit other enemies. Brute melee swings and skitter dashes can also damage adjacent enemies under the same rule.
-- Blocker: cross-enemy crossfire requires multi-enemy AI runtime in `src/components/FlatlineGame.tsx`. The current loop uses a single `enemyRef`; only one enemy is alive at any time. The hazard-on-enemy portion of the audit's infighting vision shipped in PR #TBD (hazards damage the active enemy at 50% scale, no kill credit), but spitter-projectile-vs-enemy and brute-swing-vs-enemy are blocked on the multi-enemy refactor.
-- Unblock condition: refactor `enemyRef` and the spawn director to track an array of active enemies; extend collision rules so spitter projectiles can hit any enemy, brute swings hit adjacent enemies in the swing arc, and skitter dashes damage other enemies on collision; aggro hook to retarget when an enemy is hit by another enemy.
-- Status: partial (hazard-on-enemy shipped; cross-enemy projectile / swing / dash crossfire pending multi-enemy refactor)
+- Blocker: brute swing arc and skitter dash crossfire still pending. Hazard-on-enemy shipped in PR #73 (50% damage, no kill credit). Spitter-projectile-on-enemy crossfire shipped alongside the multi-enemy refactor (50% damage, no kill credit, firing spitter excluded from its own splash). The remaining two crossfire shapes need new collision logic in the brute swing arc and skitter dash paths.
+- Unblock condition: extend brute melee swing damage to scan adjacent enemies inside the swing arc and apply 50% damage; extend skitter dash collision against other enemies (the skitter currently has no dash mechanic, so this depends on whether to add one or treat the chase contact moment as the hit window); optional aggro hook so an enemy hit by another enemy rolls a small probability to retarget the source.
+- Status: partial (hazard-on-enemy + spitter-projectile-on-enemy shipped; brute swing arc and skitter dash crossfire still pending)
 
 ## Polish
 
