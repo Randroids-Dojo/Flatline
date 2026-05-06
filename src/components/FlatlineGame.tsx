@@ -1172,10 +1172,6 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
 
     function beginTouch(pointerId: number, x: number, y: number): boolean {
-      if (x === 0 && y === 0) {
-        return false
-      }
-
       if (x < window.innerWidth / 2) {
         if (joysticks.move.active) {
           return false
@@ -1563,10 +1559,6 @@ function JoystickVisual({
   className: string
 }) {
   if (!joystick.active) {
-    return null
-  }
-
-  if (joystick.originX === 0 && joystick.originY === 0) {
     return null
   }
 

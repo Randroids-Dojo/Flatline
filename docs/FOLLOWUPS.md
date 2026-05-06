@@ -115,7 +115,8 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Context: real-device report on PC Chrome with phone-size emulation showed a brief move-stick flash anchored at the screen origin during the first interaction with a fresh round. PR #63 added a `(0, 0)` origin guard in `src/components/FlatlineGame.tsx` (`beginTouch` and `JoystickVisual`) that prevents the visual from rendering, but the underlying source of the phantom event remains unconfirmed. The guard is a symptom-level fix, not a root-cause fix.
 - Blocker: not reproducible from Playwright tap injection on Pixel 5, iPhone 12, iPhone 13 Mini, or narrow Desktop Chrome.
 - Unblock condition: capture a real-device console log of the pointer event stream that produces the phantom (event type, `pointerType`, `clientX`, `clientY`, `target.tagName`) so the source can be identified and the guard can be retired or replaced with something more targeted.
-- Status: open
+- Status: done
+- Resolved: 2026-05-05. The (0, 0) guard was dropped because it caused a real-device regression (thumbsticks failing to appear on first run, recovering only after backgrounding and foregrounding the browser). The original phantom-flash symptom was reported only from PC Chrome with phone-size emulation and was never reproduced on a real device, so the band-aid was removed. If the phantom returns on a real device with diagnostic logging, file a fresh follow-up with the captured pointer-event payload.
 
 ## Polish
 

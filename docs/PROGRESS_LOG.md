@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-05, Drop mobile (0, 0) thumbstick guards
+
+- Branch: `feat/hitstop-on-hit`
+- PR: #TBD
+- Changed: removed the `(0, 0)` origin guards from `beginTouch` and `JoystickVisual` in `src/components/FlatlineGame.tsx`. Real-device report: on first run, thumbsticks never appeared; only after the user backgrounded and foregrounded the browser did the sticks begin to render normally. The guards added earlier on 2026-05-05 were a symptom-level band-aid for a phantom flash that was only ever reported from PC Chrome with phone-size emulation, never reproduced on a real device, and were evidently rejecting legitimate real-device touches on at least one phone. Reverted both guards: `beginTouch` no longer rejects when `clientX === 0 && clientY === 0`, and `JoystickVisual` no longer returns null when `originX === 0 && originY === 0`. Removed the `mobile (0,0) pointerdown does not activate a joystick` Playwright test that asserted the dropped behavior; the existing `mobile thumbsticks stay hidden until touched and clear on tab hide` and `mobile touch controls fit the viewport and block page scroll` tests cover the activation flow. F-005 in `docs/FOLLOWUPS.md` is resolved by this slice (band-aid dropped; if the phantom flash returns on a real device with diagnostic logging, a fresh follow-up will be filed with the captured pointer-event payload).
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (29 files / 208 tests pass), `npm run build` (success), `npm run test:e2e` (9 passed, 4 skipped; one mobile test removed in this slice).
+- Assumptions: Recommended default is to drop the guards entirely rather than narrow them, because the original symptom was never reproducible on a real device and the recently observed real-device regression is the more critical signal. The alternative (keep guards but require `clientX === 0 && clientY === 0 && pointerType === 'touch' && something else`) adds conditional logic without a confirmed phantom payload to write the condition against.
+- GDD coverage: REQ-010 (movement) gains a build-log entry naming `src/components/FlatlineGame.tsx` and `tests/smoke.spec.ts`; status stays `done`.
+- Followups: F-005 resolved.
+
 ## 2026-05-05, Hitstop on confirmed hit
 
 - Branch: `feat/hitstop-on-hit`
