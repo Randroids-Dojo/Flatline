@@ -61,19 +61,20 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Unblock condition: F-008 merged; collision rule extended; aggro update so an enemy hit by another enemy rolls a small aggro-shift toward whoever damaged it.
 - Status: open
 
+## Polish
+
+(none yet)
+
+## Resolved
+
 ### F-015: Adaptive music intensity layer
 
 - Priority: nice-to-have
 - Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. REQ-040 partial. Add a single procedural Web Audio thrash layer (a low-pass-filtered square arpeggio or a sub bass throb) that fades in proportional to `activePressure / pressureTarget` once the ratio crosses 0.7 and fades out under 0.5. Single layer is enough to deliver "the music gets crazier when it gets hot." Multiple stems can land later.
 - Blocker: none.
 - Unblock condition: pure helper that maps pressure ratio to gain envelope; consumer wires a single sustained oscillator pair into the existing audio context lifecycle.
-- Status: open
-
-## Polish
-
-(none yet)
-
-## Resolved
+- Status: done
+- Resolved: PR #TBD. New `src/game/musicIntensity.ts` plus 11 unit tests; `FlatlineGame.tsx` adds a sub-bass thrash layer (60 Hz sawtooth + 3.2 Hz throb LFO + master gain) started inside `startRun`, ramped per frame via `setTargetAtTime`, and torn down on `finishRun` and unmount.
 
 ### F-014: Encounter wave choreography (surge / lull / peak)
 

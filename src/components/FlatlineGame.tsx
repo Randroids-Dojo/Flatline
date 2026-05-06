@@ -64,6 +64,12 @@ import { accuracy, createScoreState, finalScore, recordKill, recordShot, type Sc
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
 import { encounterWaveSignal, peakStartedBetween } from '@/game/encounterWave'
+import {
+  MUSIC_BASS_HZ,
+  MUSIC_PEAK_GAIN,
+  MUSIC_THROB_HZ,
+  musicIntensityGain
+} from '@/game/musicIntensity'
 import { assertValidSpriteAtlas, frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
 import {
@@ -243,6 +249,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const hazardDamageCooldownRef = useRef<number>(0)
   const prevHazardRunMsRef = useRef<number>(-1)
   const prevWaveRunMsRef = useRef<number>(-1)
+  const musicLayerRef = useRef<{
+    context: AudioContext
+    masterGain: GainNode
+    bass: OscillatorNode
+    throb: OscillatorNode
+    throbGain: GainNode
+  } | null>(null)
   const tookDamageSinceLastKillRef = useRef<boolean>(false)
   const hitstopStateRef = useRef<{ style: HitstopStyle; startMs: number } | null>(null)
   const cameraKickStateRef = useRef<{ style: CameraKickStyle; startMs: number } | null>(null)
@@ -545,6 +558,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setTouchJoysticksView(cloneTouchJoysticks(touchJoysticksRef.current))
     setStatus(isPractice ? 'Practice run started. Tuning changes apply next run.' : 'WASD moves. Mouse aims. Left click fires.')
     requestPointerLock(runtimeRef.current?.renderer.domElement)
+
+    stopMusicLayer(musicLayerRef.current)
+    musicLayerRef.current = settingsRef.current.audio ? startMusicLayer() : null
   }, [isPractice])
 
   const finishRun = useCallback(() => {
@@ -583,6 +599,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setRunning(false)
     setPaused(false)
     setStatus(isPractice ? 'Practice run ended.' : 'Flatlined.')
+
+    stopMusicLayer(musicLayerRef.current)
+    musicLayerRef.current = null
   }, [isPractice])
 
   const resumeRun = useCallback(() => {
@@ -1111,6 +1130,16 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           }
 
           const activePressure = enemyRef.current.state === 'dead' ? 0 : 1
+          const musicLayer = musicLayerRef.current
+
+          if (musicLayer !== null) {
+            const wave = encounterWaveSignal(directorRef.current.runMs)
+            const baseTarget = targetPressureForRunMs(directorRef.current.runMs) + wave.targetDelta
+            const ratio = baseTarget > 0 ? activePressure / baseTarget : 0
+            const gainNow = musicIntensityGain(ratio) * MUSIC_PEAK_GAIN
+            musicLayer.masterGain.gain.setTargetAtTime(gainNow, musicLayer.context.currentTime, 0.12)
+          }
+
           const directorTick = tickDirector(
             directorRef.current,
             0,
@@ -1235,6 +1264,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       clearShotImpacts(runtimeRef.current, shotImpacts)
       clearInkProjectiles(runtimeRef.current, inkProjectiles)
       clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
+      stopMusicLayer(musicLayerRef.current)
+      musicLayerRef.current = null
       disposeEnemyAssets(enemyAssetsRef.current)
       enemyAssetsRef.current = {}
       renderer.dispose()
@@ -2542,6 +2573,77 @@ function disposeSpitterProjectile(runtime: RuntimeRefs | null, projectile: Spitt
   projectile.core.material.dispose()
   projectile.halo.geometry.dispose()
   projectile.halo.material.dispose()
+}
+
+function startMusicLayer(): {
+  context: AudioContext
+  masterGain: GainNode
+  bass: OscillatorNode
+  throb: OscillatorNode
+  throbGain: GainNode
+} | null {
+  if (typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return null
+  }
+
+  const context = new window.AudioContext()
+  const masterGain = context.createGain()
+  masterGain.gain.value = 0
+  masterGain.connect(context.destination)
+
+  const bass = context.createOscillator()
+  bass.type = 'sawtooth'
+  bass.frequency.value = MUSIC_BASS_HZ
+
+  // Throb LFO modulates an inner gain node so the bass tone pulses
+  // at MUSIC_THROB_HZ. The LFO's depth is +/- 0.5 around a 0.5
+  // baseline so the throb modulates between 0 and 1 of the inner
+  // gain. Master gain then sets the audible volume.
+  const throb = context.createOscillator()
+  throb.type = 'sine'
+  throb.frequency.value = MUSIC_THROB_HZ
+  const throbGain = context.createGain()
+  throbGain.gain.value = 0.5
+  const throbDepth = context.createGain()
+  throbDepth.gain.value = 0.5
+  throb.connect(throbDepth)
+  throbDepth.connect(throbGain.gain)
+
+  bass.connect(throbGain)
+  throbGain.connect(masterGain)
+
+  bass.start()
+  throb.start()
+
+  return { context, masterGain, bass, throb, throbGain }
+}
+
+function stopMusicLayer(layer: {
+  context: AudioContext
+  masterGain: GainNode
+  bass: OscillatorNode
+  throb: OscillatorNode
+  throbGain: GainNode
+} | null) {
+  if (layer === null) {
+    return
+  }
+
+  try {
+    layer.bass.stop()
+  } catch {
+    // already stopped
+  }
+
+  try {
+    layer.throb.stop()
+  } catch {
+    // already stopped
+  }
+
+  void layer.context.close().catch(() => {
+    // noop
+  })
 }
 
 function playWaveHornCue(enabled: boolean) {
