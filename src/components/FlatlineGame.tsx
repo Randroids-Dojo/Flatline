@@ -217,6 +217,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const prevHazardRunMsRef = useRef<number>(-1)
   const tookDamageSinceLastKillRef = useRef<boolean>(false)
   const cameraKickStateRef = useRef<{ style: CameraKickStyle; startMs: number } | null>(null)
+  const lastMountTransformRef = useRef<string>('')
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const weaponCooldownRef = useRef<WeaponCooldownState>(createWeaponCooldownState())
@@ -439,8 +440,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     tookDamageSinceLastKillRef.current = false
     cameraKickStateRef.current = null
 
-    if (mountRef.current) {
+    if (mountRef.current && lastMountTransformRef.current !== '') {
       mountRef.current.style.transform = ''
+      lastMountTransformRef.current = ''
     }
 
     selectedWeaponRef.current = startingWeapon
@@ -973,10 +975,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         runtime.camera.updateProjectionMatrix()
       }
 
-      if (mount) {
-        mount.style.transform = kickState && kickProgress > 0
-          ? `translateY(${kickProgress * kickState.style.kickPx}px)`
-          : ''
+      const nextMountTransform = kickState && kickProgress > 0
+        ? `translateY(${kickProgress * kickState.style.kickPx}px)`
+        : ''
+
+      if (mount && lastMountTransformRef.current !== nextMountTransform) {
+        mount.style.transform = nextMountTransform
+        lastMountTransformRef.current = nextMountTransform
       }
 
       runtime.camera.position.set(positionRef.current.x, positionRef.current.y, positionRef.current.z)
