@@ -466,7 +466,11 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
     if (weapon === 'inkblaster') {
       spawnInkProjectile(runtime, inkProjectilesRef.current, positionRef.current, direction, weaponConfigs.inkblaster.damage)
-      scoreRef.current = recordShot(scoreRef.current, true)
+      // Count the shotsFired now; shotsHit is added at impact in
+      // the animate-loop projectile-tick branch when the projectile
+      // actually overlaps an enemy. Counting `true` here would
+      // double-count every ink shot whether or not it lands.
+      scoreRef.current = recordShot(scoreRef.current, false)
       setStatus('Inkblaster projectile launched.')
       return
     }
