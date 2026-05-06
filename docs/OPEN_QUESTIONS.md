@@ -25,16 +25,6 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 
 ## Open
 
-### Q-007: What does the rage / berserk powerup actually do?
-
-- Context: Doom 1993 berserk gave 100 health, made fists one-shot most enemies, and tinted the screen red. Quake's quad damage was time-limited 4x damage with audio cue. Flatline currently has no power pickup. The audit (`docs/FUN_FACTOR_AUDIT.md`, 2026-05-05) calls for one. The shape decides what the buff means.
-- Options:
-  - A. Damage-only. 2x weapon damage for 10s. Cleanest math. Reads as "pop, kill, kill, kill."
-  - B. Damage + speed. 1.5x damage, 1.3x movement, 1.5x fire rate, 10s. Reads as "I am the threat now."
-  - C. Damage + speed + invuln window. Full B plus 80% incoming damage reduction for the duration. Reads as a Doom invuln sphere blended with berserk.
-- Recommended default: B. Stacking damage + speed + fire-rate creates a multiplicative power fantasy without removing player agency the way invuln does. A clean Web Audio pulse layer plus a screen-edge tint conveys the state. The 10s window keeps it rare and memorable. Difficulty stays honest because the player still has to play.
-- Status: open
-
 ### Q-008: Should enemies hurt each other through crossfire?
 
 - Context: Infighting is one of Doom's signature mechanics. Imps shooting pinkies aggro the pinkies; the player can engineer kills by positioning. Flatline's enemy roster does not yet have a ranged enemy (Q-N/A, REQ-031 not_started), so infighting first lands when the spitter ships. The damage rule decides whether infighting is a flavor mechanic or a primary combat solver.
@@ -46,6 +36,17 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 - Status: open
 
 ## Resolved
+
+### Q-007: What does the rage / berserk powerup actually do?
+
+- Context: Doom 1993 berserk gave 100 health, made fists one-shot most enemies, and tinted the screen red. Quake's quad damage was time-limited 4x damage with audio cue. Flatline currently has no power pickup. The audit (`docs/FUN_FACTOR_AUDIT.md`, 2026-05-05) calls for one. The shape decides what the buff means.
+- Options:
+  - A. Damage-only. 2x weapon damage for 10s. Cleanest math. Reads as "pop, kill, kill, kill."
+  - B. Damage + speed. 1.5x damage, 1.3x movement, 1.5x fire rate, 10s. Reads as "I am the threat now."
+  - C. Damage + speed + invuln window. Full B plus 80% incoming damage reduction for the duration. Reads as a Doom invuln sphere blended with berserk.
+- Recommended default: B. Stacking damage + speed + fire-rate creates a multiplicative power fantasy without removing player agency the way invuln does. A clean Web Audio pulse layer plus a screen-edge tint conveys the state. The 10s window keeps it rare and memorable. Difficulty stays honest because the player still has to play.
+- Status: resolved
+- Resolution: Shipped under Recommended default B (damage + speed + fire-rate, no invuln) in PR #TBD (F-011). 10 s window, 1.5x damage, 1.3x speed, 1.5x fire rate, screen-edge red tint, sawtooth swoop cue on grant. Sustained pulse audio layer deferred. Decided 2026-05-06.
 
 ### Q-006: Should Shift be a held sprint or an instant dash?
 

@@ -25,6 +25,13 @@ import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
 import { dashReadyAt, dashStep, startDash, type DashState } from '@/game/dash'
 import {
+  RAGE_DURATION_MS,
+  rageBuffActive,
+  rageMultipliers,
+  rageTintOpacity,
+  type RageBuffState
+} from '@/game/rageBuff'
+import {
   createSpitterProjectile,
   spitterProjectileExpired,
   spitterProjectileHitsPlayer,
@@ -55,7 +62,7 @@ import { playerDamageCue, type PlayerDamageCueStyle } from '@/game/playerDamageC
 import { weaponRecoilStyle } from '@/game/weaponRecoil'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
-import { createDirectorState, tickDirector, type DirectorState } from '@/game/spawnDirector'
+import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
 import { assertValidSpriteAtlas, frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
 import {
@@ -240,6 +247,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const lastMountTransformRef = useRef<string>('')
   const dashStateRef = useRef<DashState | null>(null)
   const lastDashStartMsRef = useRef<number>(Number.NEGATIVE_INFINITY)
+  const rageBuffStateRef = useRef<RageBuffState | null>(null)
+  const nextRageEligibleRunMsRef = useRef<number>(90_000)
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const weaponCooldownRef = useRef<WeaponCooldownState>(createWeaponCooldownState())
@@ -272,6 +281,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [weaponFireKey, setWeaponFireKey] = useState(0)
   const [weaponReady, setWeaponReady] = useState(true)
   const [dashReady, setDashReady] = useState(true)
+  const [rageActive, setRageActive] = useState(false)
+  const [rageTint, setRageTint] = useState(0)
   const [touchJoysticksView, setTouchJoysticksView] = useState<TouchJoysticks>(() => ({
     move: createJoystick(),
     look: createJoystick()
@@ -353,8 +364,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
     const weapon = selectedWeaponRef.current
     const nowMs = performance.now()
+    const buff = rageMultipliers(rageBuffStateRef.current, nowMs)
+    const buffedFireIntervalMs = weaponConfigs[weapon].fireIntervalMs / buff.fireRate
 
-    if (!canFireWeaponAt(weapon, weaponCooldownRef.current[weapon], nowMs)) {
+    if (nowMs - weaponCooldownRef.current[weapon] < buffedFireIntervalMs) {
       setWeaponReady(false)
       return
     }
@@ -448,8 +461,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       )
 
       setHits((value) => value + hits.length)
+      const baseDamage = weapon === 'boomstick' ? hits.length : weaponConfigs.peashooter.damage
       damageCurrentEnemy(
-        weapon === 'boomstick' ? hits.length : weaponConfigs.peashooter.damage,
+        Math.max(1, Math.round(baseDamage * buff.damage)),
         weapon === 'boomstick' ? 'Boomstick blast landed.' : 'Billboard enemy hurt.',
         weapon === 'boomstick' ? 'Boomstick dropped the enemy.' : 'Billboard enemy dropped.',
         closestHitDistance
@@ -479,6 +493,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     cameraKickStateRef.current = null
     dashStateRef.current = null
     lastDashStartMsRef.current = Number.NEGATIVE_INFINITY
+    rageBuffStateRef.current = null
+    nextRageEligibleRunMsRef.current = 90_000
+    setRageActive(false)
+    setRageTint(0)
 
     if (mountRef.current && lastMountTransformRef.current !== '') {
       mountRef.current.style.transform = ''
@@ -853,12 +871,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           )
         }
 
+        const moveBuff = rageMultipliers(rageBuffStateRef.current, performance.now())
         positionRef.current = updatePlayerPosition(
           positionRef.current,
           yawRef.current,
           keysRef.current,
           delta,
-          movementConfig
+          moveBuff.speed === 1 ? movementConfig : { ...movementConfig, speed: movementConfig.speed * moveBuff.speed }
         )
 
         const dashFrame = dashStep(dashStateRef.current, performance.now())
@@ -878,6 +897,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
         const dashIsReady = dashReadyAt(performance.now(), lastDashStartMsRef.current)
         setDashReady((current) => (current === dashIsReady ? current : dashIsReady))
+
+        const rageNow = performance.now()
+        const rageState = rageBuffStateRef.current
+        const rageStillActive = rageBuffActive(rageState, rageNow)
+        const rageTintNow = rageTintOpacity(rageState, rageNow)
+
+        if (rageState !== null && !rageStillActive && rageNow - rageState.startMs >= RAGE_DURATION_MS) {
+          rageBuffStateRef.current = null
+        }
+
+        setRageActive((current) => (current === rageStillActive ? current : rageStillActive))
+        setRageTint((current) => (Math.abs(current - rageTintNow) < 0.005 ? current : rageTintNow))
 
         if (playerHealthRef.current > 0) {
           directorRef.current.runMs += delta * 1000
@@ -925,13 +956,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             }
           }
 
-          if (
-            healthPickupReadyRef.current &&
-            (playerHealthRef.current < 100 ||
-              weaponAmmoRef.current.boomstick < (weaponConfigs.boomstick.maxAmmo ?? 0) ||
-              weaponAmmoRef.current.inkblaster < (weaponConfigs.inkblaster.maxAmmo ?? 0)) &&
-            Math.hypot(positionRef.current.x, positionRef.current.z) <= 1.35
-          ) {
+          const wantsSupply =
+            playerHealthRef.current < 100 ||
+            weaponAmmoRef.current.boomstick < (weaponConfigs.boomstick.maxAmmo ?? 0) ||
+            weaponAmmoRef.current.inkblaster < (weaponConfigs.inkblaster.maxAmmo ?? 0)
+          const rageEligibleNow =
+            rageBuffStateRef.current === null &&
+            directorRef.current.runMs >= nextRageEligibleRunMsRef.current &&
+            targetPressureForRunMs(directorRef.current.runMs) >= 2
+          const atAltar = Math.hypot(positionRef.current.x, positionRef.current.z) <= 1.35
+
+          if (healthPickupReadyRef.current && atAltar && (wantsSupply || rageEligibleNow)) {
             playerHealthRef.current = Math.min(100, playerHealthRef.current + 15)
             weaponAmmoRef.current = collectWeaponAmmo(weaponAmmoRef.current)
             healthPickupReadyRef.current = false
@@ -939,7 +974,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             setPlayerHealth(playerHealthRef.current)
             setWeaponAmmo(weaponAmmoRef.current)
             setHealthPickupReady(false)
-            setStatus('Supplies collected.')
+
+            if (rageEligibleNow) {
+              rageBuffStateRef.current = { startMs: performance.now() }
+              nextRageEligibleRunMsRef.current = directorRef.current.runMs + 90_000
+              setRageActive(true)
+              setStatus('Rage burst absorbed. Damage and speed amplified.')
+              playRageCue(settingsRef.current.audio)
+            } else {
+              setStatus('Supplies collected.')
+            }
+
             playPickupCue(pickupCue('supply'), settingsRef.current.audio)
           }
 
@@ -964,8 +1009,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               shotsHit: scoreRef.current.shotsHit + projectileHits
             }
             setHits((value) => value + projectileHits)
+            const inkBuff = rageMultipliers(rageBuffStateRef.current, performance.now())
             damageCurrentEnemy(
-              projectileHits * weaponConfigs.inkblaster.damage,
+              Math.max(1, Math.round(projectileHits * weaponConfigs.inkblaster.damage * inkBuff.damage)),
               'Ink splash landed.',
               'Inkblaster dropped the enemy.',
               hitDistance
@@ -1533,6 +1579,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             Dash
             <strong>{dashReady ? 'Ready' : 'Cooling'}</strong>
           </div>
+          {rageActive ? (
+            <div className="hud-pill rage-pill" data-testid="rage-pill">
+              Rage
+              <strong>Active</strong>
+            </div>
+          ) : null}
           <div className="hud-pill">
             Ammo
             <strong>{weaponAmmoLabel(selectedWeapon, weaponAmmo)}</strong>
@@ -1675,6 +1727,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         />
       ) : null}
       {damagePulse > 0 ? <div key={damagePulse} className="damage-flash" data-testid="damage-flash" aria-hidden="true" /> : null}
+      {rageTint > 0 ? (
+        <div
+          className="rage-tint"
+          data-testid="rage-tint"
+          aria-hidden="true"
+          style={{ ['--rage-tint-opacity' as string]: rageTint.toFixed(3) }}
+        />
+      ) : null}
       {damageIndicator ? (
         <div
           key={damageIndicator.key}
@@ -2462,6 +2522,32 @@ function disposeSpitterProjectile(runtime: RuntimeRefs | null, projectile: Spitt
   projectile.core.material.dispose()
   projectile.halo.geometry.dispose()
   projectile.halo.material.dispose()
+}
+
+function playRageCue(enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = 'sawtooth'
+  const startTime = context.currentTime
+  const durationMs = 480
+  const stopTime = startTime + durationMs / 1000
+  oscillator.frequency.setValueAtTime(180, startTime)
+  oscillator.frequency.exponentialRampToValueAtTime(360, stopTime)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(0.06, startTime + 0.05)
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
 }
 
 function playSpitterFireCue(enabled: boolean) {

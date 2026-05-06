@@ -230,6 +230,28 @@ button {
   animation: damage-flash 420ms ease-out;
 }
 
+.rage-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at center,
+    rgba(240, 60, 60, 0) 38%,
+    rgba(240, 60, 60, calc(var(--rage-tint-opacity, 0) * 0.6)) 78%,
+    rgba(240, 60, 60, var(--rage-tint-opacity, 0)) 100%
+  );
+}
+
+.rage-pill {
+  border-color: rgba(240, 90, 79, 0.7);
+  color: rgba(255, 220, 220, 0.95);
+}
+
+.rage-pill strong {
+  color: #ff7a6a;
+}
+
 @keyframes damage-flash {
   0% {
     border-color: rgba(240, 90, 79, 0.72);

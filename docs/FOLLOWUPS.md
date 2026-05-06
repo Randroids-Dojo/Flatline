@@ -45,14 +45,6 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Unblock condition: pure helper that takes weapon, distance, enemy type and returns an impulse vector; consumer applies the impulse over a short decay window in `tickEnemy` or in `FlatlineGame.tsx`.
 - Status: open
 
-### F-011: Berserk / rage power pickup
-
-- Priority: nice-to-have
-- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. No power moment exists. Q-007 picks the buff stack; recommended default is +1.5x damage, +1.3x movement, +1.5x fire rate for 10s, with a screen-edge red tint and a pulse music layer. Spawns rarely from the central altar in place of a health pickup, gated by run time and pressure.
-- Blocker: Q-007 (buff stack) recommended default suffices for ship.
-- Unblock condition: pure helper for buff envelope + spawn rule; renderer for the screen tint + audio loop layer.
-- Status: open
-
 ### F-012: Score token / quad damage pickup (REQ-035)
 
 - Priority: nice-to-have
@@ -90,6 +82,15 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 (none yet)
 
 ## Resolved
+
+### F-011: Berserk / rage power pickup
+
+- Priority: nice-to-have
+- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. No power moment exists. Q-007 picks the buff stack; recommended default is +1.5x damage, +1.3x movement, +1.5x fire rate for 10s, with a screen-edge red tint and a pulse music layer. Spawns rarely from the central altar in place of a health pickup, gated by run time and pressure.
+- Blocker: Q-007 (buff stack) recommended default suffices for ship.
+- Unblock condition: pure helper for buff envelope + spawn rule; renderer for the screen tint + audio loop layer.
+- Status: done
+- Resolved: PR #TBD. Shipped under Q-007 recommended default B (damage + speed + fire-rate, no invuln). New `src/game/rageBuff.ts` plus 21 unit tests; `FlatlineGame.tsx` adds buff state, applies multipliers in fire/move/damage paths, gates rage on `runMs >= 90s` and `targetPressureForRunMs >= 2`, plays a sawtooth swoop cue on grant, and renders a radial-gradient red tint plus a "Rage Active" HUD pill. Sustained pulse audio layer deferred to a follow-up.
 
 ### F-008: Spitter ranged enemy v1 (REQ-031)
 
