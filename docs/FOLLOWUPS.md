@@ -66,7 +66,7 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Blocker: none.
 - Unblock condition: spawn rule keyed to active pressure; pickup type added to the central altar rotation.
 - Status: done
-- Resolved: PR #TBD. New `src/game/scoreToken.ts` plus 15 unit tests. `recordKill` extends with `scoreMultiplier` option. `FlatlineGame.tsx` adds `scoreTokenStateRef`, gates token activation on the central altar pickup at 70 s rearm with pressure>=2 (mutually exclusive with rage on a single pickup), threads multiplier into `recordKill`, plays a 660/990/1320 Hz sparkle, and renders a `score-token-pill` HUD entry. REQ-035 status `partial` (no dedicated mesh yet; the buff window ships through the existing altar interaction).
+- Resolved: PR #72. New `src/game/scoreToken.ts` plus 15 unit tests. `recordKill` extends with `scoreMultiplier` option. `FlatlineGame.tsx` adds `scoreTokenStateRef`, gates token activation on the central altar pickup at 70 s rearm with pressure>=2 (mutually exclusive with rage on a single pickup), threads multiplier into `recordKill`, plays a 660/990/1320 Hz sparkle, and renders a `score-token-pill` HUD entry. REQ-035 status `partial` (no dedicated mesh yet; the buff window ships through the existing altar interaction).
 
 ### F-015: Adaptive music intensity layer
 
@@ -75,7 +75,7 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Blocker: none.
 - Unblock condition: pure helper that maps pressure ratio to gain envelope; consumer wires a single sustained oscillator pair into the existing audio context lifecycle.
 - Status: done
-- Resolved: PR #TBD. New `src/game/musicIntensity.ts` plus 11 unit tests; `FlatlineGame.tsx` adds a sub-bass thrash layer (60 Hz sawtooth + 3.2 Hz throb LFO + master gain) started inside `startRun`, ramped per frame via `setTargetAtTime`, and torn down on `finishRun` and unmount.
+- Resolved: PR #71. New `src/game/musicIntensity.ts` plus 11 unit tests; `FlatlineGame.tsx` adds a sub-bass thrash layer (60 Hz sawtooth + 3.2 Hz throb LFO + master gain) started inside `startRun`, ramped per frame via `setTargetAtTime`, and torn down on `finishRun` and unmount.
 
 ### F-014: Encounter wave choreography (surge / lull / peak)
 
@@ -84,7 +84,7 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Blocker: none.
 - Unblock condition: pure helper that maps `runMs` to a wave-phase struct; consumer layers it on top of `targetPressureForRunMs` and `spawnCadenceForRunMs`.
 - Status: done
-- Resolved: PR #TBD. New `src/game/encounterWave.ts` with `encounterWaveSignal(runMs)` returning `{ phase, targetDelta, cadenceScale }` (lull `+0/x1.0`, surge `+1/x0.75`, peak `+2/x0.55`) plus `peakStartedBetween` for one-shot horn detection. `tickDirector` consumes the signal. `FlatlineGame.tsx` plays a 220 ms 90 Hz sawtooth horn at peak start and renders a `wave-pill` HUD entry showing the current phase.
+- Resolved: PR #70. New `src/game/encounterWave.ts` with `encounterWaveSignal(runMs)` returning `{ phase, targetDelta, cadenceScale }` (lull `+0/x1.0`, surge `+1/x0.75`, peak `+2/x0.55`) plus `peakStartedBetween` for one-shot horn detection. `tickDirector` consumes the signal. `FlatlineGame.tsx` plays a 220 ms 90 Hz sawtooth horn at peak start and renders a `wave-pill` HUD entry showing the current phase.
 
 ### F-011: Berserk / rage power pickup
 
@@ -93,7 +93,7 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Blocker: Q-007 (buff stack) recommended default suffices for ship.
 - Unblock condition: pure helper for buff envelope + spawn rule; renderer for the screen tint + audio loop layer.
 - Status: done
-- Resolved: PR #TBD. Shipped under Q-007 recommended default B (damage + speed + fire-rate, no invuln). New `src/game/rageBuff.ts` plus 21 unit tests; `FlatlineGame.tsx` adds buff state, applies multipliers in fire/move/damage paths, gates rage on `runMs >= 90s` and `targetPressureForRunMs >= 2`, plays a sawtooth swoop cue on grant, and renders a radial-gradient red tint plus a "Rage Active" HUD pill. Sustained pulse audio layer deferred to a follow-up.
+- Resolved: PR #69. Shipped under Q-007 recommended default B (damage + speed + fire-rate, no invuln). New `src/game/rageBuff.ts` plus 21 unit tests; `FlatlineGame.tsx` adds buff state, applies multipliers in fire/move/damage paths, gates rage on `runMs >= 90s` and `targetPressureForRunMs >= 2`, plays a sawtooth swoop cue on grant, and renders a radial-gradient red tint plus a "Rage Active" HUD pill. Sustained pulse audio layer deferred to a follow-up.
 
 ### F-008: Spitter ranged enemy v1 (REQ-031)
 
@@ -102,7 +102,7 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Blocker: none. Q-008 (infighting damage rule) is adjacent but not blocking; spitter v1 can ship without enemy-on-enemy damage and add it in F-013.
 - Unblock condition: pure helpers for projectile motion, telegraph, and audio cue; integration in `FlatlineGame.tsx`.
 - Status: done
-- Resolved: PR #TBD. New `spitter` enemy type with ranged attack, new `enemyProjectileFired` event, new `src/game/spitterProjectile.ts` helper, FlatlineGame projectile renderer + collision + audio cues. Spitter enters spawn rotation at `% 5`. Sprite atlas falls back to grunt with the spitter tint until dedicated sprites ship; REQ-031 status is `partial` until then. Unblocks F-013 (infighting).
+- Resolved: PR #68. New `spitter` enemy type with ranged attack, new `enemyProjectileFired` event, new `src/game/spitterProjectile.ts` helper, FlatlineGame projectile renderer + collision + audio cues. Spitter enters spawn rotation at `% 5`. Sprite atlas falls back to grunt with the spitter tint until dedicated sprites ship; REQ-031 status is `partial` until then. Unblocks F-013 (infighting).
 
 ### F-006: Movement weapon (sprint or dash on Shift)
 
@@ -111,7 +111,7 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Blocker: none.
 - Unblock condition: Q-006 resolved, or ship under the recommended default.
 - Status: done
-- Resolved: PR #TBD. Shipped under Q-006 recommended default (instant dash). New helper `src/game/dash.ts` plus 23 unit tests; `src/components/FlatlineGame.tsx` wires Shift keydown to `startDash`, applies dash velocity in the animate loop, drops state on completion, exposes a `dash-ready` HUD pill, and resets on `startRun`. Audio swoop 1100 Hz to 700 Hz over 180 ms.
+- Resolved: PR #67. Shipped under Q-006 recommended default (instant dash). New helper `src/game/dash.ts` plus 23 unit tests; `src/components/FlatlineGame.tsx` wires Shift keydown to `startDash`, applies dash velocity in the animate loop, drops state on completion, exposes a `dash-ready` HUD pill, and resets on `startRun`. Audio swoop 1100 Hz to 700 Hz over 180 ms.
 
 ### F-009: Hitstop on confirmed hit
 
