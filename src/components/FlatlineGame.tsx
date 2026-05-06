@@ -25,6 +25,7 @@ import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
 import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
 import { hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
+import { hitstopScaleAtElapsedMs, hitstopStyle, type HitstopStyle } from '@/game/hitstop'
 import { knockbackDistance } from '@/game/knockback'
 import {
   hudGrainOpacity,
@@ -217,6 +218,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const hazardDamageCooldownRef = useRef<number>(0)
   const prevHazardRunMsRef = useRef<number>(-1)
   const tookDamageSinceLastKillRef = useRef<boolean>(false)
+  const hitstopStateRef = useRef<{ style: HitstopStyle; startMs: number } | null>(null)
   const cameraKickStateRef = useRef<{ style: CameraKickStyle; startMs: number } | null>(null)
   const lastMountTransformRef = useRef<string>('')
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
@@ -292,6 +294,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       const enemyPosition = enemyRef.current.position
       enemyRef.current = damageEnemy(enemyRef.current, damage)
       setEnemyHealth(enemyRef.current.health)
+      hitstopStateRef.current = {
+        style: hitstopStyle(selectedWeaponRef.current),
+        startMs: performance.now()
+      }
 
       if (wasAlive && enemyRef.current.state === 'dead') {
         const playerPos = positionRef.current
@@ -449,6 +455,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     hazardDamageCooldownRef.current = 0
     prevHazardRunMsRef.current = -1
     tookDamageSinceLastKillRef.current = false
+    hitstopStateRef.current = null
     cameraKickStateRef.current = null
 
     if (mountRef.current && lastMountTransformRef.current !== '') {
@@ -786,8 +793,20 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         return
       }
 
-      const delta = Math.min((time - lastTimeRef.current) / 1000 || 0, 0.05)
+      const viewDelta = Math.min((time - lastTimeRef.current) / 1000 || 0, 0.05)
       lastTimeRef.current = time
+      const hitstopState = hitstopStateRef.current
+      const hitstopElapsedMs = hitstopState ? performance.now() - hitstopState.startMs : 0
+      const hitstopScale = hitstopScaleAtElapsedMs(hitstopState?.style ?? null, hitstopElapsedMs)
+
+      if (hitstopState && hitstopElapsedMs >= hitstopState.style.durationMs) {
+        hitstopStateRef.current = null
+      }
+
+      // Hitstop scales the simulation delta so movement / AI / projectiles
+      // freeze together. View rotation reads viewDelta so camera aim stays
+      // responsive on wall-clock time during the freeze.
+      const delta = viewDelta * hitstopScale
       const selectedWeaponId = selectedWeaponRef.current
       const selectedWeaponReady = canFireWeaponAt(
         selectedWeaponId,
@@ -801,9 +820,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         const touchLook = touchLookVectorRef.current
 
         if (touchLook.x !== 0 || touchLook.y !== 0) {
-          yawRef.current -= touchLook.x * 2.8 * delta * settingsRef.current.sensitivity
+          yawRef.current -= touchLook.x * 2.8 * viewDelta * settingsRef.current.sensitivity
           pitchRef.current = clamp(
-            pitchRef.current - touchLook.y * 2.35 * delta * settingsRef.current.sensitivity,
+            pitchRef.current - touchLook.y * 2.35 * viewDelta * settingsRef.current.sensitivity,
             -1.25,
             1.25
           )
@@ -1225,10 +1244,6 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
 
     function beginTouch(pointerId: number, x: number, y: number): boolean {
-      if (x === 0 && y === 0) {
-        return false
-      }
-
       if (x < window.innerWidth / 2) {
         if (joysticks.move.active) {
           return false
@@ -1250,8 +1265,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       return true
     }
 
+    function rebaseOriginIfStale(joystick: JoystickState, x: number, y: number) {
+      if (joystick.originX === 0 && joystick.originY === 0 && (x !== 0 || y !== 0)) {
+        joystick.originX = x
+        joystick.originY = y
+        joystick.currentX = x
+        joystick.currentY = y
+      }
+    }
+
     function moveTouch(pointerId: number, x: number, y: number) {
       if (joysticks.move.pointerId === pointerId) {
+        rebaseOriginIfStale(joysticks.move, x, y)
         moveJoystick(joysticks.move, x, y)
         applyMoveJoystick()
         rerenderTouchControls()
@@ -1259,6 +1284,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       }
 
       if (joysticks.look.pointerId === pointerId) {
+        rebaseOriginIfStale(joysticks.look, x, y)
         moveJoystick(joysticks.look, x, y)
         applyLookJoystick()
         rerenderTouchControls()
@@ -1284,38 +1310,50 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       }
     }
 
-    function onPointerDown(event: PointerEvent) {
-      if (event.pointerType !== 'touch') {
-        return
-      }
-
+    function onTouchStart(event: TouchEvent) {
       if (!runningRef.current || pausedRef.current || isInteractiveTarget(event.target)) {
         return
       }
 
-      if (beginTouch(event.pointerId, event.clientX, event.clientY)) {
+      let claimedAny = false
+
+      for (let i = 0; i < event.changedTouches.length; i += 1) {
+        const touch = event.changedTouches[i]
+
+        if (beginTouch(touch.identifier, touch.clientX, touch.clientY)) {
+          claimedAny = true
+        }
+      }
+
+      if (claimedAny) {
         event.preventDefault()
       }
     }
 
-    function onPointerMove(event: PointerEvent) {
-      if (event.pointerType !== 'touch') {
-        return
+    function onTouchMove(event: TouchEvent) {
+      let claimedAny = false
+
+      for (let i = 0; i < event.changedTouches.length; i += 1) {
+        const touch = event.changedTouches[i]
+
+        if (joysticks.move.pointerId === touch.identifier || joysticks.look.pointerId === touch.identifier) {
+          claimedAny = true
+          moveTouch(touch.identifier, touch.clientX, touch.clientY)
+        }
       }
 
-      if (joysticks.move.pointerId === event.pointerId || joysticks.look.pointerId === event.pointerId) {
+      if (claimedAny) {
         event.preventDefault()
-        moveTouch(event.pointerId, event.clientX, event.clientY)
       }
     }
 
-    function onPointerUp(event: PointerEvent) {
-      if (event.pointerType !== 'touch') {
-        return
-      }
+    function onTouchEnd(event: TouchEvent) {
+      for (let i = 0; i < event.changedTouches.length; i += 1) {
+        const touch = event.changedTouches[i]
 
-      if (joysticks.move.pointerId === event.pointerId || joysticks.look.pointerId === event.pointerId) {
-        endTouch(event.pointerId)
+        if (joysticks.move.pointerId === touch.identifier || joysticks.look.pointerId === touch.identifier) {
+          endTouch(touch.identifier)
+        }
       }
     }
 
@@ -1335,18 +1373,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       }
     }
 
-    window.addEventListener('pointerdown', onPointerDown, { passive: false })
-    window.addEventListener('pointermove', onPointerMove, { passive: false })
-    window.addEventListener('pointerup', onPointerUp)
-    window.addEventListener('pointercancel', onPointerUp)
+    window.addEventListener('touchstart', onTouchStart, { passive: false })
+    window.addEventListener('touchmove', onTouchMove, { passive: false })
+    window.addEventListener('touchend', onTouchEnd)
+    window.addEventListener('touchcancel', onTouchEnd)
     window.addEventListener('blur', releaseAllTouches)
     document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
-      window.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', onPointerUp)
-      window.removeEventListener('pointercancel', onPointerUp)
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchEnd)
+      window.removeEventListener('touchcancel', onTouchEnd)
       window.removeEventListener('blur', releaseAllTouches)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       releaseAllTouches()
@@ -1616,10 +1654,6 @@ function JoystickVisual({
   className: string
 }) {
   if (!joystick.active) {
-    return null
-  }
-
-  if (joystick.originX === 0 && joystick.originY === 0) {
     return null
   }
 

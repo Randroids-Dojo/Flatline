@@ -168,24 +168,6 @@ test('mobile touch controls fit the viewport and block page scroll', async ({ pa
   }).toBe(true)
 })
 
-test('mobile (0,0) pointerdown does not activate a joystick', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'mobile-chromium', 'mobile-only behavior')
-
-  await page.route('**/api/leaderboard**', async (route) => {
-    await route.fulfill({ status: 200, json: { scope: 'all', date: null, entries: [], unavailable: true } })
-  })
-
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Start run' }).tap()
-  await expect(page.getByTestId('hud')).toBeVisible()
-
-  await dispatchTouch(page, 'pointerdown', 80, 0, 0)
-  await page.waitForTimeout(50)
-
-  await expect(page.locator('.touch-stick')).toHaveCount(0)
-  await expect(page.locator('.touch-knob')).toHaveCount(0)
-})
-
 test('mobile thumbsticks stay hidden until touched and clear on tab hide', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-chromium', 'mobile-only behavior')
 
@@ -208,7 +190,7 @@ test('mobile thumbsticks stay hidden until touched and clear on tab hide', async
   }
 
   await dispatchTouch(page, 'pointerdown', 70, Math.round(viewport.width * 0.25), Math.round(viewport.height * 0.7))
-  await dispatchTouch(page, 'pointerdown', 71, Math.round(viewport.width * 0.75), Math.round(viewport.height * 0.7), false)
+  await dispatchTouch(page, 'pointerdown', 71, Math.round(viewport.width * 0.75), Math.round(viewport.height * 0.7))
   await expect(page.locator('.touch-stick-move')).toBeVisible()
   await expect(page.locator('.touch-stick-look')).toBeVisible()
 
@@ -246,20 +228,49 @@ async function dispatchTouch(
   type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
   pointerId: number,
   clientX: number,
-  clientY: number,
-  isPrimary = true
+  clientY: number
 ) {
-  await page.evaluate(({ eventType, id, x, y, primary }) => {
-    window.dispatchEvent(new PointerEvent(eventType, {
-      bubbles: true,
-      cancelable: true,
-      pointerId: id,
-      pointerType: 'touch',
-      clientX: x,
-      clientY: y,
-      isPrimary: primary
-    }))
-  }, { eventType: type, id: pointerId, x: clientX, y: clientY, primary: isPrimary })
+  const touchType =
+    type === 'pointerdown'
+      ? 'touchstart'
+      : type === 'pointermove'
+        ? 'touchmove'
+        : type === 'pointercancel'
+          ? 'touchcancel'
+          : 'touchend'
+
+  await page.evaluate(
+    ({ eventType, id, x, y }) => {
+      const target = document.body
+      const touch = new Touch({
+        identifier: id,
+        target,
+        clientX: x,
+        clientY: y,
+        pageX: x,
+        pageY: y,
+        screenX: x,
+        screenY: y,
+        radiusX: 1,
+        radiusY: 1,
+        rotationAngle: 0,
+        force: 1
+      })
+      const isStart = eventType === 'touchstart'
+      const isMove = eventType === 'touchmove'
+      const stillDown = isStart || isMove
+      window.dispatchEvent(
+        new TouchEvent(eventType, {
+          bubbles: true,
+          cancelable: true,
+          touches: stillDown ? [touch] : [],
+          targetTouches: stillDown ? [touch] : [],
+          changedTouches: [touch]
+        })
+      )
+    },
+    { eventType: touchType, id: pointerId, x: clientX, y: clientY }
+  )
 }
 
 async function canvasHasPixels(page: import('@playwright/test').Page) {
