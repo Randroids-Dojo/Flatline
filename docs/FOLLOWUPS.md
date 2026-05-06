@@ -29,14 +29,6 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Nice To Have
 
-### F-006: Movement weapon (sprint or dash on Shift)
-
-- Priority: nice-to-have
-- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. Player is locked at 6.8 m/s with no movement modifier. Doom's signature is "movement is a weapon." Adding one expressive movement verb on Shift turns the run from "stand back, shoot" into "commit and reposition." `docs/gdd/10-movement.md` already reserves `Shift: dash, later`. Q-006 picks sprint vs dash; recommended default is dash.
-- Blocker: none.
-- Unblock condition: Q-006 resolved, or ship under the recommended default.
-- Status: open
-
 ### F-007: Boomstick weight (camera FOV punch + screen impulse on fire)
 
 - Priority: nice-to-have
@@ -106,6 +98,15 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 (none yet)
 
 ## Resolved
+
+### F-006: Movement weapon (sprint or dash on Shift)
+
+- Priority: nice-to-have
+- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. Player is locked at 6.8 m/s with no movement modifier. Doom's signature is "movement is a weapon." Adding one expressive movement verb on Shift turns the run from "stand back, shoot" into "commit and reposition." `docs/gdd/10-movement.md` already reserves `Shift: dash, later`. Q-006 picks sprint vs dash; recommended default is dash.
+- Blocker: none.
+- Unblock condition: Q-006 resolved, or ship under the recommended default.
+- Status: done
+- Resolved: PR #TBD. Shipped under Q-006 recommended default (instant dash). New helper `src/game/dash.ts` plus 23 unit tests; `src/components/FlatlineGame.tsx` wires Shift keydown to `startDash`, applies dash velocity in the animate loop, drops state on completion, exposes a `dash-ready` HUD pill, and resets on `startRun`. Audio swoop 1100 Hz to 700 Hz over 180 ms.
 
 ### F-009: Hitstop on confirmed hit
 

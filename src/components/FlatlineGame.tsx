@@ -23,6 +23,7 @@ import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn,
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
+import { dashReadyAt, dashStep, startDash, type DashState } from '@/game/dash'
 import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
 import { hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { hitstopScaleAtElapsedMs, hitstopStyle, type HitstopStyle } from '@/game/hitstop'
@@ -221,6 +222,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const hitstopStateRef = useRef<{ style: HitstopStyle; startMs: number } | null>(null)
   const cameraKickStateRef = useRef<{ style: CameraKickStyle; startMs: number } | null>(null)
   const lastMountTransformRef = useRef<string>('')
+  const dashStateRef = useRef<DashState | null>(null)
+  const lastDashStartMsRef = useRef<number>(Number.NEGATIVE_INFINITY)
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const weaponCooldownRef = useRef<WeaponCooldownState>(createWeaponCooldownState())
@@ -252,6 +255,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [weaponFiring, setWeaponFiring] = useState(false)
   const [weaponFireKey, setWeaponFireKey] = useState(0)
   const [weaponReady, setWeaponReady] = useState(true)
+  const [dashReady, setDashReady] = useState(true)
   const [touchJoysticksView, setTouchJoysticksView] = useState<TouchJoysticks>(() => ({
     move: createJoystick(),
     look: createJoystick()
@@ -457,6 +461,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     tookDamageSinceLastKillRef.current = false
     hitstopStateRef.current = null
     cameraKickStateRef.current = null
+    dashStateRef.current = null
+    lastDashStartMsRef.current = Number.NEGATIVE_INFINITY
 
     if (mountRef.current && lastMountTransformRef.current !== '') {
       mountRef.current.style.transform = ''
@@ -489,6 +495,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setSelectedWeapon(startingWeapon)
     setWeaponAmmo(weaponAmmoRef.current)
     setWeaponReady(true)
+    setDashReady(true)
     setDamageIndicator(null)
     setMuzzleFlash(null)
 
@@ -836,6 +843,24 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           movementConfig
         )
 
+        const dashFrame = dashStep(dashStateRef.current, performance.now())
+
+        if (dashFrame.active) {
+          const bounds = movementConfig.bounds
+          const nextX = positionRef.current.x + dashFrame.vx * delta
+          const nextZ = positionRef.current.z + dashFrame.vz * delta
+          positionRef.current = {
+            x: Math.max(bounds.minX, Math.min(bounds.maxX, nextX)),
+            y: positionRef.current.y,
+            z: Math.max(bounds.minZ, Math.min(bounds.maxZ, nextZ))
+          }
+        } else if (dashStateRef.current !== null) {
+          dashStateRef.current = null
+        }
+
+        const dashIsReady = dashReadyAt(performance.now(), lastDashStartMsRef.current)
+        setDashReady((current) => (current === dashIsReady ? current : dashIsReady))
+
         if (playerHealthRef.current > 0) {
           directorRef.current.runMs += delta * 1000
           setRunMs(directorRef.current.runMs)
@@ -1141,6 +1166,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         setPaused(pausedRef.current)
         setStatus(pausedRef.current ? 'Paused.' : 'Run resumed.')
       }
+      if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && pressed) {
+        if (runningRef.current && !pausedRef.current) {
+          const now = performance.now()
+
+          if (dashReadyAt(now, lastDashStartMsRef.current)) {
+            dashStateRef.current = startDash(now, keysRef.current, yawRef.current)
+            lastDashStartMsRef.current = now
+            setDashReady(false)
+            playDashCue(settingsRef.current.audio)
+          }
+        }
+      }
     }
 
     function onKeyDown(event: KeyboardEvent) {
@@ -1441,6 +1478,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           <div className={`hud-pill weapon-ready-pill${weaponReady ? '' : ' weapon-recovering'}`} data-testid="weapon-ready">
             Fire
             <strong>{weaponReady ? 'Ready' : 'Recovering'}</strong>
+          </div>
+          <div className={`hud-pill dash-pill${dashReady ? '' : ' dash-cooling'}`} data-testid="dash-ready">
+            Dash
+            <strong>{dashReady ? 'Ready' : 'Cooling'}</strong>
           </div>
           <div className="hud-pill">
             Ammo
@@ -2804,6 +2845,32 @@ function playDoorOpenCue(cue: DoorCueStyle, enabled: boolean) {
   const stopTime = startTime + cue.durationMs / 1000
   gain.gain.setValueAtTime(0, startTime)
   gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.012, cue.durationMs / 1000 / 5))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+function playDashCue(enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = 'sine'
+  const startTime = context.currentTime
+  const durationMs = 180
+  const stopTime = startTime + durationMs / 1000
+  oscillator.frequency.setValueAtTime(1100, startTime)
+  oscillator.frequency.exponentialRampToValueAtTime(700, stopTime)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(0.038, startTime + 0.012)
   gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
   oscillator.connect(gain)
   gain.connect(context.destination)
