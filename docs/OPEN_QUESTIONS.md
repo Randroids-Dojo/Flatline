@@ -25,7 +25,35 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 
 ## Open
 
-(none)
+### Q-006: Should Shift be a held sprint or an instant dash?
+
+- Context: `docs/gdd/10-movement.md` lists `Shift: dash, later`. The player currently runs at a constant 6.8 m/s with no movement modifier. Adding an expressive movement verb is the highest-leverage Doom-feel move (see `docs/FUN_FACTOR_AUDIT.md`, 2026-05-05). Two shapes are in scope.
+- Options:
+  - A. Held sprint. Holding Shift sets the player to 1.35x base speed for up to 1.2s of continuous run, then a 0.6s cooldown after release. Reads as "I can choose to commit to a flank."
+  - B. Instant dash. Tapping Shift fires a 0.18s impulse that displaces the player ~3.2 m in current input direction, with a 1.4s cooldown. Reads as "I just got out of a brute swing."
+  - C. Both. Tap = dash, hold = sprint.
+- Recommended default: B. A short dash is a single tuned impulse with a clear cooldown, the cleanest mapping for a one-room arena where evading a windup matters more than crossing distance, and the cheapest first slice. Sprint can layer in later as Q-006B if the player feedback asks for it.
+- Status: open
+
+### Q-007: What does the rage / berserk powerup actually do?
+
+- Context: Doom 1993 berserk gave 100 health, made fists one-shot most enemies, and tinted the screen red. Quake's quad damage was time-limited 4x damage with audio cue. Flatline currently has no power pickup. The audit (`docs/FUN_FACTOR_AUDIT.md`, 2026-05-05) calls for one. The shape decides what the buff means.
+- Options:
+  - A. Damage-only. 2x weapon damage for 10s. Cleanest math. Reads as "pop, kill, kill, kill."
+  - B. Damage + speed. 1.5x damage, 1.3x movement, 1.5x fire rate, 10s. Reads as "I am the threat now."
+  - C. Damage + speed + invuln window. Full B plus 80% incoming damage reduction for the duration. Reads as a Doom invuln sphere blended with berserk.
+- Recommended default: B. Stacking damage + speed + fire-rate creates a multiplicative power fantasy without removing player agency the way invuln does. A clean Web Audio pulse layer plus a screen-edge tint conveys the state. The 10s window keeps it rare and memorable. Difficulty stays honest because the player still has to play.
+- Status: open
+
+### Q-008: Should enemies hurt each other through crossfire?
+
+- Context: Infighting is one of Doom's signature mechanics. Imps shooting pinkies aggro the pinkies; the player can engineer kills by positioning. Flatline's enemy roster does not yet have a ranged enemy (Q-N/A, REQ-031 not_started), so infighting first lands when the spitter ships. The damage rule decides whether infighting is a flavor mechanic or a primary combat solver.
+- Options:
+  - A. Full damage. Spitter projectile that lands on a brute does the same damage it would do to the player. Reads as "if I can dodge, the enemies kill themselves."
+  - B. Half damage. Cross-faction projectiles do 50% of player damage. Reads as "I can soften a brute by tricking a spitter, but I still have to finish."
+  - C. No infighting. Cross-faction projectiles pass through other enemies harmlessly.
+- Recommended default: B. Half damage keeps infighting a *flavor* mechanic that rewards positioning without letting the player skip combat entirely. It also keeps the player accountable for the kill so combo and accuracy bonuses still mean something.
+- Status: open
 
 ## Resolved
 
