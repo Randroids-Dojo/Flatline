@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Encounter wave choreography (F-014)
+
+- Branch: `feat/encounter-wave`
+- PR: #TBD
+- Changed: layered a deterministic 50 s wave shape on top of the existing spawn director so encounter pacing reads as lull / surge / peak instead of constant pressure. New pure helper `src/game/encounterWave.ts` exposes `WAVE_LULL_MS = 25_000`, `WAVE_SURGE_MS = 18_000`, `WAVE_PEAK_MS = 7_000`, `WAVE_TOTAL_MS = 50_000`, plus `encounterWaveSignal(runMs)` returning `{ phase, targetDelta, cadenceScale }` (lull `{0, 1.0}`, surge `{+1, 0.75}`, peak `{+2, 0.55}`) and `peakStartedBetween(prevRunMs, currentRunMs)` for one-shot horn detection at the surge/peak boundary. `src/game/spawnDirector.ts` consumes the signal: `pressureTarget` adds `wave.targetDelta`, `cadenceMs` multiplies by `wave.cadenceScale`. `src/components/FlatlineGame.tsx` adds `prevWaveRunMsRef`, plays a new local `playWaveHornCue` (220 ms 90 Hz sawtooth at gain 0.05) when `peakStartedBetween` fires across a tick, sets a status line, and renders a `wave-pill` HUD entry that flips between Lull / Surge / Peak with phase-tinted styles in `app/globals.css`. Resets `prevWaveRunMsRef` on `startRun`.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (35 files / 303 tests pass, 18 new in `src/game/encounterWave.test.ts`), `npm run build` (success), `npm run test:e2e` (9 passed, 3 skipped).
+- Assumptions: Recommended default holds the wave shape constant across the run (the same 25/18/7 cycle repeats indefinitely) rather than scaling cycle length with run duration. The existing `targetPressureForRunMs` and `spawnCadenceForRunMs` already escalate the *baseline* over time; the wave layer adds *rhythm* on top. Recommended default keeps the peak audio cue as a single horn at peak start (not sustained) so the player has time to act on the warning before the spawn surge actually lands. Recommended default fires the HUD wave pill from the same signal so the visual reading matches the audio one. Recommended default does not reset the wave on player damage or other game events; the cycle is deterministic from `runMs` so the player can learn its rhythm.
+- GDD coverage: REQ-032 (spawn director) gains a build-log entry naming the new helper plus the `tickDirector` integration; status stays `done`. REQ-040 (audio) gains a build-log entry for the new horn cue. The row picks up `src/game/encounterWave.ts` in `implementationRefs` and `src/game/encounterWave.test.ts` in `testRefs`.
+- Followups: F-014 is satisfied by this slice (will be marked resolved on merge).
+
 ## 2026-05-06, Berserk rage power pickup (F-011)
 
 - Branch: `feat/berserk-rage`

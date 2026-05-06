@@ -63,6 +63,7 @@ import { weaponRecoilStyle } from '@/game/weaponRecoil'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
+import { encounterWaveSignal, peakStartedBetween } from '@/game/encounterWave'
 import { assertValidSpriteAtlas, frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
 import {
@@ -241,6 +242,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const healthPickupCooldownRef = useRef<number>(0)
   const hazardDamageCooldownRef = useRef<number>(0)
   const prevHazardRunMsRef = useRef<number>(-1)
+  const prevWaveRunMsRef = useRef<number>(-1)
   const tookDamageSinceLastKillRef = useRef<boolean>(false)
   const hitstopStateRef = useRef<{ style: HitstopStyle; startMs: number } | null>(null)
   const cameraKickStateRef = useRef<{ style: CameraKickStyle; startMs: number } | null>(null)
@@ -283,6 +285,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [dashReady, setDashReady] = useState(true)
   const [rageActive, setRageActive] = useState(false)
   const [rageTint, setRageTint] = useState(0)
+  const [wavePhase, setWavePhase] = useState<'lull' | 'surge' | 'peak'>('lull')
   const [touchJoysticksView, setTouchJoysticksView] = useState<TouchJoysticks>(() => ({
     move: createJoystick(),
     look: createJoystick()
@@ -488,6 +491,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     healthPickupCooldownRef.current = 0
     hazardDamageCooldownRef.current = 0
     prevHazardRunMsRef.current = -1
+    prevWaveRunMsRef.current = -1
     tookDamageSinceLastKillRef.current = false
     hitstopStateRef.current = null
     cameraKickStateRef.current = null
@@ -913,6 +917,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         if (playerHealthRef.current > 0) {
           directorRef.current.runMs += delta * 1000
           setRunMs(directorRef.current.runMs)
+          if (
+            prevWaveRunMsRef.current >= 0 &&
+            peakStartedBetween(prevWaveRunMsRef.current, directorRef.current.runMs)
+          ) {
+            playWaveHornCue(settingsRef.current.audio)
+            setStatus('Wave peak. Hold ground or reposition.')
+          }
+          prevWaveRunMsRef.current = directorRef.current.runMs
+
+          const wavePhaseNow = encounterWaveSignal(directorRef.current.runMs).phase
+          setWavePhase((current) => (current === wavePhaseNow ? current : wavePhaseNow))
+
           if (!practiceSettingsRef.current.roomStateFrozen) {
             roomStateMsRef.current += delta * 1000
           }
@@ -1585,6 +1601,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               <strong>Active</strong>
             </div>
           ) : null}
+          <div className={`hud-pill wave-pill wave-${wavePhase}`} data-testid="wave-pill">
+            Wave
+            <strong>{wavePhase === 'lull' ? 'Lull' : wavePhase === 'surge' ? 'Surge' : 'Peak'}</strong>
+          </div>
           <div className="hud-pill">
             Ammo
             <strong>{weaponAmmoLabel(selectedWeapon, weaponAmmo)}</strong>
@@ -2522,6 +2542,31 @@ function disposeSpitterProjectile(runtime: RuntimeRefs | null, projectile: Spitt
   projectile.core.material.dispose()
   projectile.halo.geometry.dispose()
   projectile.halo.material.dispose()
+}
+
+function playWaveHornCue(enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = 'sawtooth'
+  const startTime = context.currentTime
+  const durationMs = 220
+  const stopTime = startTime + durationMs / 1000
+  oscillator.frequency.setValueAtTime(90, startTime)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(0.05, startTime + 0.02)
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
 }
 
 function playRageCue(enabled: boolean) {

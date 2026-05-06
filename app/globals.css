@@ -252,6 +252,22 @@ button {
   color: #ff7a6a;
 }
 
+.wave-pill.wave-lull strong {
+  color: rgba(244, 241, 232, 0.7);
+}
+
+.wave-pill.wave-surge strong {
+  color: #f0c668;
+}
+
+.wave-pill.wave-peak {
+  border-color: rgba(240, 90, 79, 0.7);
+}
+
+.wave-pill.wave-peak strong {
+  color: #f05a4f;
+}
+
 @keyframes damage-flash {
   0% {
     border-color: rgba(240, 90, 79, 0.72);

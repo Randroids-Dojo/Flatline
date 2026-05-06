@@ -1,3 +1,4 @@
+import { encounterWaveSignal } from './encounterWave'
 import type { Vec3 } from './types'
 
 export type SpawnDoor = {
@@ -49,8 +50,9 @@ export function tickDirector(
     ...state,
     runMs: state.runMs + deltaMs
   }
-  const pressureTarget = targetPressureForRunMs(next.runMs)
-  const cadenceMs = spawnCadenceForRunMs(next.runMs) * Math.max(0.25, options.cadenceScale ?? 1)
+  const wave = encounterWaveSignal(next.runMs)
+  const pressureTarget = targetPressureForRunMs(next.runMs) + wave.targetDelta
+  const cadenceMs = spawnCadenceForRunMs(next.runMs) * Math.max(0.25, options.cadenceScale ?? 1) * wave.cadenceScale
 
   if (activePressure >= pressureTarget || next.runMs - next.lastSpawnMs < cadenceMs) {
     return { state: next, spawn: null }

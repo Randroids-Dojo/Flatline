@@ -61,14 +61,6 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Unblock condition: F-008 merged; collision rule extended; aggro update so an enemy hit by another enemy rolls a small aggro-shift toward whoever damaged it.
 - Status: open
 
-### F-014: Encounter wave choreography (surge / lull / peak)
-
-- Priority: nice-to-have
-- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. The spawn director currently produces a steady cadence with a pressure target. Layer a wave shape on top: 25s lull (low pressure target, low cadence), 18s surge (target +1, cadence -25%), 7s peak (target +2, cadence -45%, audio horn), then back to lull. Reads as Doom-style encounter rhythm and makes the room feel composed instead of timed.
-- Blocker: none.
-- Unblock condition: pure helper that maps `runMs` to a wave-phase struct; consumer layers it on top of `targetPressureForRunMs` and `spawnCadenceForRunMs`.
-- Status: open
-
 ### F-015: Adaptive music intensity layer
 
 - Priority: nice-to-have
@@ -82,6 +74,15 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 (none yet)
 
 ## Resolved
+
+### F-014: Encounter wave choreography (surge / lull / peak)
+
+- Priority: nice-to-have
+- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. The spawn director currently produces a steady cadence with a pressure target. Layer a wave shape on top: 25s lull (low pressure target, low cadence), 18s surge (target +1, cadence -25%), 7s peak (target +2, cadence -45%, audio horn), then back to lull. Reads as Doom-style encounter rhythm and makes the room feel composed instead of timed.
+- Blocker: none.
+- Unblock condition: pure helper that maps `runMs` to a wave-phase struct; consumer layers it on top of `targetPressureForRunMs` and `spawnCadenceForRunMs`.
+- Status: done
+- Resolved: PR #TBD. New `src/game/encounterWave.ts` with `encounterWaveSignal(runMs)` returning `{ phase, targetDelta, cadenceScale }` (lull `+0/x1.0`, surge `+1/x0.75`, peak `+2/x0.55`) plus `peakStartedBetween` for one-shot horn detection. `tickDirector` consumes the signal. `FlatlineGame.tsx` plays a 220 ms 90 Hz sawtooth horn at peak start and renders a `wave-pill` HUD entry showing the current phase.
 
 ### F-011: Berserk / rage power pickup
 
