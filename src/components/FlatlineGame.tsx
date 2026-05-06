@@ -127,6 +127,11 @@ const enemyAtlasTypes: EnemyType[] = ['grunt', 'skitter', 'brute']
 
 const MAX_ENEMIES = 3
 
+// Q-008 recommended default: cross-faction (infighting) damage is 50% of
+// player-facing damage. Hazard ticks against enemies and spitter projectile
+// crossfire both route through this scale.
+const INFIGHTING_DAMAGE_SCALE = 0.5
+
 type EnemyRenderSlot = {
   material: THREE.MeshBasicMaterial
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
@@ -1065,7 +1070,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               }
 
               const enemyHazardSource = hazardDamageAtPosition(candidate.position, hazards)
-              const enemyHazardDamage = Math.max(0, Math.round(enemyHazardSource * 0.5))
+              const enemyHazardDamage = Math.max(0, Math.round(enemyHazardSource * INFIGHTING_DAMAGE_SCALE))
 
               if (enemyHazardDamage > 0) {
                 const damaged = damageEnemy(candidate, enemyHazardDamage)
@@ -2813,7 +2818,7 @@ function tickAndResolveSpitterProjectiles(
     }
 
     if (crossfireHitId !== null) {
-      const crossfireDamage = Math.max(1, Math.round(projectile.state.damage * 0.5))
+      const crossfireDamage = Math.max(1, Math.round(projectile.state.damage * INFIGHTING_DAMAGE_SCALE))
       onEnemyHit(crossfireHitId, crossfireDamage)
       disposeSpitterProjectile(runtime, projectile)
       projectiles.splice(index, 1)

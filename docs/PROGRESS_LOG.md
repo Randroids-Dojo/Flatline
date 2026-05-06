@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Cleanup round 10: name the F-013 infighting damage scale
+
+- Branch: `chore/cleanup-round-10-infighting-constant`
+- PR: #83
+- Changed: the F-013 infighting damage rule (Q-008 recommended default B, 50%) was inlined as a literal `* 0.5` in two call sites in `src/components/FlatlineGame.tsx` (the hazard-vs-enemy loop and the spitter projectile cross-enemy crossfire). Introduces `INFIGHTING_DAMAGE_SCALE = 0.5` as a top-level constant alongside `MAX_ENEMIES`, with a one-line comment tying it to Q-008. Both call sites now reference the constant, so the design tuning has a single source of truth and the Q-008 link is self-documenting in code.
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (37 files / 333 tests pass).
+- Assumptions: Recommended default keeps the constant local to `FlatlineGame.tsx` rather than promoting it to a shared module, because both consumers are in the same file. If a third infighting damage path lands later (e.g. brute swing arc crossfire from F-013's pending portion), promote then.
+- GDD coverage: no row changes; this is review cleanup, not a feature slice.
+- Followups: none new.
+
 ## 2026-05-06, Cleanup round 9: use SPITTER_PROJECTILE_RADIUS_M in cross-enemy crossfire
 
 - Branch: `chore/cleanup-round-9-projectile-radius`
