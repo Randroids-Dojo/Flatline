@@ -25,6 +25,7 @@ import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
 import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
 import { hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
+import { knockbackDistance } from '@/game/knockback'
 import {
   hudGrainOpacity,
   hudPillWobbleAmplitudePx,
@@ -282,7 +283,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [status, setStatus] = useState('Start a run to lock the pointer and enter the room.')
   const isPractice = arenaMode === 'practice'
 
-  const damageCurrentEnemy = useCallback((damage: number, hurtStatus: string, killStatus: string) => {
+  const damageCurrentEnemy = useCallback((damage: number, hurtStatus: string, killStatus: string, hitDistance?: number) => {
     const enemy = enemyRef.current
     const runtime = runtimeRef.current
 
@@ -296,7 +297,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         const playerPos = positionRef.current
         const dx = enemyPosition.x - playerPos.x
         const dz = enemyPosition.z - playerPos.z
-        const distance = Math.sqrt(dx * dx + dz * dz)
+        const fallbackDistance = Math.sqrt(dx * dx + dz * dz)
+        const distance = hitDistance ?? fallbackDistance
         scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs, {
           distance,
           weapon: selectedWeaponRef.current,
@@ -407,16 +409,25 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     scoreRef.current = recordShot(scoreRef.current, hits.length > 0)
 
     if (hits.length > 0) {
+      const enemyBeforeDamage = enemyRef.current
+      const closestHitDistance = hits.reduce((min, h) => Math.min(min, h.distance), Number.POSITIVE_INFINITY)
+      const xzLen = Math.hypot(direction.x, direction.z)
+      const knockbackDir = xzLen > 0
+        ? { x: direction.x / xzLen, y: 0, z: direction.z / xzLen }
+        : { x: 0, y: 0, z: 1 }
+      enemyRef.current = knockEnemyBack(
+        enemyBeforeDamage,
+        knockbackDir,
+        knockbackDistance(weapon, closestHitDistance, enemyBeforeDamage.type)
+      )
+
       setHits((value) => value + hits.length)
       damageCurrentEnemy(
         weapon === 'boomstick' ? hits.length : weaponConfigs.peashooter.damage,
         weapon === 'boomstick' ? 'Boomstick blast landed.' : 'Billboard enemy hurt.',
-        weapon === 'boomstick' ? 'Boomstick dropped the enemy.' : 'Billboard enemy dropped.'
+        weapon === 'boomstick' ? 'Boomstick dropped the enemy.' : 'Billboard enemy dropped.',
+        closestHitDistance
       )
-
-      if (weapon === 'boomstick') {
-        enemyRef.current = knockEnemyBack(enemyRef.current, direction, 0.65)
-      }
     } else {
       setStatus(`${weaponConfigs[weapon].label} missed. Track the target and fire again.`)
     }
@@ -873,12 +884,30 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           const projectileHits = tickInkProjectiles(runtime, inkProjectiles, enemyRef.current, delta * 1000)
 
           if (projectileHits > 0) {
+            const enemyBefore = enemyRef.current
+            const dx = enemyBefore.position.x - positionRef.current.x
+            const dz = enemyBefore.position.z - positionRef.current.z
+            const hitDistance = Math.hypot(dx, dz)
+            const knockbackDir = hitDistance > 0
+              ? { x: dx / hitDistance, y: 0, z: dz / hitDistance }
+              : { x: 0, y: 0, z: 1 }
+            enemyRef.current = knockEnemyBack(
+              enemyBefore,
+              knockbackDir,
+              knockbackDistance('inkblaster', hitDistance, enemyBefore.type)
+            )
+
             scoreRef.current = {
               ...scoreRef.current,
               shotsHit: scoreRef.current.shotsHit + projectileHits
             }
             setHits((value) => value + projectileHits)
-            damageCurrentEnemy(projectileHits * weaponConfigs.inkblaster.damage, 'Ink splash landed.', 'Inkblaster dropped the enemy.')
+            damageCurrentEnemy(
+              projectileHits * weaponConfigs.inkblaster.damage,
+              'Ink splash landed.',
+              'Inkblaster dropped the enemy.',
+              hitDistance
+            )
           }
 
           const result = tickEnemy(
