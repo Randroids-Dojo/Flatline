@@ -1193,8 +1193,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       return true
     }
 
+    function rebaseOriginIfStale(joystick: JoystickState, x: number, y: number) {
+      if (joystick.originX === 0 && joystick.originY === 0 && (x !== 0 || y !== 0)) {
+        joystick.originX = x
+        joystick.originY = y
+        joystick.currentX = x
+        joystick.currentY = y
+      }
+    }
+
     function moveTouch(pointerId: number, x: number, y: number) {
       if (joysticks.move.pointerId === pointerId) {
+        rebaseOriginIfStale(joysticks.move, x, y)
         moveJoystick(joysticks.move, x, y)
         applyMoveJoystick()
         rerenderTouchControls()
@@ -1202,6 +1212,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       }
 
       if (joysticks.look.pointerId === pointerId) {
+        rebaseOriginIfStale(joysticks.look, x, y)
         moveJoystick(joysticks.look, x, y)
         applyLookJoystick()
         rerenderTouchControls()

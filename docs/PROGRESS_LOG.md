@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-05, Snap mobile thumbstick origin off (0, 0) on first move
+
+- Branch: `feat/hitstop-on-hit`
+- PR: #TBD
+- Changed: added a `rebaseOriginIfStale(joystick, x, y)` helper inside the touch effect in `src/components/FlatlineGame.tsx`. On every `pointermove` for an active joystick, if the joystick's origin is exactly `(0, 0)` and the incoming pointer coordinate is not, the origin (and the current point) snap to the new coordinate. Real-device confirmation (Android Chrome on the Vercel preview of this branch, screenshot in conversation): even after the prior slice removed the `(0, 0)` rejection guards, the move stick was visibly anchored at the top-left corner of the play area because the browser's first touch event of the run reported `clientX === 0 && clientY === 0`. After this fix, the visual still appears at the corner for one frame on the rare devices that produce stale `(0, 0)` first events, then jumps to the finger position and reads as a normal small displacement on the next `pointermove`. VibeRacer's `useTouchControls` was reviewed as prior art (`/Users/randroid/Documents/Dev/VibeRacer/src/hooks/useTouchControls.ts`); it reads `e.clientX/Y` the same way and has no special `(0, 0)` handling, so the snap-on-move helper is the smallest correct fix that works without re-introducing a guard that swallows the visual entirely.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (29 files / 208 tests pass), `npm run build` (success), `npm run test:e2e` (9 passed, 3 skipped).
+- Assumptions: Recommended default snaps the origin only when both coordinates of the *origin* are exactly `0` and the incoming pointer event has at least one non-zero coordinate. The alternative (snap on every move) would shift the origin every time the user briefly drags through `(0, 0)` near the screen corner, causing erratic readings. Recommended default does not animate the snap because the visible glitch lasts at most one frame and animating it would draw more attention than it deserves.
+- GDD coverage: REQ-010 (movement) gains a build-log entry naming `src/components/FlatlineGame.tsx`; status stays `done`.
+- Followups: none new.
+
 ## 2026-05-05, Drop mobile (0, 0) thumbstick guards
 
 - Branch: `feat/hitstop-on-hit`
