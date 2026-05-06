@@ -70,6 +70,12 @@ import {
   MUSIC_THROB_HZ,
   musicIntensityGain
 } from '@/game/musicIntensity'
+import {
+  SCORE_TOKEN_REARM_MS,
+  scoreTokenActive,
+  scoreTokenMultiplier,
+  type ScoreTokenState
+} from '@/game/scoreToken'
 import { assertValidSpriteAtlas, frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
 import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
 import {
@@ -264,6 +270,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const lastDashStartMsRef = useRef<number>(Number.NEGATIVE_INFINITY)
   const rageBuffStateRef = useRef<RageBuffState | null>(null)
   const nextRageEligibleRunMsRef = useRef<number>(90_000)
+  const scoreTokenStateRef = useRef<ScoreTokenState | null>(null)
+  const nextScoreTokenEligibleRunMsRef = useRef<number>(70_000)
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const weaponCooldownRef = useRef<WeaponCooldownState>(createWeaponCooldownState())
@@ -298,6 +306,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [dashReady, setDashReady] = useState(true)
   const [rageActive, setRageActive] = useState(false)
   const [rageTint, setRageTint] = useState(0)
+  const [scoreTokenActiveState, setScoreTokenActiveState] = useState(false)
   const [wavePhase, setWavePhase] = useState<'lull' | 'surge' | 'peak'>('lull')
   const [touchJoysticksView, setTouchJoysticksView] = useState<TouchJoysticks>(() => ({
     move: createJoystick(),
@@ -355,7 +364,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs, {
           distance,
           weapon: selectedWeaponRef.current,
-          tookDamageSinceLastKill: tookDamageSinceLastKillRef.current
+          tookDamageSinceLastKill: tookDamageSinceLastKillRef.current,
+          scoreMultiplier: scoreTokenMultiplier(scoreTokenStateRef.current, performance.now())
         })
         tookDamageSinceLastKillRef.current = false
         setScore(scoreRef.current.score)
@@ -514,6 +524,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     nextRageEligibleRunMsRef.current = 90_000
     setRageActive(false)
     setRageTint(0)
+    scoreTokenStateRef.current = null
+    nextScoreTokenEligibleRunMsRef.current = 70_000
+    setScoreTokenActiveState(false)
 
     if (mountRef.current && lastMountTransformRef.current !== '') {
       mountRef.current.style.transform = ''
@@ -933,6 +946,15 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         setRageActive((current) => (current === rageStillActive ? current : rageStillActive))
         setRageTint((current) => (Math.abs(current - rageTintNow) < 0.005 ? current : rageTintNow))
 
+        const tokenState = scoreTokenStateRef.current
+        const tokenStillActive = scoreTokenActive(tokenState, rageNow)
+
+        if (tokenState !== null && !tokenStillActive) {
+          scoreTokenStateRef.current = null
+        }
+
+        setScoreTokenActiveState((current) => (current === tokenStillActive ? current : tokenStillActive))
+
         if (playerHealthRef.current > 0) {
           directorRef.current.runMs += delta * 1000
           setRunMs(directorRef.current.runMs)
@@ -999,9 +1021,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             rageBuffStateRef.current === null &&
             directorRef.current.runMs >= nextRageEligibleRunMsRef.current &&
             targetPressureForRunMs(directorRef.current.runMs) >= 2
+          const tokenEligibleNow =
+            scoreTokenStateRef.current === null &&
+            directorRef.current.runMs >= nextScoreTokenEligibleRunMsRef.current &&
+            targetPressureForRunMs(directorRef.current.runMs) >= 2 &&
+            !rageEligibleNow
           const atAltar = Math.hypot(positionRef.current.x, positionRef.current.z) <= 1.35
 
-          if (healthPickupReadyRef.current && atAltar && (wantsSupply || rageEligibleNow)) {
+          if (healthPickupReadyRef.current && atAltar && (wantsSupply || rageEligibleNow || tokenEligibleNow)) {
             playerHealthRef.current = Math.min(100, playerHealthRef.current + 15)
             weaponAmmoRef.current = collectWeaponAmmo(weaponAmmoRef.current)
             healthPickupReadyRef.current = false
@@ -1016,6 +1043,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               setRageActive(true)
               setStatus('Rage burst absorbed. Damage and speed amplified.')
               playRageCue(settingsRef.current.audio)
+            } else if (tokenEligibleNow) {
+              scoreTokenStateRef.current = { startMs: performance.now() }
+              nextScoreTokenEligibleRunMsRef.current = directorRef.current.runMs + SCORE_TOKEN_REARM_MS
+              setScoreTokenActiveState(true)
+              setStatus('Score token grabbed. 2x scoring window open.')
+              playScoreTokenCue(settingsRef.current.audio)
             } else {
               setStatus('Supplies collected.')
             }
@@ -1630,6 +1663,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             <div className="hud-pill rage-pill" data-testid="rage-pill">
               Rage
               <strong>Active</strong>
+            </div>
+          ) : null}
+          {scoreTokenActiveState ? (
+            <div className="hud-pill score-token-pill" data-testid="score-token-pill">
+              Score
+              <strong>2x</strong>
             </div>
           ) : null}
           <div className={`hud-pill wave-pill wave-${wavePhase}`} data-testid="wave-pill">
@@ -2644,6 +2683,41 @@ function stopMusicLayer(layer: {
   void layer.context.close().catch(() => {
     // noop
   })
+}
+
+function playScoreTokenCue(enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const tones = [660, 990, 1320]
+  const toneDurationMs = 220 / 3
+  let toneStart = context.currentTime
+  let lastOscillator: OscillatorNode | null = null
+
+  for (const frequency of tones) {
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.type = 'sine'
+    oscillator.frequency.value = frequency
+    const stopTime = toneStart + toneDurationMs / 1000
+    gain.gain.setValueAtTime(0, toneStart)
+    gain.gain.linearRampToValueAtTime(0.04, toneStart + 0.012)
+    gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+    oscillator.connect(gain)
+    gain.connect(context.destination)
+    oscillator.start(toneStart)
+    oscillator.stop(stopTime)
+    toneStart = stopTime
+    lastOscillator = oscillator
+  }
+
+  if (lastOscillator !== null) {
+    lastOscillator.addEventListener('ended', () => {
+      context.close()
+    })
+  }
 }
 
 function playWaveHornCue(enabled: boolean) {

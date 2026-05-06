@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Score token quad pickup (F-012, REQ-035)
+
+- Branch: `feat/score-token`
+- PR: #TBD
+- Changed: every ~70 s of run time (gated by `targetPressureForRunMs >= 2`), the central altar pickup now also grants a 6 s 2x score multiplier window. Distinct from the rage burst (rage takes priority when both are eligible) so they never stack. New pure helper `src/game/scoreToken.ts` exposes `SCORE_TOKEN_DURATION_MS = 6_000`, `SCORE_TOKEN_MULTIPLIER = 2`, `SCORE_TOKEN_REARM_MS = 70_000`, plus `scoreTokenActive`, `scoreTokenRemainingMs`, `scoreTokenMultiplier`. `src/game/scoring.ts` extends `RecordKillOptions` with a `scoreMultiplier` field and applies it to the entire kill+combo+bonus addition (rounded to int) so the multiplier compounds with combo and close-range bonuses without double-counting. `src/components/FlatlineGame.tsx` adds `scoreTokenStateRef` + `nextScoreTokenEligibleRunMsRef`, threads `scoreTokenMultiplier(state, now)` into the `recordKill` call inside `damageCurrentEnemy`, gates token activation in the supply-pickup branch on `runMs >= eligibleAt && pressure >= 2 && rage not eligible`, plays a new local `playScoreTokenCue` (660 / 990 / 1320 Hz triple-sine sparkle, ~73 ms per tone, total ~220 ms), and renders a `score-token-pill` HUD entry showing "Score 2x" while active. State updates every animate frame; ref clears once `scoreTokenActive` returns false. Resets refs and HUD state on `startRun`.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (37 files / 329 tests pass, 15 new in `src/game/scoreToken.test.ts`), `npm run build` (success), `npm run test:e2e` (9 passed, 3 skipped).
+- Assumptions: Recommended default makes rage-vs-token mutually exclusive on a single pickup (rage wins when both are eligible) so the player gets one big buff instead of two simultaneously, which keeps the scoreboard read clean. Recommended default applies the multiplier to the full kill+combo+bonus stack rather than just the base kill score, because the audit framing called for "aggressive-play reward" and the combo / close-range bonuses are exactly the aggressive-play signals to amplify. Recommended default uses 70 s rearm so token windows fire roughly twice between rage windows (90 s rearm), giving the player an aggressive-play moment more often than a power-fantasy moment.
+- GDD coverage: REQ-035 (Pickup score tokens) flips from `not_started` to `partial` (working multiplier window; no dedicated mesh / pickup separate from the altar yet); the row picks up `src/game/scoreToken.ts` in `implementationRefs` and `src/game/scoreToken.test.ts` in `testRefs`. REQ-061 (post-MVP scoring V2) gains a build-log entry naming the new `scoreMultiplier` option in `recordKill` and the FlatlineGame hookup.
+- Followups: F-012 is satisfied by this slice (will be marked resolved on merge).
+
 ## 2026-05-06, Adaptive music intensity layer (F-015)
 
 - Branch: `feat/adaptive-music`

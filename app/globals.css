@@ -268,6 +268,15 @@ button {
   color: #f05a4f;
 }
 
+.score-token-pill {
+  border-color: rgba(240, 198, 104, 0.7);
+  color: rgba(255, 240, 200, 0.95);
+}
+
+.score-token-pill strong {
+  color: #f0c668;
+}
+
 @keyframes damage-flash {
   0% {
     border-color: rgba(240, 90, 79, 0.72);
