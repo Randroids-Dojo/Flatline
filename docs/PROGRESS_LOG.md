@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-05, Hitstop spares the touch-look camera (PR #64 review fix)
+
+- Branch: `feat/hitstop-on-hit`
+- PR: #64
+- Changed: split the per-frame delta in `src/components/FlatlineGame.tsx` so hitstop only slows the simulation, not the touch-look camera. The earlier hitstop slice computed a single `delta = rawDeltaSeconds * hitstopScale` and used it for both sim consumers and touch-look yaw/pitch, which meant the camera also slowed during the 30 to 60 ms freeze window. Copilot review on PR #64 flagged the contradiction with the slice's stated intent ("Camera updates and renders run on raw wall-clock time so the player view does not visibly stutter"). Renamed the raw read to `viewDelta`, kept `delta = viewDelta * hitstopScale` for sim, and changed the two touch-look multiplications (yaw and pitch) to read `viewDelta` instead. Desktop mouse-look was already on wall-clock (it reads `event.movementX/Y` directly inside the keyboard / mouse effect), so that path is unaffected.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (29 files / 208 tests pass), `npm run build` (success), `npm run test:e2e` (9 passed, 3 skipped).
+- Assumptions: Recommended default keeps player WASD / move-stick movement on the scaled `delta` because freezing the player together with the simulated world is what makes the hitstop read as weight rather than as desync. View rotation (camera aim) is the only input that benefits from staying responsive during the freeze, since the player's eye drifts with the freeze otherwise. Recommended default does not split out `muzzleLight.intensity` decay or `dummyMarker.rotation`; both are world-space visual effects that should stay on the scaled `delta` so they freeze together with the rest of the world.
+- GDD coverage: REQ-056 build log gains a new entry; status stays `partial`. No file refs change.
+- Followups: none new.
+
 ## 2026-05-05, Mobile joystick uses TouchEvent to bypass stale PointerEvent coords
 
 - Branch: `feat/hitstop-on-hit`

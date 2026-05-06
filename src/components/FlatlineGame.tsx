@@ -768,7 +768,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         return
       }
 
-      const rawDeltaSeconds = Math.min((time - lastTimeRef.current) / 1000 || 0, 0.05)
+      const viewDelta = Math.min((time - lastTimeRef.current) / 1000 || 0, 0.05)
       lastTimeRef.current = time
       const hitstopState = hitstopStateRef.current
       const hitstopElapsedMs = hitstopState ? performance.now() - hitstopState.startMs : 0
@@ -778,7 +778,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         hitstopStateRef.current = null
       }
 
-      const delta = rawDeltaSeconds * hitstopScale
+      // Hitstop scales the simulation delta so movement / AI / projectiles
+      // freeze together. View rotation reads viewDelta so camera aim stays
+      // responsive on wall-clock time during the freeze.
+      const delta = viewDelta * hitstopScale
       const selectedWeaponId = selectedWeaponRef.current
       const selectedWeaponReady = canFireWeaponAt(
         selectedWeaponId,
@@ -792,9 +795,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         const touchLook = touchLookVectorRef.current
 
         if (touchLook.x !== 0 || touchLook.y !== 0) {
-          yawRef.current -= touchLook.x * 2.8 * delta * settingsRef.current.sensitivity
+          yawRef.current -= touchLook.x * 2.8 * viewDelta * settingsRef.current.sensitivity
           pitchRef.current = clamp(
-            pitchRef.current - touchLook.y * 2.35 * delta * settingsRef.current.sensitivity,
+            pitchRef.current - touchLook.y * 2.35 * viewDelta * settingsRef.current.sensitivity,
             -1.25,
             1.25
           )
