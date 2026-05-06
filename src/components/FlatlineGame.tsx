@@ -253,6 +253,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const healthPickupReadyRef = useRef<boolean>(true)
   const healthPickupCooldownRef = useRef<number>(0)
   const hazardDamageCooldownRef = useRef<number>(0)
+  const enemyHazardCooldownRef = useRef<number>(0)
+  const lastHazardDamagedEnemyIdRef = useRef<string | null>(null)
   const prevHazardRunMsRef = useRef<number>(-1)
   const prevWaveRunMsRef = useRef<number>(-1)
   const musicLayerRef = useRef<{
@@ -513,6 +515,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     healthPickupReadyRef.current = true
     healthPickupCooldownRef.current = 0
     hazardDamageCooldownRef.current = 0
+    enemyHazardCooldownRef.current = 0
+    lastHazardDamagedEnemyIdRef.current = null
     prevHazardRunMsRef.current = -1
     prevWaveRunMsRef.current = -1
     tookDamageSinceLastKillRef.current = false
@@ -974,6 +978,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             roomStateMsRef.current += delta * 1000
           }
           hazardDamageCooldownRef.current = Math.max(0, hazardDamageCooldownRef.current - delta * 1000)
+          enemyHazardCooldownRef.current = Math.max(0, enemyHazardCooldownRef.current - delta * 1000)
           const hazardRunMs = roomStateMsRef.current + (dailyConfig?.hazardOffsetMs ?? 0)
           const hazards = hazardStatesForRunMs(hazardRunMs)
           applyHazardMeshes(runtime, hazards)
@@ -1001,6 +1006,28 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               setDamagePulse((value) => value + 1)
               setStatus(`Hazard hit for ${hazardDamage}.`)
               playPlayerDamageCue(playerDamageCue('hazard'), settingsRef.current.audio)
+            }
+          }
+
+          if (enemyRef.current.id !== lastHazardDamagedEnemyIdRef.current) {
+            enemyHazardCooldownRef.current = 0
+            lastHazardDamagedEnemyIdRef.current = enemyRef.current.id
+          }
+
+          if (enemyHazardCooldownRef.current === 0 && enemyRef.current.state !== 'dead') {
+            const enemyHazardSource = hazardDamageAtPosition(enemyRef.current.position, hazards)
+            const enemyHazardDamage = Math.max(0, Math.round(enemyHazardSource * 0.5))
+
+            if (enemyHazardDamage > 0) {
+              enemyRef.current = damageEnemy(enemyRef.current, enemyHazardDamage)
+              setEnemyHealth(enemyRef.current.health)
+              enemyHazardCooldownRef.current = 900
+              setStatus(
+                enemyRef.current.state === 'dead'
+                  ? `Hazard finished the ${enemyLabel(enemyRef.current.type)}.`
+                  : `Hazard scorched the ${enemyLabel(enemyRef.current.type)}.`
+              )
+              playCue(180, settingsRef.current.audio)
             }
           }
 
