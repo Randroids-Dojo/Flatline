@@ -45,14 +45,6 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Unblock condition: pure helper that takes weapon, distance, enemy type and returns an impulse vector; consumer applies the impulse over a short decay window in `tickEnemy` or in `FlatlineGame.tsx`.
 - Status: open
 
-### F-012: Score token / quad damage pickup (REQ-035)
-
-- Priority: nice-to-have
-- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. REQ-035 is `not_started`. Aggressive-play reward: a brief score multiplier (e.g., 2x for 6s) that drops in a *risky* arena cell (center risk zone) and rewards the player for committing to grab it. Reads as Quake quad damage but for score, not damage.
-- Blocker: none.
-- Unblock condition: spawn rule keyed to active pressure; pickup type added to the central altar rotation.
-- Status: open
-
 ### F-013: Enemy infighting (cross-faction crossfire damage)
 
 - Priority: nice-to-have
@@ -66,6 +58,15 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 (none yet)
 
 ## Resolved
+
+### F-012: Score token / quad damage pickup (REQ-035)
+
+- Priority: nice-to-have
+- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. REQ-035 is `not_started`. Aggressive-play reward: a brief score multiplier (e.g., 2x for 6s) that drops in a *risky* arena cell (center risk zone) and rewards the player for committing to grab it. Reads as Quake quad damage but for score, not damage.
+- Blocker: none.
+- Unblock condition: spawn rule keyed to active pressure; pickup type added to the central altar rotation.
+- Status: done
+- Resolved: PR #TBD. New `src/game/scoreToken.ts` plus 15 unit tests. `recordKill` extends with `scoreMultiplier` option. `FlatlineGame.tsx` adds `scoreTokenStateRef`, gates token activation on the central altar pickup at 70 s rearm with pressure>=2 (mutually exclusive with rage on a single pickup), threads multiplier into `recordKill`, plays a 660/990/1320 Hz sparkle, and renders a `score-token-pill` HUD entry. REQ-035 status `partial` (no dedicated mesh yet; the buff window ships through the existing altar interaction).
 
 ### F-015: Adaptive music intensity layer
 

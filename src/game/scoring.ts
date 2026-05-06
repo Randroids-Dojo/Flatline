@@ -23,6 +23,8 @@ export type RecordKillOptions = {
   tookDamageSinceLastKill?: boolean
   /** Optional override for the base kill score. Defaults to 100. */
   baseScore?: number
+  /** Score multiplier applied to the kill, combo, and bonus additions. Defaults to 1. */
+  scoreMultiplier?: number
 }
 
 /** Kills landed inside this radius count as close-range. */
@@ -80,8 +82,10 @@ export function recordKill(score: ScoreState, nowMs: number, options: RecordKill
   const noDamageStreakBonus = tookDamage ? 0 : NO_DAMAGE_STREAK_BONUS
   const bestNoDamageStreak = Math.max(score.bestNoDamageStreak, noDamageStreakKills)
 
+  const multiplier = Math.max(1, options.scoreMultiplier ?? 1)
   const nextScore =
-    score.score + baseScore + comboBonus + closeRangeBonus + weaponVarietyBonus + noDamageStreakBonus
+    score.score +
+    Math.round((baseScore + comboBonus + closeRangeBonus + weaponVarietyBonus + noDamageStreakBonus) * multiplier)
 
   return {
     ...score,
