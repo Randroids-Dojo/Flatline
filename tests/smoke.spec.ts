@@ -33,6 +33,16 @@ test('starts a walk and shoot run', async ({ page }, testInfo) => {
   await expect(page.getByTestId('weapon-sprite')).toHaveClass(/weapon-peashooter/)
   await expect(page.getByTestId('billboard-debug')).toContainText('front')
   await expect(page.getByTestId('status-line')).toContainText('WASD')
+
+  // Doom-feel HUD pills render at run start. dash-ready and wave-pill
+  // are post-spiral additions; this asserts they show up alongside
+  // the existing weapon-ready / combo / score pills without breaking
+  // the rest of the smoke flow. The dash trigger itself is intentionally
+  // not pressed here because it would displace the player and skew the
+  // peashooter-aim assertion below.
+  await expect(page.getByTestId('dash-ready')).toContainText('Ready')
+  await expect(page.getByTestId('wave-pill')).toContainText('Lull')
+
   await page.mouse.click(960, 540)
   await expect(page.getByTestId('status-line')).toContainText(/hurt|dropped/)
   await expect(page.getByText('Hits').locator('..')).toContainText('1')
