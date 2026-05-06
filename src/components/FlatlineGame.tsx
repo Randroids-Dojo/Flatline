@@ -22,6 +22,7 @@ import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePrevi
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
+import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
 import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
 import { hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { hitstopScaleAtElapsedMs, hitstopStyle, type HitstopStyle } from '@/game/hitstop'
@@ -217,6 +218,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const prevHazardRunMsRef = useRef<number>(-1)
   const tookDamageSinceLastKillRef = useRef<boolean>(false)
   const hitstopStateRef = useRef<{ style: HitstopStyle; startMs: number } | null>(null)
+  const cameraKickStateRef = useRef<{ style: CameraKickStyle; startMs: number } | null>(null)
+  const lastMountTransformRef = useRef<string>('')
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
   const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
   const weaponCooldownRef = useRef<WeaponCooldownState>(createWeaponCooldownState())
@@ -350,6 +353,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       setWeaponAmmo(weaponAmmoRef.current)
     }
     runtime.muzzleLight.intensity = weapon === 'boomstick' ? 7 : 4.5
+    cameraKickStateRef.current = {
+      style: cameraKickStyle(weapon),
+      startMs: nowMs
+    }
     setWeaponFiring(true)
     setWeaponFireKey((value) => value + 1)
 
@@ -438,6 +445,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     prevHazardRunMsRef.current = -1
     tookDamageSinceLastKillRef.current = false
     hitstopStateRef.current = null
+    cameraKickStateRef.current = null
+
+    if (mountRef.current && lastMountTransformRef.current !== '') {
+      mountRef.current.style.transform = ''
+      lastMountTransformRef.current = ''
+    }
+
     selectedWeaponRef.current = startingWeapon
     weaponAmmoRef.current = createWeaponAmmo()
     weaponCooldownRef.current = createWeaponCooldownState()
@@ -961,6 +975,32 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             setStatus(`${enemyLabel(enemyRef.current.type)} entered from ${directorTick.spawn.door.id}.`)
           }
         }
+      }
+
+      const kickState = cameraKickStateRef.current
+      const kickElapsedMs = kickState ? performance.now() - kickState.startMs : 0
+      const kickProgress = cameraKickProgressAtElapsedMs(kickState?.style ?? null, kickElapsedMs)
+
+      if (kickState && kickElapsedMs >= kickState.style.durationMs) {
+        cameraKickStateRef.current = null
+      }
+
+      const baseFovDeg = settingsRef.current.fov
+      const kickFovDeg = kickState ? kickProgress * kickState.style.fovDeltaDeg : 0
+      const nextFovDeg = baseFovDeg + kickFovDeg
+
+      if (Math.abs(runtime.camera.fov - nextFovDeg) > 0.0001) {
+        runtime.camera.fov = nextFovDeg
+        runtime.camera.updateProjectionMatrix()
+      }
+
+      const nextMountTransform = kickState && kickProgress > 0
+        ? `translateY(${kickProgress * kickState.style.kickPx}px)`
+        : ''
+
+      if (mount && lastMountTransformRef.current !== nextMountTransform) {
+        mount.style.transform = nextMountTransform
+        lastMountTransformRef.current = nextMountTransform
       }
 
       runtime.camera.position.set(positionRef.current.x, positionRef.current.y, positionRef.current.z)
