@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Hazards damage enemies that walk through them (F-013 partial)
+
+- Branch: `feat/hazard-vs-enemy`
+- PR: #TBD
+- Changed: hazards (flame lane, ink pool, falling light) now damage the active enemy when its position overlaps the hazard cell, mirroring the existing player-hazard damage but at 50% scaling per the audit's infighting recommended default. New refs in `src/components/FlatlineGame.tsx`: `enemyHazardCooldownRef` (ms; mirrors `hazardDamageCooldownRef` cadence at 900 ms between ticks) and `lastHazardDamagedEnemyIdRef` (string id; resets the per-enemy cooldown when a new enemy spawns so the next enemy is not on cooldown from the previous one). Each animate frame: decrement the cooldown, detect enemy id change and reset, then if the cooldown is 0 and the enemy is alive, compute `Math.round(hazardDamageAtPosition(enemy.position, hazards) * 0.5)` and apply via the existing pure `damageEnemy` helper. Skips `damageCurrentEnemy` so the kill is not credited to the player's score / combo / kill counters per Q-008's recommendation that infighting damage stay flavor-only. The enemy hurt flash and dead-state flow run automatically because `damageEnemy` flips state to `hurt` or `dead`. A short 180 Hz cue plays on each hazard tick against an enemy. The status line reads "Hazard scorched the Brute." (or "Hazard finished the Brute." on a kill). This is the first concrete piece of F-013; the cross-enemy crossfire portions (spitter projectile hitting another enemy, brute swing damaging an adjacent enemy) wait on multi-enemy AI runtime support.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (37 files / 329 tests pass), `npm run build` (success), `npm run test:e2e` (9 passed, 3 skipped).
+- Assumptions: Recommended default scales hazard damage to enemies by 50% (matching Q-008's infighting damage rule for projectile crossfire) so a hazard tick that does 10 damage to the player does 5 to the enemy. Recommended default skips player kill credit on hazard-induced kills because the audit explicitly excludes infighting kills from the score / combo path; players still benefit indirectly through reduced threat. Recommended default reuses the same 900 ms cooldown the player hazard path uses so the cadence reads consistently and the brute does not chip-die in a single hazard pass.
+- GDD coverage: REQ-022 (arena hazards) gains a build-log entry naming the new enemy-vs-hazard flow; status stays `partial`. REQ-040 (audio) is unaffected (uses the existing generic `playCue`). Adds no new file refs to coverage rows; the change is contained to `src/components/FlatlineGame.tsx`.
+- Followups: F-013 stays open with an updated blocker note (cross-enemy crossfire requires multi-enemy AI runtime; this slice ships only the hazard-on-enemy portion of the audit's infighting vision).
+
 ## 2026-05-06, Score token quad pickup (F-012, REQ-035)
 
 - Branch: `feat/score-token`
