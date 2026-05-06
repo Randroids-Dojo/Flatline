@@ -18,6 +18,17 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+
+## 2026-05-05, Enemy knockback on every confirmed hit (F-010)
+
+- Branch: `feat/enemy-knockback`
+- PR: #65
+- Changed: every confirmed enemy hit now applies a per-weapon, per-enemy, range-aware knockback impulse instead of the prior boomstick-only constant 0.65 m shove. New pure helper `src/game/knockback.ts` exposes `knockbackDistance(weapon, hitDistanceM, enemy)` returning a scalar push distance. Per-weapon close-range / far-range tuning: peashooter `0.15 / 0.08`, inkblaster `0.4 / 0.18`, boomstick `0.9 / 0.2`. Linear falloff across `[0, 18]` meters then clamped at the far value beyond max range. Per-enemy resistance: brute `0.5x`, grunt `1.0x`, skitter `1.3x`. `src/components/FlatlineGame.tsx` updates: the hitscan path in `fire()` replaces the boomstick-only block with a generic block that runs for every weapon using the existing forward direction (xz-flattened so aiming up or down does not shrink the horizontal push) and the actual hitscan ray distance for falloff; the inkblaster projectile-hit path in the animate loop computes a player-to-enemy direction at impact and applies the same helper. Both call sites apply knockback BEFORE `damageCurrentEnemy` so the death animation reads at the shoved location, and pass the pre-shove distance into `damageCurrentEnemy` (new optional 4th arg) so close-range scoring keys off the hit moment. The existing local helper `knockEnemyBack` is unchanged: it bails on dead enemies and clamps to the room bounds, so a kill-shot at the very edge of the room does not push a corpse into the wall.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (29 files / 207 tests pass, 9 new in `src/game/knockback.test.ts`), `npm run build` (success), `npm run test:e2e` (10 passed, 4 skipped).
+- Assumptions: Recommended default applies knockback before damage so the dying enemy is visually shoved by the killing blow; the alternative (apply after) would push a corpse and break the visual link between hit and shove. Recommended default for the inkblaster uses player-to-enemy direction at impact rather than the projectile's launch direction because the player may have rotated since launch and the impact direction reads as the more correct push axis. Recommended default keeps the existing `knockEnemyBack` helper because it already clamps to room bounds; adding decay-over-time impulse rather than instant displacement is a separate concern that can layer on later if the snap reads as too abrupt.
+- GDD coverage: REQ-024 (boomstick) gains a build-log entry naming the new helper plus the FlatlineGame wire-up; status stays `done` (the spec called for "Strong knockback" which is now actually implemented at a tuned magnitude). REQ-056 (feel pass) gains a build-log entry and adds `src/game/knockback.ts` + `src/game/knockback.test.ts` to its refs; status stays `partial`.
+- Followups: F-010 is satisfied by this slice (will be marked resolved on merge).
+
 ## 2026-05-05, Boomstick weight: camera FOV punch + screen impulse (F-007)
 
 - Branch: `feat/boomstick-weight`

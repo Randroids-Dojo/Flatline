@@ -25,6 +25,7 @@ import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
 import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
 import { hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
+import { knockbackDistance } from '@/game/knockback'
 import {
   hudGrainOpacity,
   hudPillWobbleAmplitudePx,
@@ -407,16 +408,22 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     scoreRef.current = recordShot(scoreRef.current, hits.length > 0)
 
     if (hits.length > 0) {
+      const enemyBeforeDamage = enemyRef.current
+      const dx = enemyBeforeDamage.position.x - positionRef.current.x
+      const dz = enemyBeforeDamage.position.z - positionRef.current.z
+      const hitDistance = Math.hypot(dx, dz)
+      enemyRef.current = knockEnemyBack(
+        enemyBeforeDamage,
+        direction,
+        knockbackDistance(weapon, hitDistance, enemyBeforeDamage.type)
+      )
+
       setHits((value) => value + hits.length)
       damageCurrentEnemy(
         weapon === 'boomstick' ? hits.length : weaponConfigs.peashooter.damage,
         weapon === 'boomstick' ? 'Boomstick blast landed.' : 'Billboard enemy hurt.',
         weapon === 'boomstick' ? 'Boomstick dropped the enemy.' : 'Billboard enemy dropped.'
       )
-
-      if (weapon === 'boomstick') {
-        enemyRef.current = knockEnemyBack(enemyRef.current, direction, 0.65)
-      }
     } else {
       setStatus(`${weaponConfigs[weapon].label} missed. Track the target and fire again.`)
     }
@@ -873,6 +880,19 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           const projectileHits = tickInkProjectiles(runtime, inkProjectiles, enemyRef.current, delta * 1000)
 
           if (projectileHits > 0) {
+            const enemyBefore = enemyRef.current
+            const dx = enemyBefore.position.x - positionRef.current.x
+            const dz = enemyBefore.position.z - positionRef.current.z
+            const hitDistance = Math.hypot(dx, dz)
+            const knockbackDir = hitDistance > 0
+              ? { x: dx / hitDistance, y: 0, z: dz / hitDistance }
+              : { x: 0, y: 0, z: 1 }
+            enemyRef.current = knockEnemyBack(
+              enemyBefore,
+              knockbackDir,
+              knockbackDistance('inkblaster', hitDistance, enemyBefore.type)
+            )
+
             scoreRef.current = {
               ...scoreRef.current,
               shotsHit: scoreRef.current.shotsHit + projectileHits
