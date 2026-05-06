@@ -29,22 +29,6 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Nice To Have
 
-### F-007: Boomstick weight (camera FOV punch + screen impulse on fire)
-
-- Priority: nice-to-have
-- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. Boomstick is the iconic Doom verb but currently fires without a felt weight on the player. Add a brief camera-FOV punch (e.g., -3 deg snap then ease back) and a vertical screen impulse on fire, scaled per weapon (peashooter tiny, boomstick large, inkblaster medium). Reuses the existing weapon recoil sprite kick scaffolding pattern.
-- Blocker: none.
-- Unblock condition: design pass picks the FOV punch magnitudes; implementation lands as a pure helper plus a hookup in `src/components/FlatlineGame.tsx`.
-- Status: open
-
-### F-010: Enemy knockback on damage
-
-- Priority: nice-to-have
-- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. `docs/gdd/24-weapon-boomstick.md` calls for "Strong knockback" but enemies do not currently move when shot. Add a per-weapon knockback impulse on enemy damage events. Scales: peashooter 0.15 m, inkblaster 0.4 m, boomstick 0.9 m point-blank with falloff to 0.2 m at max range. Brutes resist 50% of knockback; skitters take 130%.
-- Blocker: none.
-- Unblock condition: pure helper that takes weapon, distance, enemy type and returns an impulse vector; consumer applies the impulse over a short decay window in `tickEnemy` or in `FlatlineGame.tsx`.
-- Status: open
-
 ### F-013: Enemy infighting (cross-faction crossfire damage)
 
 - Priority: nice-to-have
@@ -58,6 +42,24 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 (none yet)
 
 ## Resolved
+
+### F-007: Boomstick weight (camera FOV punch + screen impulse on fire)
+
+- Priority: nice-to-have
+- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. Boomstick is the iconic Doom verb but currently fires without a felt weight on the player. Add a brief camera-FOV punch (e.g., -3 deg snap then ease back) and a vertical screen impulse on fire, scaled per weapon (peashooter tiny, boomstick large, inkblaster medium). Reuses the existing weapon recoil sprite kick scaffolding pattern.
+- Blocker: none.
+- Unblock condition: design pass picks the FOV punch magnitudes; implementation lands as a pure helper plus a hookup in `src/components/FlatlineGame.tsx`.
+- Status: done
+- Resolved: PR #66. Per-weapon `cameraKickStyle` returning `{ fovDeltaDeg, kickPx, durationMs }` with snap-to-peak-at-18%-then-ease envelope. Tuning: peashooter `-0.6 deg / 1 px / 140 ms`, inkblaster `-1.4 / 3 / 180`, boomstick `-3.0 / 6 / 220`. FlatlineGame applies FOV punch to the Three.js camera and translates the `.render-root` mount via inline transform. View rotation stays on raw delta during hitstop windows; both effects share the simulation `delta` otherwise.
+
+### F-010: Enemy knockback on damage
+
+- Priority: nice-to-have
+- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. `docs/gdd/24-weapon-boomstick.md` calls for "Strong knockback" but enemies do not currently move when shot. Add a per-weapon knockback impulse on enemy damage events. Scales: peashooter 0.15 m, inkblaster 0.4 m, boomstick 0.9 m point-blank with falloff to 0.2 m at max range. Brutes resist 50% of knockback; skitters take 130%.
+- Blocker: none.
+- Unblock condition: pure helper that takes weapon, distance, enemy type and returns an impulse vector; consumer applies the impulse over a short decay window in `tickEnemy` or in `FlatlineGame.tsx`.
+- Status: done
+- Resolved: PR #65. New pure helper `src/game/knockback.ts` exposes `knockbackDistance(weapon, hitDistanceM, enemy)`. Per-weapon close/far tuning (peashooter `0.15 / 0.08`, inkblaster `0.4 / 0.18`, boomstick `0.9 / 0.2`) with linear falloff over `[0, 18]` m. Per-enemy resistance: brute `0.5x`, grunt `1.0x`, skitter `1.3x`, spitter `1.15x`. Hitscan and inkblaster paths apply knockback before damage via the existing `knockEnemyBack` local helper (which clamps to room bounds and bails on dead enemies).
 
 ### F-012: Score token / quad damage pickup (REQ-035)
 
