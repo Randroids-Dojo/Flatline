@@ -262,7 +262,6 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const healthPickupCooldownRef = useRef<number>(0)
   const hazardDamageCooldownRef = useRef<number>(0)
   const enemyHazardCooldownRef = useRef<number>(0)
-  const lastHazardDamagedEnemyIdRef = useRef<string | null>(null)
   const prevHazardRunMsRef = useRef<number>(-1)
   const prevWaveRunMsRef = useRef<number>(-1)
   const musicLayerRef = useRef<{
@@ -551,7 +550,6 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     healthPickupCooldownRef.current = 0
     hazardDamageCooldownRef.current = 0
     enemyHazardCooldownRef.current = 0
-    lastHazardDamagedEnemyIdRef.current = null
     prevHazardRunMsRef.current = -1
     prevWaveRunMsRef.current = -1
     tookDamageSinceLastKillRef.current = false
@@ -1268,6 +1266,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                   ? `Crossfire finished the ${enemyLabel(damaged.type)}.`
                   : `Crossfire splashed the ${enemyLabel(damaged.type)}.`
               )
+              setEnemyHealth(enemiesRef.current[0]?.health ?? 0)
               playCue(180, settingsRef.current.audio)
             }
           )
