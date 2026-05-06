@@ -25,6 +25,50 @@ describe('enemy AI', () => {
     expect(enemyTypeForSpawn(7)).toBe('brute')
   })
 
+  it('rotates spitter into the spawn order at every fifth count', () => {
+    expect(enemyTypeForSpawn(5)).toBe('spitter')
+    expect(enemyTypeForSpawn(10)).toBe('spitter')
+    // 15 % 7 != 0, 15 % 5 == 0, 15 % 3 == 0 → spitter takes the slot before skitter
+    expect(enemyTypeForSpawn(15)).toBe('spitter')
+    // 35 % 7 == 0 takes priority over 35 % 5
+    expect(enemyTypeForSpawn(35)).toBe('brute')
+  })
+
+  it('falls through to grunt for any non-multiple spawn count', () => {
+    expect(enemyTypeForSpawn(0)).toBe('grunt')
+    expect(enemyTypeForSpawn(2)).toBe('grunt')
+    expect(enemyTypeForSpawn(4)).toBe('grunt')
+    expect(enemyTypeForSpawn(8)).toBe('grunt')
+  })
+
+  it('exposes ranged config for the spitter and melee config for the others', () => {
+    expect(enemyConfigs.spitter.attackKind).toBe('ranged')
+    expect(enemyConfigs.spitter.projectileSpeed).toBeGreaterThan(0)
+    expect(enemyConfigs.grunt.attackKind ?? 'melee').toBe('melee')
+    expect(enemyConfigs.brute.attackKind ?? 'melee').toBe('melee')
+    expect(enemyConfigs.skitter.attackKind ?? 'melee').toBe('melee')
+  })
+
+  it('emits a projectile event on the spitter windup-to-release boundary instead of resolving melee damage', () => {
+    const spitter = createEnemy('spitter', 'spitter-1', { x: 0, y: 1.05, z: 4 }, player.position)
+    const config = enemyConfigs.spitter
+    const startedTick = tickEnemy(spitter, player, 16, config)
+    expect(startedTick.events.some((event) => event.type === 'enemyAttackStarted')).toBe(true)
+
+    // Advance through the windup so the next tick crosses the release boundary.
+    const releaseTick = tickEnemy(startedTick.enemy, player, config.attackWindupMs, config)
+    const projectileEvent = releaseTick.events.find((event) => event.type === 'enemyProjectileFired')
+    expect(projectileEvent).toBeDefined()
+    if (projectileEvent && projectileEvent.type === 'enemyProjectileFired') {
+      expect(projectileEvent.speed).toBe(config.projectileSpeed)
+      expect(projectileEvent.damage).toBe(config.attackDamage)
+      expect(Math.hypot(projectileEvent.direction.x, projectileEvent.direction.z)).toBeCloseTo(1, 5)
+    }
+
+    // Player health is unchanged because ranged enemies do not deal melee damage at release.
+    expect(releaseTick.player.health).toBe(player.health)
+  })
+
   it('chases toward the player without overlapping the player circle', () => {
     const enemy = createGrunt('grunt-1', { x: 0, y: 1, z: 5 }, player.position)
     const result = tickEnemy(enemy, player, 1000, gruntConfig)
