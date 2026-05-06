@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Cleanup round 9: use SPITTER_PROJECTILE_RADIUS_M in cross-enemy crossfire
+
+- Branch: `chore/cleanup-round-9-projectile-radius`
+- PR: #82
+- Changed: `tickAndResolveSpitterProjectiles` in `src/components/FlatlineGame.tsx` was using a hardcoded `0.18` for the cross-enemy collision radius, while the player-hit path already uses the `SPITTER_PROJECTILE_RADIUS_M = 0.18` constant from `src/game/spitterProjectile.ts`. If the constant is ever retuned, the player and enemy collision shapes would silently diverge. Imports `SPITTER_PROJECTILE_RADIUS_M` and replaces the magic literal so both collision paths share the same radius.
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (37 files / 333 tests pass).
+- Assumptions: Recommended default keeps the existing 0.6 self-skip safety distance inline (next to the comment that explains it) since it is a one-shot tuning value local to this loop, not a shared collision constant.
+- GDD coverage: no row changes; this is review cleanup, not a feature slice.
+- Followups: none new.
+
 ## 2026-05-06, Multi-enemy arena (up to 3 simultaneous) and F-013 cross-enemy crossfire
 
 - Branch: `feat/multi-enemy-arena`
