@@ -26,14 +26,14 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 - Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (28 files / 198 tests pass), `npm run test:e2e` (10 passed, 4 skipped). Real-device retest pending.
 - Assumptions: Recommended default is to drop pointerdown events at exactly `(0, 0)`. The alternative is to require a confirmed `pointermove` before rendering, which would also catch non-zero phantoms but would delay the first paint of the stick visual on every legit touch.
 - GDD coverage: REQ-010 (movement) gains a build-log entry naming `src/components/FlatlineGame.tsx` and `tests/smoke.spec.ts`; status stays `done`.
-- Followups: F-005 (open) — confirm the root cause of the (0, 0) phantom pointerdown if the symptom does not clear after this guard ships.
+- Followups: F-005 (open) for confirming the root cause of the (0, 0) phantom pointerdown if the symptom does not clear after this guard ships.
 
 ## 2026-05-05, Mobile thumbsticks render only on touch and clear on tab hide
 
 - Branch: `fix/mobile-thumbsticks`
-- PR: #TBD
+- PR: #63
 - Changed: removed the always-on `.touch-zone-label-left` ("Move") and `.touch-zone-label-right` ("Aim / Fire") pills from `TouchControls` in `src/components/FlatlineGame.tsx` and dropped the matching `.touch-zone-label*` rules from `app/globals.css`, so the touch overlay renders nothing before the player puts a finger down. Added a `releaseAllTouches` helper inside the touch-effect plus `window.blur` and `document.visibilitychange` listeners that call it, and changed the effect cleanup to call the same helper rather than only mutating the joystick refs. The helper resets both joysticks via `resetTouchControls`, zeroes `touchLookVectorRef`, and (when at least one stick was active) calls `rerenderTouchControls` so React state matches the cleared refs. This addresses a real-device report where stuck thumbstick visuals lingered at the screen origin and near screen center on iPhone Safari, presumably from `pointercancel` events stolen by the OS gesture system.
-- Verification: TBD (will run dash check, `git diff --check`, typecheck, vitest, build, playwright).
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (28 files / 198 tests pass), `npm run build` (success), `npm run test:e2e` (9 passed, 3 skipped including the new `mobile thumbsticks stay hidden until touched and clear on tab hide` test).
 - Assumptions: Recommended default is to remove the always-on touch zone labels entirely, on the strength of the user's "should not render until touched" requirement. The alternative (only hide the labels until the first touch, then keep them visible) adds state with no clear payoff once the player has discovered the dual-stick model. Recommended default for the cleanup helper is to fire `rerenderTouchControls` only when at least one stick was active, so a benign visibilitychange does not trigger a no-op state update.
 - GDD coverage: REQ-010 (movement) gains a build-log entry naming `src/components/FlatlineGame.tsx`, `app/globals.css`, and `tests/smoke.spec.ts`; status stays `done`.
 - Followups: none new.

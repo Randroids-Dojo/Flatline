@@ -208,7 +208,7 @@ test('mobile thumbsticks stay hidden until touched and clear on tab hide', async
   }
 
   await dispatchTouch(page, 'pointerdown', 70, Math.round(viewport.width * 0.25), Math.round(viewport.height * 0.7))
-  await dispatchTouch(page, 'pointerdown', 71, Math.round(viewport.width * 0.75), Math.round(viewport.height * 0.7))
+  await dispatchTouch(page, 'pointerdown', 71, Math.round(viewport.width * 0.75), Math.round(viewport.height * 0.7), false)
   await expect(page.locator('.touch-stick-move')).toBeVisible()
   await expect(page.locator('.touch-stick-look')).toBeVisible()
 
@@ -246,9 +246,10 @@ async function dispatchTouch(
   type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
   pointerId: number,
   clientX: number,
-  clientY: number
+  clientY: number,
+  isPrimary = true
 ) {
-  await page.evaluate(({ eventType, id, x, y }) => {
+  await page.evaluate(({ eventType, id, x, y, primary }) => {
     window.dispatchEvent(new PointerEvent(eventType, {
       bubbles: true,
       cancelable: true,
@@ -256,9 +257,9 @@ async function dispatchTouch(
       pointerType: 'touch',
       clientX: x,
       clientY: y,
-      isPrimary: true
+      isPrimary: primary
     }))
-  }, { eventType: type, id: pointerId, x: clientX, y: clientY })
+  }, { eventType: type, id: pointerId, x: clientX, y: clientY, primary: isPrimary })
 }
 
 async function canvasHasPixels(page: import('@playwright/test').Page) {
