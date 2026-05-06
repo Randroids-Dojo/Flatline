@@ -29,7 +29,13 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Nice To Have
 
-(none yet)
+### F-005: Confirm root cause of mobile (0, 0) phantom pointerdown
+
+- Priority: nice-to-have
+- Context: real-device report on PC Chrome with phone-size emulation showed a brief move-stick flash anchored at the screen origin during the first interaction with a fresh round. PR #63 added a `(0, 0)` origin guard in `src/components/FlatlineGame.tsx` (`beginTouch` and `JoystickVisual`) that prevents the visual from rendering, but the underlying source of the phantom event remains unconfirmed. The guard is a symptom-level fix, not a root-cause fix.
+- Blocker: not reproducible from Playwright tap injection on Pixel 5, iPhone 12, iPhone 13 Mini, or narrow Desktop Chrome.
+- Unblock condition: capture a real-device console log of the pointer event stream that produces the phantom (event type, `pointerType`, `clientX`, `clientY`, `target.tagName`) so the source can be identified and the guard can be retired or replaced with something more targeted.
+- Status: open
 
 ## Polish
 
