@@ -33,6 +33,7 @@ import {
 } from '@/game/rageBuff'
 import {
   createSpitterProjectile,
+  SPITTER_PROJECTILE_RADIUS_M,
   spitterProjectileExpired,
   spitterProjectileHitsPlayer,
   tickSpitterProjectile,
@@ -2805,7 +2806,7 @@ function tickAndResolveSpitterProjectiles(
         projectile.state.position.z - candidate.position.z
       )
 
-      if (candidateDistance <= candidate.radius + 0.18) {
+      if (candidateDistance <= candidate.radius + SPITTER_PROJECTILE_RADIUS_M) {
         crossfireHitId = candidate.id
         break
       }
