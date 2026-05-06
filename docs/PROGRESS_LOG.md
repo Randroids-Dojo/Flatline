@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-05, Mobile thumbsticks ignore (0, 0) origin pointerdown
+
+- Branch: `fix/mobile-thumbsticks`
+- PR: #63
+- Changed: added a `(0, 0)` origin guard to the mobile touch overlay in `src/components/FlatlineGame.tsx`. `beginTouch` returns false when `event.clientX === 0 && event.clientY === 0` so a phantom pointerdown at the screen origin no longer activates a joystick, and `JoystickVisual` returns null when the captured origin is `(0, 0)` so no stale state can paint a stick at the top-left corner. Background: real-device report from PC Chrome with phone-size emulation showed a brief move-stick flash anchored at the screen origin during the first interaction with a fresh round. Could not reproduce from Playwright tap injection on Pixel 5, iPhone 12, iPhone 13 Mini, or narrow Desktop Chrome, so the guard intentionally targets the symptom rather than the unconfirmed root cause.
+- Verification: dash check (clean), `git diff --check` (clean), `npm run typecheck`, `npm run lint`, `npm run test` (28 files / 198 tests pass), `npm run test:e2e` (10 passed, 4 skipped). Real-device retest pending.
+- Assumptions: Recommended default is to drop pointerdown events at exactly `(0, 0)`. The alternative is to require a confirmed `pointermove` before rendering, which would also catch non-zero phantoms but would delay the first paint of the stick visual on every legit touch.
+- GDD coverage: REQ-010 (movement) gains a build-log entry naming `src/components/FlatlineGame.tsx` and `tests/smoke.spec.ts`; status stays `done`.
+- Followups: F-005 (open) — confirm the root cause of the (0, 0) phantom pointerdown if the symptom does not clear after this guard ships.
+
 ## 2026-05-05, Mobile thumbsticks render only on touch and clear on tab hide
 
 - Branch: `fix/mobile-thumbsticks`

@@ -168,6 +168,24 @@ test('mobile touch controls fit the viewport and block page scroll', async ({ pa
   }).toBe(true)
 })
 
+test('mobile (0,0) pointerdown does not activate a joystick', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'mobile-only behavior')
+
+  await page.route('**/api/leaderboard**', async (route) => {
+    await route.fulfill({ status: 200, json: { scope: 'all', date: null, entries: [], unavailable: true } })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Start run' }).tap()
+  await expect(page.getByTestId('hud')).toBeVisible()
+
+  await dispatchTouch(page, 'pointerdown', 80, 0, 0)
+  await page.waitForTimeout(50)
+
+  await expect(page.locator('.touch-stick')).toHaveCount(0)
+  await expect(page.locator('.touch-knob')).toHaveCount(0)
+})
+
 test('mobile thumbsticks stay hidden until touched and clear on tab hide', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-chromium', 'mobile-only behavior')
 
