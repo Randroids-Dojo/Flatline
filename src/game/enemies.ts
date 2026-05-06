@@ -1,7 +1,8 @@
 import type { Vec3 } from './types'
 
 export type EnemyState = 'chase' | 'attackWindup' | 'attackRelease' | 'hurt' | 'dead'
-export type EnemyType = 'grunt' | 'skitter' | 'brute'
+export type EnemyType = 'grunt' | 'skitter' | 'brute' | 'spitter'
+export type EnemyAttackKind = 'melee' | 'ranged'
 
 export type EnemyModel = {
   id: string
@@ -35,6 +36,8 @@ export type EnemyConfig = {
   pressureCost: number
   scale: number
   tint: string
+  attackKind?: EnemyAttackKind
+  projectileSpeed?: number
 }
 
 export type EnemyTickResult = {
@@ -48,6 +51,15 @@ export type EnemyEvent =
   | { type: 'enemyAttackHit'; enemyId: string; damage: number }
   | { type: 'enemyAttackMissed'; enemyId: string }
   | { type: 'enemyRecovered'; enemyId: string }
+  | {
+      type: 'enemyProjectileFired'
+      enemyId: string
+      enemyType: EnemyType
+      origin: Vec3
+      direction: Vec3
+      speed: number
+      damage: number
+    }
 
 export const gruntConfig: EnemyConfig = {
   speed: 2.15,
@@ -93,6 +105,22 @@ export const enemyConfigs: Record<EnemyType, EnemyConfig> = {
     pressureCost: 1.75,
     scale: 1.35,
     tint: '#f7d0c9'
+  },
+  spitter: {
+    speed: 1.6,
+    attackRange: 7.5,
+    attackDamage: 8,
+    attackWindupMs: 720,
+    attackReleaseMs: 200,
+    attackCooldownMs: 1400,
+    hurtDurationMs: 200,
+    contactPadding: 0.08,
+    maxHealth: 2,
+    pressureCost: 1.25,
+    scale: 0.85,
+    tint: '#a8e07a',
+    attackKind: 'ranged',
+    projectileSpeed: 8
   }
 }
 
@@ -120,6 +148,10 @@ export function createGrunt(id: string, position: Vec3, playerPosition: Vec3): E
 export function enemyTypeForSpawn(spawnCount: number): EnemyType {
   if (spawnCount > 0 && spawnCount % 7 === 0) {
     return 'brute'
+  }
+
+  if (spawnCount > 0 && spawnCount % 5 === 0) {
+    return 'spitter'
   }
 
   if (spawnCount > 0 && spawnCount % 3 === 0) {
@@ -176,7 +208,23 @@ export function tickEnemy(
       nextEnemy.state = 'attackRelease'
       nextEnemy.animationTimeMs = 0
 
-      if (enemyCanHitPlayer(nextEnemy, nextPlayer, config)) {
+      if (config.attackKind === 'ranged') {
+        const dx = nextPlayer.position.x - nextEnemy.position.x
+        const dz = nextPlayer.position.z - nextEnemy.position.z
+        const distance = Math.hypot(dx, dz)
+        const direction = distance > 0
+          ? { x: dx / distance, y: 0, z: dz / distance }
+          : { x: 0, y: 0, z: 1 }
+        events.push({
+          type: 'enemyProjectileFired',
+          enemyId: nextEnemy.id,
+          enemyType: nextEnemy.type,
+          origin: { x: nextEnemy.position.x, y: nextEnemy.position.y, z: nextEnemy.position.z },
+          direction,
+          speed: config.projectileSpeed ?? 0,
+          damage: config.attackDamage
+        })
+      } else if (enemyCanHitPlayer(nextEnemy, nextPlayer, config)) {
         nextPlayer.health = Math.max(0, nextPlayer.health - config.attackDamage)
         events.push({ type: 'enemyAttackHit', enemyId: nextEnemy.id, damage: config.attackDamage })
       } else {

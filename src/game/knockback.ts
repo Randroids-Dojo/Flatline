@@ -12,7 +12,8 @@ const baseImpulses: Record<WeaponId, { closeM: number; farM: number }> = {
 const enemyResistance: Record<EnemyType, number> = {
   grunt: 1,
   skitter: 1.3,
-  brute: 0.5
+  brute: 0.5,
+  spitter: 1.15
 }
 
 export function knockbackDistance(weapon: WeaponId, hitDistanceM: number, enemy: EnemyType): number {
