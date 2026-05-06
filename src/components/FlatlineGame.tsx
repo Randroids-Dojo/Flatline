@@ -24,6 +24,13 @@ import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFl
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
 import { dashReadyAt, dashStep, startDash, type DashState } from '@/game/dash'
+import {
+  createSpitterProjectile,
+  spitterProjectileExpired,
+  spitterProjectileHitsPlayer,
+  tickSpitterProjectile,
+  type SpitterProjectile
+} from '@/game/spitterProjectile'
 import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
 import { hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { hitstopScaleAtElapsedMs, hitstopStyle, type HitstopStyle } from '@/game/hitstop'
@@ -94,7 +101,7 @@ const movementConfig = {
   }
 }
 const weaponIdsForSelect = [...weaponIds]
-const enemyTypesForSelect: EnemyType[] = ['grunt', 'skitter', 'brute']
+const enemyTypesForSelect: EnemyType[] = ['grunt', 'skitter', 'brute', 'spitter']
 const enemyAtlasTypes: EnemyType[] = ['grunt', 'skitter', 'brute']
 
 type RuntimeRefs = {
@@ -151,6 +158,13 @@ type InkProjectile = {
   ageMs: number
 }
 
+type SpitterProjectileRuntime = {
+  state: SpitterProjectile
+  group: THREE.Group
+  core: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
+  halo: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
+}
+
 type TouchJoysticks = {
   move: JoystickState
   look: JoystickState
@@ -198,6 +212,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const shotBoltsRef = useRef<ShotBolt[]>([])
   const shotImpactsRef = useRef<ShotImpact[]>([])
   const inkProjectilesRef = useRef<InkProjectile[]>([])
+  const spitterProjectilesRef = useRef<SpitterProjectileRuntime[]>([])
+  const spitterProjectileSeqRef = useRef<number>(0)
   const lastTimeRef = useRef<number>(0)
   const positionRef = useRef<Vec3>({ ...initialPlayerPosition })
   const yawRef = useRef<number>(initialYaw)
@@ -478,6 +494,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     clearShotBolts(runtimeRef.current, shotBoltsRef.current)
     clearShotImpacts(runtimeRef.current, shotImpactsRef.current)
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
+    clearSpitterProjectiles(runtimeRef.current, spitterProjectilesRef.current)
     runningRef.current = true
     pausedRef.current = false
     setRunning(true)
@@ -662,6 +679,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     const shotBolts = shotBoltsRef.current
     const shotImpacts = shotImpactsRef.current
     const inkProjectiles = inkProjectilesRef.current
+    const spitterProjectiles = spitterProjectilesRef.current
     const scene = new THREE.Scene()
     scene.background = new THREE.Color('#101010')
     scene.fog = new THREE.Fog('#101010', 12, 28)
@@ -993,7 +1011,38 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             if (event.type === 'enemyAttackMissed') {
               setStatus('Enemy missed.')
             }
+
+            if (event.type === 'enemyProjectileFired') {
+              spitterProjectileSeqRef.current += 1
+              const projectileId = `spitter-projectile-${spitterProjectileSeqRef.current}`
+              spawnSpitterProjectile(
+                runtime,
+                spitterProjectilesRef.current,
+                createSpitterProjectile(projectileId, event.origin, event.direction, event.speed, event.damage)
+              )
+              playSpitterFireCue(settingsRef.current.audio)
+              setStatus('Spitter loosed acid. Sidestep.')
+            }
           }
+
+          tickAndResolveSpitterProjectiles(
+            runtime,
+            spitterProjectilesRef.current,
+            positionRef.current,
+            0.4,
+            delta * 1000,
+            (damage) => {
+              if (!practiceSettingsRef.current.damageEnabled) {
+                return
+              }
+              playerHealthRef.current = Math.max(0, playerHealthRef.current - damage)
+              tookDamageSinceLastKillRef.current = true
+              setPlayerHealth(playerHealthRef.current)
+              setDamagePulse((value) => value + 1)
+              setStatus(`Spitter splashed for ${damage}.`)
+              playPlayerDamageCue(playerDamageCue('hazard'), settingsRef.current.audio)
+            }
+          )
 
           if (practiceSettingsRef.current.damageEnabled && result.player.health === 0) {
             finishRun()
@@ -1123,6 +1172,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       clearShotBolts(runtimeRef.current, shotBolts)
       clearShotImpacts(runtimeRef.current, shotImpacts)
       clearInkProjectiles(runtimeRef.current, inkProjectiles)
+      clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
       disposeEnemyAssets(enemyAssetsRef.current)
       enemyAssetsRef.current = {}
       renderer.dispose()
@@ -2339,6 +2389,107 @@ function disposeInkProjectile(runtime: RuntimeRefs | null, projectile: InkProjec
   projectile.halo.material.dispose()
 }
 
+function spawnSpitterProjectile(
+  runtime: RuntimeRefs,
+  projectiles: SpitterProjectileRuntime[],
+  state: SpitterProjectile
+) {
+  const group = new THREE.Group()
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 14, 14),
+    new THREE.MeshBasicMaterial({ color: '#a8e07a', transparent: true, opacity: 0.96 })
+  )
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.32, 14, 14),
+    new THREE.MeshBasicMaterial({ color: '#a8e07a', transparent: true, opacity: 0.22, wireframe: true })
+  )
+  core.renderOrder = 5
+  halo.renderOrder = 4
+  group.add(core, halo)
+  group.position.set(state.position.x, state.position.y, state.position.z)
+  runtime.shotGroup.add(group)
+  projectiles.push({ state, group, core, halo })
+}
+
+function tickAndResolveSpitterProjectiles(
+  runtime: RuntimeRefs,
+  projectiles: SpitterProjectileRuntime[],
+  playerPosition: Vec3,
+  playerRadius: number,
+  deltaMs: number,
+  onPlayerHit: (damage: number) => void
+) {
+  for (let index = projectiles.length - 1; index >= 0; index -= 1) {
+    const projectile = projectiles[index]
+    projectile.state = tickSpitterProjectile(projectile.state, deltaMs)
+    projectile.group.position.set(
+      projectile.state.position.x,
+      projectile.state.position.y,
+      projectile.state.position.z
+    )
+    const pulse = 1 + Math.sin(projectile.state.ageMs / 64) * 0.18
+    projectile.halo.scale.setScalar(pulse)
+
+    if (spitterProjectileHitsPlayer(projectile.state, playerPosition, playerRadius)) {
+      onPlayerHit(projectile.state.damage)
+      disposeSpitterProjectile(runtime, projectile)
+      projectiles.splice(index, 1)
+      continue
+    }
+
+    if (spitterProjectileExpired(projectile.state)) {
+      disposeSpitterProjectile(runtime, projectile)
+      projectiles.splice(index, 1)
+    }
+  }
+}
+
+function clearSpitterProjectiles(runtime: RuntimeRefs | null, projectiles: SpitterProjectileRuntime[]) {
+  while (projectiles.length > 0) {
+    const projectile = projectiles.pop()
+
+    if (!projectile) {
+      return
+    }
+
+    disposeSpitterProjectile(runtime, projectile)
+  }
+}
+
+function disposeSpitterProjectile(runtime: RuntimeRefs | null, projectile: SpitterProjectileRuntime) {
+  runtime?.shotGroup.remove(projectile.group)
+  projectile.core.geometry.dispose()
+  projectile.core.material.dispose()
+  projectile.halo.geometry.dispose()
+  projectile.halo.material.dispose()
+}
+
+function playSpitterFireCue(enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = 'square'
+  const startTime = context.currentTime
+  const durationMs = 140
+  const stopTime = startTime + durationMs / 1000
+  oscillator.frequency.setValueAtTime(620, startTime)
+  oscillator.frequency.exponentialRampToValueAtTime(280, stopTime)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(0.034, startTime + 0.01)
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
 function knockEnemyBack(enemy: EnemyModel, direction: Vec3, distance: number): EnemyModel {
   if (enemy.state === 'dead') {
     return enemy
@@ -2642,7 +2793,7 @@ function loadInitialSettings(): Settings {
 function createPracticeSettings(): PracticeSettings {
   return {
     startingWeapon: 'peashooter',
-    enemyTypes: ['grunt', 'skitter', 'brute'],
+    enemyTypes: ['grunt', 'skitter', 'brute', 'spitter'],
     spawnRate: 1,
     infiniteAmmo: false,
     damageEnabled: true,
@@ -2697,6 +2848,10 @@ function enemyLabel(type: EnemyModel['type']): string {
 
   if (type === 'brute') {
     return 'Brute'
+  }
+
+  if (type === 'spitter') {
+    return 'Spitter'
   }
 
   return 'Grunt'

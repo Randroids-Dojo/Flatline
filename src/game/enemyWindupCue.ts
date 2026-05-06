@@ -51,12 +51,21 @@ const bruteStyle: EnemyWindupCueStyle = {
   gain: 0.038
 }
 
+const spitterStyle: EnemyWindupCueStyle = {
+  frequency: 520,
+  waveform: 'triangle',
+  durationMs: 240,
+  gain: 0.03
+}
+
 export function enemyWindupCue(type: EnemyType): EnemyWindupCueStyle {
   switch (type) {
     case 'skitter':
       return skitterStyle
     case 'brute':
       return bruteStyle
+    case 'spitter':
+      return spitterStyle
     case 'grunt':
     default:
       return gruntStyle

@@ -37,14 +37,6 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Unblock condition: design pass picks the FOV punch magnitudes; implementation lands as a pure helper plus a hookup in `src/components/FlatlineGame.tsx`.
 - Status: open
 
-### F-008: Spitter ranged enemy v1 (REQ-031)
-
-- Priority: nice-to-have
-- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. Three melee enemies make encounters too uniform. REQ-031 is `not_started`. Ship a slow projectile-firing enemy with a clearly telegraphed windup, a finite projectile speed (so the player can see it coming and dodge), and a unique audio sting. Adds the missing third leg of the threat triangle (chaff / fast / tank now plus ranged).
-- Blocker: none. Q-008 (infighting damage rule) is adjacent but not blocking; spitter v1 can ship without enemy-on-enemy damage and add it in F-013.
-- Unblock condition: pure helpers for projectile motion, telegraph, and audio cue; integration in `FlatlineGame.tsx`.
-- Status: open
-
 ### F-010: Enemy knockback on damage
 
 - Priority: nice-to-have
@@ -98,6 +90,15 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 (none yet)
 
 ## Resolved
+
+### F-008: Spitter ranged enemy v1 (REQ-031)
+
+- Priority: nice-to-have
+- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. Three melee enemies make encounters too uniform. REQ-031 is `not_started`. Ship a slow projectile-firing enemy with a clearly telegraphed windup, a finite projectile speed (so the player can see it coming and dodge), and a unique audio sting. Adds the missing third leg of the threat triangle (chaff / fast / tank now plus ranged).
+- Blocker: none. Q-008 (infighting damage rule) is adjacent but not blocking; spitter v1 can ship without enemy-on-enemy damage and add it in F-013.
+- Unblock condition: pure helpers for projectile motion, telegraph, and audio cue; integration in `FlatlineGame.tsx`.
+- Status: done
+- Resolved: PR #TBD. New `spitter` enemy type with ranged attack, new `enemyProjectileFired` event, new `src/game/spitterProjectile.ts` helper, FlatlineGame projectile renderer + collision + audio cues. Spitter enters spawn rotation at `% 5`. Sprite atlas falls back to grunt with the spitter tint until dedicated sprites ship; REQ-031 status is `partial` until then. Unblocks F-013 (infighting).
 
 ### F-006: Movement weapon (sprint or dash on Shift)
 

@@ -39,12 +39,21 @@ const bruteStyle: EnemyHurtFlashStyle = {
   flashColor: { r: 1, g: 0.95, b: 0.92 }
 }
 
+const spitterStyle: EnemyHurtFlashStyle = {
+  peakIntensity: 0.9,
+  holdMs: 50,
+  decayMs: 130,
+  flashColor: { r: 1, g: 1, b: 1 }
+}
+
 export function enemyHurtFlashStyle(enemyType: EnemyType): EnemyHurtFlashStyle {
   switch (enemyType) {
     case 'skitter':
       return skitterStyle
     case 'brute':
       return bruteStyle
+    case 'spitter':
+      return spitterStyle
     case 'grunt':
     default:
       return gruntStyle
