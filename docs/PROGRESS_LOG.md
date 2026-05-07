@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Gameplay round 6: skitter dash burst with telegraph
+
+- Branch: `feat/round-6-skitter-dash`
+- PR: #89
+- Changed: the skitter chased at a flat 3.45 m/s with no movement variation, so its threat read as "small one is fast but predictable." Add a transient speed burst so the skitter occasionally lunges toward the player when an opening is in range. New pure helper `src/game/skitterDash.ts` exposes `SKITTER_DASH_DURATION_MS = 380`, `SKITTER_DASH_SPEED_MULTIPLIER = 1.85`, `SKITTER_DASH_MIN_RANGE_M = 1.5`, `SKITTER_DASH_MAX_RANGE_M = 4.0`, `SKITTER_DASH_REARM_COOLDOWN_MS = 1600`, `shouldStartSkitterDash(...)` predicate, and `skitterDashSpeedScale(remaining)`. `EnemyModel` gains a `dashBurstMsRemaining: number` field (default 0). `tickEnemy` decrements the field each tick, evaluates the predicate at the chase fall-through (after `enemyCanStartAttack`), and on trigger sets the burst duration and the existing `attackCooldownMs` to the rearm value so the skitter cannot dash again immediately. `moveEnemyTowardPlayer` reads the speed scale so the burst applies to position step and velocity. `src/components/FlatlineGame.tsx` lerps the skitter sprite toward white at 0.5x intensity proportional to remaining burst time as a visual telegraph during the burst (the skitter brightens at the start of the lunge and fades back as the burst ends).
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (42 files / 364 tests pass; 8 new tests for the helper plus 2 integration tests in `enemies.test.ts`).
+- Assumptions: Recommended default reuses the existing `attackCooldownMs` field as the dash rearm timer because the skitter only has one cooldown to track and adding a second timer would complicate the EnemyModel without a gameplay reason. Recommended default skips a dedicated dashWindup state because a 380 ms burst is short enough that a separate windup phase would dominate the burst itself; the 0.5x white-lerp at the leading edge is the visual telegraph instead. Recommended default uses 1.85x multiplier (giving ~6.4 m/s top during burst) so the skitter clearly outpaces the player's 6.8 m/s walk but does not feel teleporty.
+- GDD coverage: REQ-029 (Enemy Skitter) gains a build-log entry naming the new dash burst.
+- Followups: F-013's skitter dash crossfire portion is now within scope for a follow-up; the dash burst itself doesn't yet hit other enemies on contact.
+
 ## 2026-05-06, Gameplay round 5: brute (and melee) swing arc crossfire (F-013 closer to done)
 
 - Branch: `feat/round-5-brute-swing-crossfire`

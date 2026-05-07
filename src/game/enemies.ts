@@ -1,3 +1,9 @@
+import {
+  SKITTER_DASH_DURATION_MS,
+  SKITTER_DASH_REARM_COOLDOWN_MS,
+  shouldStartSkitterDash,
+  skitterDashSpeedScale
+} from './skitterDash'
 import type { Vec3 } from './types'
 
 export type EnemyState = 'chase' | 'attackWindup' | 'attackRelease' | 'hurt' | 'dead'
@@ -15,6 +21,7 @@ export type EnemyModel = {
   facingAngle: number
   animationTimeMs: number
   attackCooldownMs: number
+  dashBurstMsRemaining: number
 }
 
 export type PlayerCombatState = {
@@ -153,7 +160,8 @@ export function createEnemy(type: EnemyType, id: string, position: Vec3, playerP
     state: 'chase',
     facingAngle: angleBetween(position, playerPosition),
     animationTimeMs: 0,
-    attackCooldownMs: 0
+    attackCooldownMs: 0,
+    dashBurstMsRemaining: 0
   }
 }
 
@@ -194,7 +202,8 @@ export function tickEnemy(
     position: { ...enemy.position },
     velocity: { ...enemy.velocity },
     animationTimeMs: enemy.animationTimeMs + deltaMs,
-    attackCooldownMs: Math.max(0, enemy.attackCooldownMs - deltaMs)
+    attackCooldownMs: Math.max(0, enemy.attackCooldownMs - deltaMs),
+    dashBurstMsRemaining: Math.max(0, enemy.dashBurstMsRemaining - deltaMs)
   }
   const nextPlayer = { ...player, position: { ...player.position } }
 
@@ -294,6 +303,19 @@ export function tickEnemy(
     return { enemy: nextEnemy, player: nextPlayer, events }
   }
 
+  if (
+    shouldStartSkitterDash({
+      type: nextEnemy.type,
+      state: nextEnemy.state,
+      attackCooldownMs: nextEnemy.attackCooldownMs,
+      dashBurstMsRemaining: nextEnemy.dashBurstMsRemaining,
+      distanceToPlayerM: distance2d(nextEnemy.position, nextPlayer.position)
+    })
+  ) {
+    nextEnemy.dashBurstMsRemaining = SKITTER_DASH_DURATION_MS
+    nextEnemy.attackCooldownMs = SKITTER_DASH_REARM_COOLDOWN_MS
+  }
+
   moveEnemyTowardPlayer(nextEnemy, nextPlayer, deltaMs, config)
   return { enemy: nextEnemy, player: nextPlayer, events }
 }
@@ -334,7 +356,9 @@ function moveEnemyTowardPlayer(
     return
   }
 
-  const step = Math.min(config.speed * (deltaMs / 1000), distance - minDistance)
+  const speedScale = skitterDashSpeedScale(enemy.dashBurstMsRemaining)
+  const speed = config.speed * speedScale
+  const step = Math.min(speed * (deltaMs / 1000), distance - minDistance)
   const nx = dx / distance
   const nz = dz / distance
   enemy.position = {
@@ -343,9 +367,9 @@ function moveEnemyTowardPlayer(
     z: enemy.position.z + nz * step
   }
   enemy.velocity = {
-    x: nx * config.speed,
+    x: nx * speed,
     y: 0,
-    z: nz * config.speed
+    z: nz * speed
   }
 }
 

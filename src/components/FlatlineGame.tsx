@@ -78,6 +78,7 @@ import {
   RAGE_PULSE_GAIN,
   RAGE_PULSE_THROB_HZ
 } from '@/game/ragePulse'
+import { SKITTER_DASH_DURATION_MS } from '@/game/skitterDash'
 import { spitterChargeIntensity } from '@/game/spitterCharge'
 import {
   SCORE_TOKEN_REARM_MS,
@@ -937,6 +938,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
     const enemyHurtFlashColor = new THREE.Color()
     const spitterChargeColor = new THREE.Color('#f0ffd0')
+    const skitterDashColor = new THREE.Color('#ffffff')
 
     function animate(time: number) {
       animationRef.current = requestAnimationFrame(animate)
@@ -1474,6 +1476,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         } else if (enemy.type === 'spitter' && enemy.state === 'attackWindup') {
           const charge = spitterChargeIntensity(enemy.state, enemy.animationTimeMs, enemyConfigs.spitter.attackWindupMs)
           slot.material.color.set(baseTint).lerp(spitterChargeColor, charge)
+        } else if (enemy.type === 'skitter' && enemy.dashBurstMsRemaining > 0) {
+          // Telegraph the dash burst: lerp toward white at the leading edge.
+          const intensity = Math.min(1, enemy.dashBurstMsRemaining / SKITTER_DASH_DURATION_MS)
+          slot.material.color.set(baseTint).lerp(skitterDashColor, 0.5 * intensity)
         } else {
           slot.material.color.set(baseTint)
         }
