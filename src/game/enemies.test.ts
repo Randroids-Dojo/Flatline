@@ -110,6 +110,64 @@ describe('enemy AI', () => {
     expect(result.events).toContainEqual({ type: 'enemyAttackMissed', enemyId: 'grunt-1' })
   })
 
+  it('emits melee arc crossfire events for nearby enemies on the brute swing release', () => {
+    const config = enemyConfigs.brute
+    const brute = {
+      ...createEnemy('brute', 'brute-1', { x: 0, y: 1.05, z: 0 }, player.position),
+      state: 'attackWindup' as const,
+      animationTimeMs: config.attackWindupMs - 1
+    }
+    const adjacent = createEnemy('grunt', 'grunt-near', { x: 0, y: 1.05, z: 1.0 }, player.position)
+    const farAway = createEnemy('grunt', 'grunt-far', { x: 0, y: 1.05, z: 5.0 }, player.position)
+    const nearby = [
+      { id: brute.id, position: brute.position, radius: brute.radius },
+      { id: adjacent.id, position: adjacent.position, radius: adjacent.radius },
+      { id: farAway.id, position: farAway.position, radius: farAway.radius }
+    ]
+
+    const result = tickEnemy(brute, { ...player, position: { x: 0, y: 1.7, z: 5 } }, 1, config, nearby)
+
+    const crossfire = result.events.filter((event) => event.type === 'enemyMeleeArcCrossfire')
+    expect(crossfire).toHaveLength(1)
+    if (crossfire[0].type === 'enemyMeleeArcCrossfire') {
+      expect(crossfire[0].sourceId).toBe('brute-1')
+      expect(crossfire[0].sourceType).toBe('brute')
+      expect(crossfire[0].targetEnemyId).toBe('grunt-near')
+      expect(crossfire[0].damage).toBe(config.attackDamage)
+    }
+  })
+
+  it('does not emit crossfire events for ranged enemies on release', () => {
+    const config = enemyConfigs.spitter
+    const spitter = {
+      ...createEnemy('spitter', 'spitter-1', { x: 0, y: 1.05, z: 0 }, player.position),
+      state: 'attackWindup' as const,
+      animationTimeMs: config.attackWindupMs - 1
+    }
+    const adjacent = createEnemy('grunt', 'grunt-near', { x: 0, y: 1.05, z: 0.6 }, player.position)
+    const nearby = [
+      { id: spitter.id, position: spitter.position, radius: spitter.radius },
+      { id: adjacent.id, position: adjacent.position, radius: adjacent.radius }
+    ]
+
+    const result = tickEnemy(spitter, player, 1, config, nearby)
+
+    expect(result.events.some((event) => event.type === 'enemyMeleeArcCrossfire')).toBe(false)
+  })
+
+  it('does not emit crossfire when no nearby enemies are passed', () => {
+    const config = enemyConfigs.brute
+    const brute = {
+      ...createEnemy('brute', 'brute-1', { x: 0, y: 1.05, z: 0 }, player.position),
+      state: 'attackWindup' as const,
+      animationTimeMs: config.attackWindupMs - 1
+    }
+
+    const result = tickEnemy(brute, player, 1, config)
+
+    expect(result.events.some((event) => event.type === 'enemyMeleeArcCrossfire')).toBe(false)
+  })
+
   it('enters hurt and death states through damage', () => {
     const enemy = createGrunt('grunt-1', { x: 0, y: 1, z: 5 }, player.position)
     const hurt = damageEnemy(enemy, 1)

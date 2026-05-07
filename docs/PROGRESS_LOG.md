@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Gameplay round 5: brute (and melee) swing arc crossfire (F-013 closer to done)
+
+- Branch: `feat/round-5-brute-swing-crossfire`
+- PR: #88
+- Changed: F-013 partial. Hazard-on-enemy and spitter-projectile cross-enemy crossfire shipped earlier; the brute swing arc crossfire was the remaining piece. New `EnemyEvent` variant `enemyMeleeArcCrossfire { sourceId, sourceType, targetEnemyId, damage }` and a new optional `nearbyEnemies: readonly NearbyEnemy[]` parameter on `tickEnemy`. On the windup-to-release transition for any non-ranged enemy, the function scans nearby enemies and emits a crossfire event for each candidate within `attackRange + candidate.radius`. Brute is the main beneficiary because of its 1.45 m swing arc; grunt and skitter rarely overlap an adjacent enemy at their tighter ranges. `src/components/FlatlineGame.tsx` builds the alive non-self list once per frame, passes it to every `tickEnemy` call, and handles the new event by scaling the damage through the existing `INFIGHTING_DAMAGE_SCALE` constant and applying it via `damageEnemy` without crediting the player. The HUD enemy-health pill resyncs if the primary enemy is hit by crossfire. Closes the brute-swing portion of F-013; the skitter dash portion still depends on whether the skitter ever gets a dash mechanic.
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (41 files / 354 tests pass; 3 new tests for the crossfire event shape).
+- Assumptions: Recommended default scans by simple distance (no swing-cone angle check) because the existing player-hit `enemyCanHitPlayer` predicate already treats swing arc as a circle around the swinger. Recommended default applies crossfire to all non-ranged enemies, not just brute, because the geometric range filter naturally excludes grunt and skitter swings from overlapping nearby targets in practice. Recommended default keeps the spitter-projectile pattern of scaling at the consumer (via `INFIGHTING_DAMAGE_SCALE`) so the 50% rule has one source of truth across all infighting paths.
+- GDD coverage: REQ-015 (enemy entity model) gains a build-log entry naming the new `nearbyEnemies` parameter and `enemyMeleeArcCrossfire` event.
+- Followups: F-013 status note updated; only the skitter dash portion remains pending (requires a dash mechanic on the skitter, which is a separate slice).
+
 ## 2026-05-06, Gameplay round 4: spitter charge windup glow
 
 - Branch: `feat/round-4-spitter-visual`

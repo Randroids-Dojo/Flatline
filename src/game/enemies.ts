@@ -60,6 +60,22 @@ export type EnemyEvent =
       speed: number
       damage: number
     }
+  | {
+      // Emitted when a melee swing release overlaps another enemy in the
+      // swing arc. The consumer scales by its infighting damage rule and
+      // applies the damage without crediting the player.
+      type: 'enemyMeleeArcCrossfire'
+      sourceId: string
+      sourceType: EnemyType
+      targetEnemyId: string
+      damage: number
+    }
+
+export type NearbyEnemy = {
+  id: string
+  position: Vec3
+  radius: number
+}
 
 export const gruntConfig: EnemyConfig = {
   speed: 2.15,
@@ -165,7 +181,8 @@ export function tickEnemy(
   enemy: EnemyModel,
   player: PlayerCombatState,
   deltaMs: number,
-  config: EnemyConfig
+  config: EnemyConfig,
+  nearbyEnemies: readonly NearbyEnemy[] = []
 ): EnemyTickResult {
   if (enemy.state === 'dead') {
     return { enemy, player, events: [] }
@@ -229,6 +246,28 @@ export function tickEnemy(
         events.push({ type: 'enemyAttackHit', enemyId: nextEnemy.id, damage: config.attackDamage })
       } else {
         events.push({ type: 'enemyAttackMissed', enemyId: nextEnemy.id })
+      }
+
+      if (config.attackKind !== 'ranged') {
+        for (const candidate of nearbyEnemies) {
+          if (candidate.id === nextEnemy.id) {
+            continue
+          }
+
+          const dx = candidate.position.x - nextEnemy.position.x
+          const dz = candidate.position.z - nextEnemy.position.z
+          const distance = Math.hypot(dx, dz)
+
+          if (distance <= config.attackRange + candidate.radius) {
+            events.push({
+              type: 'enemyMeleeArcCrossfire',
+              sourceId: nextEnemy.id,
+              sourceType: nextEnemy.type,
+              targetEnemyId: candidate.id,
+              damage: config.attackDamage
+            })
+          }
+        }
       }
     }
 
