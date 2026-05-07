@@ -462,6 +462,21 @@ button {
   line-height: 1.5;
 }
 
+.start-panel p.best-score {
+  margin-bottom: 12px;
+  font-size: 14px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 230, 161, 0.78);
+}
+
+.start-panel p.best-score strong {
+  margin-left: 8px;
+  font-size: 18px;
+  letter-spacing: 0;
+  color: #ffe6a1;
+}
+
 .summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { insertLeaderboardEntry } from './leaderboard'
+import { bestLocalScore, insertLeaderboardEntry } from './leaderboard'
 
 describe('insertLeaderboardEntry', () => {
   it('sorts by score and keeps the requested limit', () => {
@@ -13,6 +13,20 @@ describe('insertLeaderboardEntry', () => {
     )
 
     expect(entries.map((item) => item.playerInitials)).toEqual(['BBB', 'CCC'])
+  })
+
+  it('reports null best score for an empty leaderboard', () => {
+    expect(bestLocalScore([])).toBeNull()
+  })
+
+  it('reports the highest score across the entries', () => {
+    expect(
+      bestLocalScore([
+        entry('AAA', 120, 9000, 1),
+        entry('BBB', 540, 8000, 2),
+        entry('CCC', 200, 12000, 3)
+      ])
+    ).toBe(540)
   })
 
   it('uses survival time and kills as ties after score', () => {

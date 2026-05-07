@@ -120,7 +120,7 @@ import {
   type WeaponId
 } from '@/game/weapons'
 import { dailySeed } from '@/lib/dailySeed'
-import { insertLeaderboardEntry, readLeaderboard, writeLeaderboard, type LeaderboardEntry } from '@/lib/leaderboard'
+import { bestLocalScore, insertLeaderboardEntry, readLeaderboard, writeLeaderboard, type LeaderboardEntry } from '@/lib/leaderboard'
 import { dailyDateKey, type LeaderboardScope, type RankedLeaderboardEntry, type SharedLeaderboardResponse } from '@/lib/sharedLeaderboard'
 
 const cameraHeight = 1.7
@@ -2016,6 +2016,11 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         <section className="start-panel">
           <div className="start-panel-inner">
             <h1>Flatline</h1>
+            {!isPractice && bestLocalScore(leaderboard) !== null ? (
+              <p className="best-score" data-testid="best-score">
+                Best <strong>{bestLocalScore(leaderboard)}</strong>
+              </p>
+            ) : null}
             {summary ? (
               <div className="summary" data-testid="run-summary">
                 <p>Score {summary.score}</p>

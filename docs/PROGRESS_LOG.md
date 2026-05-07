@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Gameplay round 9: best-local-score line on the start panel
+
+- Branch: `feat/round-9-best-score`
+- PR: #92
+- Changed: a returning player had to scroll past the run summary or open the local leaderboard list to see their PB. The start panel now shows a single "Best <score>" line above the run summary so the personal best is the first thing the player reads. New helper `bestLocalScore(entries)` in `src/lib/leaderboard.ts` returns the max score across the local leaderboard or `null` when empty. `src/components/FlatlineGame.tsx` renders the line conditionally (`!isPractice && bestLocalScore(leaderboard) !== null`) inside the start-panel JSX. New CSS rule `.start-panel p.best-score` in `app/globals.css` styles the line as a small letter-spaced label with a larger gold value, so the PB reads as a separate visual category from the prose paragraph and the summary block.
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (43 files / 375 tests pass; 2 new in `src/lib/leaderboard.test.ts`).
+- Assumptions: Recommended default sources the PB from the existing local leaderboard rather than the (separate) shared leaderboard so the line is available offline and updates immediately on kill, without needing the network round trip. Recommended default hides the line in practice mode because practice runs are not scored against the leaderboard.
+- GDD coverage: REQ-038 (HUD readability) gains a build-log entry naming the start-panel best-score line.
+- Followups: none new.
+
 ## 2026-05-06, Gameplay round 8: kill-confirm score floaters
 
 - Branch: `feat/round-8-score-floaters`
