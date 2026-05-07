@@ -39,6 +39,24 @@ export function writeLeaderboard(storage: Storage, entries: LeaderboardEntry[]) 
   storage.setItem(leaderboardStorageKey, JSON.stringify(entries))
 }
 
+/** Top score across the current local leaderboard. Returns null if there
+ * is no recorded entry yet so the consumer can render a different state
+ * for first-time players (e.g. hide the "Best" line). */
+export function bestLocalScore(entries: readonly LeaderboardEntry[]): number | null {
+  if (entries.length === 0) {
+    return null
+  }
+
+  let best = Number.NEGATIVE_INFINITY
+  for (const entry of entries) {
+    if (entry.score > best) {
+      best = entry.score
+    }
+  }
+
+  return best === Number.NEGATIVE_INFINITY ? null : best
+}
+
 function isLeaderboardEntry(value: unknown): value is LeaderboardEntry {
   if (!value || typeof value !== 'object') {
     return false
