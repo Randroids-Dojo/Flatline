@@ -29,19 +29,20 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Nice To Have
 
-### F-013: Enemy infighting (cross-faction crossfire damage)
-
-- Priority: nice-to-have
-- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. Q-008 picks the damage rule; recommended default is 50%. Lands cleanly *after* F-008 (spitter) is in, since the spitter is the first enemy with a projectile that can naturally hit other enemies. Brute melee swings and skitter dashes can also damage adjacent enemies under the same rule.
-- Blocker: skitter dash crossfire still pending (the skitter currently has no dash mechanic). Hazard-on-enemy shipped in PR #73 (50% damage, no kill credit). Spitter-projectile-on-enemy crossfire shipped alongside the multi-enemy refactor (50% damage, no kill credit, firing spitter excluded from its own splash). Brute (and any future melee enemy with a wide arc) swing crossfire shipped in PR #88 via the new `enemyMeleeArcCrossfire` event and `nearbyEnemies` parameter on `tickEnemy`.
-- Unblock condition: add a dash mechanic to the skitter or treat the chase contact moment as the hit window; optional aggro hook so an enemy hit by another enemy rolls a small probability to retarget the source.
-- Status: partial (hazard-on-enemy, spitter-projectile-on-enemy, and brute swing arc crossfire shipped; skitter dash crossfire still pending)
+(none yet)
 
 ## Polish
 
 (none yet)
 
 ## Resolved
+
+### F-013: Enemy infighting (cross-faction crossfire damage)
+
+- Priority: nice-to-have
+- Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. Q-008 picks the damage rule; recommended default is 50%. Lands cleanly *after* F-008 (spitter) is in, since the spitter is the first enemy with a projectile that can naturally hit other enemies. Brute melee swings and skitter dashes can also damage adjacent enemies under the same rule.
+- Status: done
+- Resolved: shipped across four slices, all using Q-008 recommended default B (50% damage, no player kill credit, scaled at the consumer through `INFIGHTING_DAMAGE_SCALE` in `src/components/FlatlineGame.tsx`). Hazard-on-enemy in PR #73 (50% damage, no kill credit). Spitter-projectile-on-enemy crossfire in PR #74 (firing spitter excluded from its own splash). Brute swing arc crossfire in PR #88 via the new `enemyMeleeArcCrossfire` event and `nearbyEnemies` parameter on `tickEnemy`. Skitter dash crossfire in PR #90 reuses the same event variant and ends the dash on first contact so the lunge reads as a single-target hit.
 
 ### F-007: Boomstick weight (camera FOV punch + screen impulse on fire)
 

@@ -178,6 +178,47 @@ describe('enemy AI', () => {
     expect(result.enemy.attackCooldownMs).toBeGreaterThan(0)
   })
 
+  it('emits a crossfire event and ends the dash when a dashing skitter overlaps another enemy', () => {
+    const config = enemyConfigs.skitter
+    const skitter = {
+      ...createEnemy('skitter', 'skitter-1', { x: 0, y: 1.05, z: 0 }, player.position),
+      dashBurstMsRemaining: 200
+    }
+    const target = createEnemy('grunt', 'grunt-victim', { x: 0, y: 1.05, z: 0.4 }, player.position)
+    const nearby = [
+      { id: skitter.id, position: skitter.position, radius: skitter.radius },
+      { id: target.id, position: target.position, radius: target.radius }
+    ]
+
+    const result = tickEnemy(skitter, { ...player, position: { x: 0, y: 1.7, z: 8 } }, 16, config, nearby)
+
+    const crossfire = result.events.filter((event) => event.type === 'enemyMeleeArcCrossfire')
+    expect(crossfire).toHaveLength(1)
+    if (crossfire[0].type === 'enemyMeleeArcCrossfire') {
+      expect(crossfire[0].sourceType).toBe('skitter')
+      expect(crossfire[0].targetEnemyId).toBe('grunt-victim')
+    }
+    expect(result.enemy.dashBurstMsRemaining).toBe(0)
+  })
+
+  it('does not emit a dash crossfire event when no enemy is in contact', () => {
+    const config = enemyConfigs.skitter
+    const skitter = {
+      ...createEnemy('skitter', 'skitter-1', { x: 0, y: 1.05, z: 0 }, player.position),
+      dashBurstMsRemaining: 200
+    }
+    const farTarget = createEnemy('grunt', 'grunt-far', { x: 0, y: 1.05, z: 5.0 }, player.position)
+    const nearby = [
+      { id: skitter.id, position: skitter.position, radius: skitter.radius },
+      { id: farTarget.id, position: farTarget.position, radius: farTarget.radius }
+    ]
+
+    const result = tickEnemy(skitter, { ...player, position: { x: 0, y: 1.7, z: 8 } }, 16, config, nearby)
+
+    expect(result.events.some((event) => event.type === 'enemyMeleeArcCrossfire')).toBe(false)
+    expect(result.enemy.dashBurstMsRemaining).toBeGreaterThan(0)
+  })
+
   it('does not trigger a dash burst on grunt or brute', () => {
     const grunt = createEnemy('grunt', 'grunt-1', { x: 0, y: 1.05, z: 2.5 }, player.position)
     const brute = createEnemy('brute', 'brute-1', { x: 0, y: 1.05, z: 2.5 }, player.position)

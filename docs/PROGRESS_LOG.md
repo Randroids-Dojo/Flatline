@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Gameplay round 7: skitter dash crossfire, F-013 fully done
+
+- Branch: `feat/round-7-skitter-dash-crossfire`
+- PR: #90
+- Changed: F-013 was the last partial. Hazard-on-enemy (PR #73), spitter-projectile crossfire (PR #74), and brute swing arc crossfire (PR #88) had shipped; skitter dash crossfire was still pending. Now that the skitter has a dash burst (PR #89), extend the F-013 rule to cover dash contact. `tickEnemy` adds a post-move check inside the chase fall-through: when `enemy.type === 'skitter'` and `dashBurstMsRemaining > 0`, scan `nearbyEnemies` and emit a `enemyMeleeArcCrossfire` event for the first overlap, then end the burst by zeroing `dashBurstMsRemaining`. Reusing the existing event variant keeps the consumer wiring identical (FlatlineGame already scales by `INFIGHTING_DAMAGE_SCALE` and applies `damageEnemy` without crediting the player). Single-target by design so a fast-traversing skitter does not chip through a whole crowd in one burst.
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (42 files / 366 tests pass; 2 new tests in `enemies.test.ts` for the contact and no-contact cases).
+- Assumptions: Recommended default reuses the existing `enemyMeleeArcCrossfire` variant rather than introducing a new `enemyDashContactCrossfire` shape because the consumer pipe is identical; the source enemy type field on the event preserves the distinction at the read site if a future slice needs to differentiate cues. Recommended default ends the burst on first contact so the dash is a single-target lunge; an alternative (multi-hit during the burst) would let the skitter chip a whole crowd at no risk to itself.
+- GDD coverage: REQ-029 (Enemy Skitter) gains a build-log entry naming the dash crossfire.
+- Followups: F-013 moves to Resolved (PR #90).
+
 ## 2026-05-06, Gameplay round 6: skitter dash burst with telegraph
 
 - Branch: `feat/round-6-skitter-dash`
