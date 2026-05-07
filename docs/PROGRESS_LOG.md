@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Gameplay round 4: spitter charge windup glow
+
+- Branch: `feat/round-4-spitter-visual`
+- PR: #87
+- Changed: REQ-031 partial. The spitter shipped with a tint and a 0.85x scale, but the 720 ms windup before each ranged shot was only telegraphed through audio. Visually it read as a green grunt the entire time. New pure helper `src/game/spitterCharge.ts` exposes `spitterChargeIntensity(state, animationTimeMs, windupMs)` (0 outside windup, ease-in quadratic ramp 0..1 across the windup, peak right before release). `src/components/FlatlineGame.tsx` lerps the spitter sprite tint from its base `#a8e07a` toward `#f0ffd0` (hot accent) by the helper's output during `attackWindup`. The hurt-flash branch keeps priority through the existing if/else ordering, so a wounded spitter still flashes red instead of glowing pre-fire.
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (41 files / 351 tests pass; 5 new tests for `spitterCharge`).
+- Assumptions: Recommended default uses an ease-in (quadratic) curve so the brightness builds slowly at the start of the windup (giving the player time to react) and peaks just before release. Recommended default uses `#f0ffd0` as the lerp target so the highlight reads as the same green family as the base, just brighter, rather than introducing a fourth distinct color into the palette. Recommended default keeps the existing `#a8e07a` base tint instead of re-saturating because the spitter projectile mesh and wireframe ring already reuse that exact color and changing the base would split the palette across two render paths.
+- GDD coverage: REQ-031 (Enemy Spitter) gains a build-log entry; status stays `partial` because dedicated sprite atlases are still placeholders.
+- Followups: none new.
+
 ## 2026-05-06, Gameplay round 3: sustained rage pulse audio layer
 
 - Branch: `feat/round-3-rage-pulse-audio`
