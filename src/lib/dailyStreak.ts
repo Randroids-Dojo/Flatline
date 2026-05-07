@@ -91,8 +91,11 @@ function isDailyStreakRecord(value: unknown): value is DailyStreakRecord {
   const record = value as DailyStreakRecord
   return (
     typeof record.lastPlayedDate === 'string' &&
-    typeof record.currentStreak === 'number' &&
-    typeof record.bestStreak === 'number' &&
-    typeof record.totalDailyRuns === 'number'
+    Number.isInteger(record.currentStreak) &&
+    record.currentStreak >= 1 &&
+    Number.isInteger(record.bestStreak) &&
+    record.bestStreak >= 1 &&
+    Number.isInteger(record.totalDailyRuns) &&
+    record.totalDailyRuns >= 1
   )
 }

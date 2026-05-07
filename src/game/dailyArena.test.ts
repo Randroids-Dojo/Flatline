@@ -61,9 +61,9 @@ describe('daily arena config', () => {
 
   it('bakes modifier.supplyCooldownScale into config.supplyCooldownMs', () => {
     const config = createDailyArenaConfig('flatline-20260430')
-    // Back-derive the base cooldown; it must fall in [7000, 12000) regardless of scale.
-    const estimatedBase = config.supplyCooldownMs / config.modifier.supplyCooldownScale
-    expect(estimatedBase).toBeGreaterThanOrEqual(7000 - 1)
-    expect(estimatedBase).toBeLessThan(12000 + 1)
+    // Back-derive the base cooldown (rounding corrects float division); it must fall in [7000, 12000).
+    const estimatedBase = Math.round(config.supplyCooldownMs / config.modifier.supplyCooldownScale)
+    expect(estimatedBase).toBeGreaterThanOrEqual(7000)
+    expect(estimatedBase).toBeLessThan(12000)
   })
 })
