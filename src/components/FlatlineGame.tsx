@@ -22,6 +22,7 @@ import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePrevi
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
+import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
 import { comboBreakCue, comboJustBroke, type ComboBreakCueStyle } from '@/game/comboBreakCue'
 import { dashReadyAt, dashStep, startDash, type DashState } from '@/game/dash'
@@ -533,9 +534,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         )
 
         const baseDamage = weapon === 'boomstick' ? entry.count : weaponConfigs.peashooter.damage
+        const pointBlankMult = weapon === 'boomstick' ? boomstickPointBlankMultiplier(entry.closestDistance) : 1
         damageEnemyById(
           enemyId,
-          Math.max(1, Math.round(baseDamage * buff.damage)),
+          Math.max(1, Math.round(baseDamage * buff.damage * pointBlankMult)),
           weapon === 'boomstick' ? 'Boomstick blast landed.' : 'Billboard enemy hurt.',
           weapon === 'boomstick' ? 'Boomstick dropped the enemy.' : 'Billboard enemy dropped.',
           entry.closestDistance

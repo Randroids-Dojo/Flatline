@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Gameplay round 2: boomstick point-blank damage ramp
+
+- Branch: `feat/round-2-boomstick-pointblank`
+- PR: #85
+- Changed: boomstick damage was flat across all ranges; the iconic Doom super-shotgun feel of the face-range one-shot was missing. New pure helper `src/game/boomstickPointBlank.ts` exposes `BOOMSTICK_POINT_BLANK_M = 2.0`, `BOOMSTICK_POINT_BLANK_MULT = 1.5`, and `boomstickPointBlankMultiplier(closestPelletDistanceM)`. Hard step (not a curve) so the verb reads as "I am close enough, this is the kill shot" instead of "every meter matters." `src/components/FlatlineGame.tsx` multiplies the boomstick damage entry by the helper before rounding, after the rage buff multiplier. With 6 pellets and 1.5x scaling at face range, point-blank one-shots grunts (3 HP) and skitters (2 HP) but still requires multiple shots on brutes (12 HP), preserving the threat ladder.
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (39 files / 343 tests pass; 3 new tests for the helper).
+- Assumptions: Recommended default uses 2.0 m as the threshold because the existing knockback close-range table treats `[0, 6]` m as the close band; 2.0 m is the strictest "face range" inside that band and makes the bonus rare and read as a deliberate verb. Recommended default applies the multiplier on the boomstick path only because the peashooter is already infinite ammo and the inkblaster has its own splash mechanic.
+- GDD coverage: REQ-027 (Weapon Boomstick) gains a build-log entry; the section's "High close damage" bullet is now explicit about point-blank specifically.
+- Followups: none new.
+
 ## 2026-05-06, Gameplay round 1: combo break audio cue
 
 - Branch: `feat/round-1-combo-break-cue`
