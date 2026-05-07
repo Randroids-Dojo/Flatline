@@ -168,6 +168,27 @@ describe('enemy AI', () => {
     expect(result.events.some((event) => event.type === 'enemyMeleeArcCrossfire')).toBe(false)
   })
 
+  it('triggers a skitter dash burst when chasing in the dashable range', () => {
+    const skitter = createEnemy('skitter', 'skitter-1', { x: 0, y: 1.05, z: 2.5 }, player.position)
+    const config = enemyConfigs.skitter
+
+    const result = tickEnemy(skitter, player, 16, config)
+
+    expect(result.enemy.dashBurstMsRemaining).toBeGreaterThan(0)
+    expect(result.enemy.attackCooldownMs).toBeGreaterThan(0)
+  })
+
+  it('does not trigger a dash burst on grunt or brute', () => {
+    const grunt = createEnemy('grunt', 'grunt-1', { x: 0, y: 1.05, z: 2.5 }, player.position)
+    const brute = createEnemy('brute', 'brute-1', { x: 0, y: 1.05, z: 2.5 }, player.position)
+
+    const gruntResult = tickEnemy(grunt, player, 16, enemyConfigs.grunt)
+    const bruteResult = tickEnemy(brute, player, 16, enemyConfigs.brute)
+
+    expect(gruntResult.enemy.dashBurstMsRemaining).toBe(0)
+    expect(bruteResult.enemy.dashBurstMsRemaining).toBe(0)
+  })
+
   it('enters hurt and death states through damage', () => {
     const enemy = createGrunt('grunt-1', { x: 0, y: 1, z: 5 }, player.position)
     const hurt = damageEnemy(enemy, 1)
