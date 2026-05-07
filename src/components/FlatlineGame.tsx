@@ -23,6 +23,7 @@ import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn,
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
+import { comboBreakCue, comboJustBroke, type ComboBreakCueStyle } from '@/game/comboBreakCue'
 import { dashReadyAt, dashStep, startDash, type DashState } from '@/game/dash'
 import {
   RAGE_DURATION_MS,
@@ -270,6 +271,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const enemyHazardCooldownRef = useRef<number>(0)
   const prevHazardRunMsRef = useRef<number>(-1)
   const prevWaveRunMsRef = useRef<number>(-1)
+  const prevActiveComboRef = useRef<number>(0)
   const musicLayerRef = useRef<{
     context: AudioContext
     masterGain: GainNode
@@ -562,6 +564,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     enemyHazardCooldownRef.current = 0
     prevHazardRunMsRef.current = -1
     prevWaveRunMsRef.current = -1
+    prevActiveComboRef.current = 0
     tookDamageSinceLastKillRef.current = false
     hitstopStateRef.current = null
     cameraKickStateRef.current = null
@@ -1383,6 +1386,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       tickShotBolts(runtime, shotBolts, shotImpacts, delta * 1000)
       tickShotImpacts(runtime, shotImpacts, delta * 1000)
       const activeCombo = directorRef.current.runMs <= scoreRef.current.comboExpiresAtMs ? scoreRef.current.combo : 0
+      if (comboJustBroke(prevActiveComboRef.current, activeCombo)) {
+        playComboBreakCue(comboBreakCue(), settingsRef.current.audio)
+      }
+      prevActiveComboRef.current = activeCombo
       setCombo((current) => current === activeCombo ? current : activeCombo)
 
       const enemiesNow = enemiesRef.current
@@ -3571,6 +3578,33 @@ function playDashCue(enabled: boolean) {
   oscillator.frequency.exponentialRampToValueAtTime(700, stopTime)
   gain.gain.setValueAtTime(0, startTime)
   gain.gain.linearRampToValueAtTime(0.038, startTime + 0.012)
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+function playComboBreakCue(style: ComboBreakCueStyle, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = style.waveform
+  const startTime = context.currentTime
+  const firstSeconds = style.firstDurationMs / 1000
+  const secondSeconds = style.secondDurationMs / 1000
+  const stopTime = startTime + firstSeconds + secondSeconds
+  oscillator.frequency.setValueAtTime(style.firstFrequency, startTime)
+  oscillator.frequency.setValueAtTime(style.secondFrequency, startTime + firstSeconds)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(style.gain, startTime + 0.008)
   gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
   oscillator.connect(gain)
   gain.connect(context.destination)
