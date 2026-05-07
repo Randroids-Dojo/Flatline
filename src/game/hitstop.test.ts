@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { hitstopScaleAtElapsedMs, hitstopStyle } from './hitstop'
+import {
+  HITSTOP_KILL_DURATION_MULT,
+  HITSTOP_KILL_SCALE_MULT,
+  hitstopOnKill,
+  hitstopScaleAtElapsedMs,
+  hitstopStyle
+} from './hitstop'
 
 describe('hitstopStyle', () => {
   it('returns a snappier, shallower dip for the peashooter', () => {
@@ -60,5 +66,30 @@ describe('hitstopScaleAtElapsedMs', () => {
   it('treats elapsedMs at exactly durationMs as fully resolved', () => {
     const style = hitstopStyle('boomstick')
     expect(hitstopScaleAtElapsedMs(style, style.durationMs)).toBe(1)
+  })
+})
+
+describe('hitstopOnKill', () => {
+  it('extends the duration by the kill multiplier', () => {
+    const base = hitstopStyle('peashooter')
+    const kill = hitstopOnKill(base)
+    expect(kill.durationMs).toBe(base.durationMs * HITSTOP_KILL_DURATION_MULT)
+  })
+
+  it('pulls the scale dip lower so the kill reads heavier', () => {
+    const base = hitstopStyle('boomstick')
+    const kill = hitstopOnKill(base)
+    expect(kill.scale).toBe(base.scale * HITSTOP_KILL_SCALE_MULT)
+    expect(kill.scale).toBeLessThan(base.scale)
+  })
+
+  it('preserves the per-weapon ordering on kill', () => {
+    const peashooterKill = hitstopOnKill(hitstopStyle('peashooter'))
+    const inkblasterKill = hitstopOnKill(hitstopStyle('inkblaster'))
+    const boomstickKill = hitstopOnKill(hitstopStyle('boomstick'))
+    expect(peashooterKill.durationMs).toBeLessThan(inkblasterKill.durationMs)
+    expect(inkblasterKill.durationMs).toBeLessThan(boomstickKill.durationMs)
+    expect(boomstickKill.scale).toBeLessThan(inkblasterKill.scale)
+    expect(inkblasterKill.scale).toBeLessThan(peashooterKill.scale)
   })
 })
