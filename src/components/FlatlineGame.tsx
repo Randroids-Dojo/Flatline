@@ -78,6 +78,11 @@ import {
   RAGE_PULSE_GAIN,
   RAGE_PULSE_THROB_HZ
 } from '@/game/ragePulse'
+import {
+  formatScoreFloaterText,
+  SCORE_FLOATER_TTL_MS,
+  type ScoreFloater
+} from '@/game/scoreFloater'
 import { SKITTER_DASH_DURATION_MS } from '@/game/skitterDash'
 import { spitterChargeIntensity } from '@/game/spitterCharge'
 import {
@@ -339,6 +344,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [rageActive, setRageActive] = useState(false)
   const [rageTint, setRageTint] = useState(0)
   const [scoreTokenActiveState, setScoreTokenActiveState] = useState(false)
+  const [scoreFloaters, setScoreFloaters] = useState<ScoreFloater[]>([])
+  const scoreFloaterSeqRef = useRef<number>(0)
   const [wavePhase, setWavePhase] = useState<'lull' | 'surge' | 'peak'>('lull')
   const [touchJoysticksView, setTouchJoysticksView] = useState<TouchJoysticks>(() => ({
     move: createJoystick(),
@@ -402,17 +409,43 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         const dz = enemyPosition.z - playerPos.z
         const fallbackDistance = Math.sqrt(dx * dx + dz * dz)
         const distance = hitDistance ?? fallbackDistance
+        const previousScore = scoreRef.current.score
         scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs, {
           distance,
           weapon: selectedWeaponRef.current,
           tookDamageSinceLastKill: tookDamageSinceLastKillRef.current,
           scoreMultiplier: scoreTokenMultiplier(scoreTokenStateRef.current, performance.now())
         })
+        const scoreDelta = scoreRef.current.score - previousScore
         tookDamageSinceLastKillRef.current = false
         setScore(scoreRef.current.score)
         setKills(scoreRef.current.kills)
         setCombo(scoreRef.current.combo)
         playCue(90, settingsRef.current.audio)
+
+        const runtime = runtimeRef.current
+        if (runtime && scoreDelta > 0) {
+          const projected = new THREE.Vector3(enemyPosition.x, enemyPosition.y + 0.6, enemyPosition.z).project(runtime.camera)
+          const canvas = runtime.renderer.domElement
+          const rect = canvas.getBoundingClientRect()
+          const screenX = (projected.x * 0.5 + 0.5) * rect.width
+          const screenY = (1 - (projected.y * 0.5 + 0.5)) * rect.height
+          const inFront = projected.z < 1
+          if (inFront && screenX >= 0 && screenX <= rect.width && screenY >= 0 && screenY <= rect.height) {
+            scoreFloaterSeqRef.current += 1
+            const floater: ScoreFloater = {
+              id: scoreFloaterSeqRef.current,
+              text: formatScoreFloaterText(scoreDelta),
+              startedAtMs: performance.now(),
+              screenX,
+              screenY
+            }
+            setScoreFloaters((current) => [...current, floater])
+            window.setTimeout(() => {
+              setScoreFloaters((current) => current.filter((entry) => entry.id !== floater.id))
+            }, SCORE_FLOATER_TTL_MS + 60)
+          }
+        }
       } else {
         playCue(320, settingsRef.current.audio)
       }
@@ -593,6 +626,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     scoreTokenStateRef.current = null
     nextScoreTokenEligibleRunMsRef.current = 70_000
     setScoreTokenActiveState(false)
+    setScoreFloaters([])
 
     if (mountRef.current && lastMountTransformRef.current !== '') {
       mountRef.current.style.transform = ''
@@ -1882,6 +1916,20 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   return (
     <main className="game-shell">
       <div ref={mountRef} className="render-root" data-testid="render-root" />
+      {running && scoreFloaters.length > 0 ? (
+        <div className="score-floaters-layer">
+          {scoreFloaters.map((floater) => (
+            <span
+              key={floater.id}
+              className="score-floater"
+              data-testid="score-floater"
+              style={{ left: `${floater.screenX}px`, top: `${floater.screenY}px` }}
+            >
+              {floater.text}
+            </span>
+          ))}
+        </div>
+      ) : null}
       {running ? (
         <div
           className="hud"
