@@ -18,7 +18,7 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
-## 2026-05-06, Gameplay round 7: skitter dash crossfire — F-013 fully done
+## 2026-05-06, Gameplay round 7: skitter dash crossfire, F-013 fully done
 
 - Branch: `feat/round-7-skitter-dash-crossfire`
 - PR: #90
