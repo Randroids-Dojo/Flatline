@@ -18,7 +18,15 @@ import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/g
 import { damageDirectionRadians } from '@/game/damageDirection'
 import { doorOpenCue, type DoorCueStyle } from '@/game/doorCue'
 import { DOOR_TOTAL_MS, doorPhaseVisualAtElapsedMs } from '@/game/doorState'
-import { applyDailySpawnOffset, createDailyArenaConfig, createDailySchedulePreview, type DailyArenaConfig, type DailySchedulePreview } from '@/game/dailyArena'
+import {
+  applyDailySpawnOffset,
+  createDailyArenaConfig,
+  createDailySchedulePreview,
+  dailyCadenceScale,
+  dailyKillScoreMultiplier,
+  type DailyArenaConfig,
+  type DailySchedulePreview
+} from '@/game/dailyArena'
 import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
@@ -120,6 +128,13 @@ import {
   type WeaponId
 } from '@/game/weapons'
 import { dailySeed } from '@/lib/dailySeed'
+import {
+  dailyStreakLabel,
+  readDailyStreak,
+  recordDailyRun,
+  writeDailyStreak,
+  type DailyStreakRecord
+} from '@/lib/dailyStreak'
 import { bestLocalScore, insertLeaderboardEntry, readLeaderboard, writeLeaderboard, type LeaderboardEntry } from '@/lib/leaderboard'
 import { dailyDateKey, type LeaderboardScope, type RankedLeaderboardEntry, type SharedLeaderboardResponse } from '@/lib/sharedLeaderboard'
 
@@ -367,6 +382,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     return createDailySchedulePreview(createDailyArenaConfig(seed))
   })
   const [dailyDate] = useState(() => dailyDateKey())
+  const [dailyStreak, setDailyStreak] = useState<DailyStreakRecord | null>(() =>
+    typeof window === 'undefined' || arenaMode !== 'daily' ? null : readDailyStreak(window.localStorage)
+  )
   const [sharedScope, setSharedScope] = useState<LeaderboardScope>(initialLeaderboardScope)
   const [sharedEntries, setSharedEntries] = useState<RankedLeaderboardEntry[]>([])
   const [sharedStatus, setSharedStatus] = useState<SharedLeaderboardStatus>('loading')
@@ -415,7 +433,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           distance,
           weapon: selectedWeaponRef.current,
           tookDamageSinceLastKill: tookDamageSinceLastKillRef.current,
-          scoreMultiplier: scoreTokenMultiplier(scoreTokenStateRef.current, performance.now())
+          scoreMultiplier:
+            scoreTokenMultiplier(scoreTokenStateRef.current, performance.now()) * dailyKillScoreMultiplier(dailyConfig)
         })
         const scoreDelta = scoreRef.current.score - previousScore
         tookDamageSinceLastKillRef.current = false
@@ -455,7 +474,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       setEnemyType(damaged.type)
       setStatus(damaged.state === 'dead' ? killStatus : hurtStatus)
     },
-    []
+    [dailyConfig]
   )
 
   const fire = useCallback(() => {
@@ -706,6 +725,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       )
       writeLeaderboard(window.localStorage, nextLeaderboard)
       setLeaderboard(nextLeaderboard)
+
+      if (arenaMode === 'daily') {
+        const nextDailyStreak = recordDailyRun(readDailyStreak(window.localStorage), dailyDate)
+        writeDailyStreak(window.localStorage, nextDailyStreak)
+        setDailyStreak(nextDailyStreak)
+      }
     }
 
     playerHealthRef.current = 0
@@ -720,7 +745,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     musicLayerRef.current = null
     stopRagePulseLayer(ragePulseLayerRef.current)
     ragePulseLayerRef.current = null
-  }, [isPractice])
+  }, [arenaMode, dailyDate, isPractice])
 
   const resumeRun = useCallback(() => {
     pausedRef.current = false
@@ -1400,7 +1425,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             activePressure,
             positionRef.current,
             undefined,
-            { cadenceScale: 1 / practiceSettingsRef.current.spawnRate }
+            { cadenceScale: (dailyCadenceScale(dailyConfig) / practiceSettingsRef.current.spawnRate) }
           )
           directorRef.current = directorTick.state
 
@@ -2038,7 +2063,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             ) : (
               <p>Daily seed {seed}. One room. Endless pressure. Move fast, aim clean, and stay alive.</p>
             )}
-            {!summary && dailySchedule ? <DailySchedulePanel preview={dailySchedule} /> : null}
+            {!summary && dailySchedule ? <DailySchedulePanel preview={dailySchedule} streak={dailyStreak} /> : null}
             {summary && !isPractice ? (
               <div className="submit-panel" data-testid="shared-submit">
                 <label>
@@ -3441,9 +3466,19 @@ function SharedLeaderboardPanel({
   )
 }
 
-function DailySchedulePanel({ preview }: { preview: DailySchedulePreview }) {
+function DailySchedulePanel({ preview, streak }: { preview: DailySchedulePreview; streak: DailyStreakRecord | null }) {
   return (
     <div className="daily-schedule" data-testid="daily-schedule">
+      <div className="daily-twist" data-testid="daily-twist">
+        <span>Daily twist</span>
+        <strong>{preview.modifier.label}</strong>
+        <p>{preview.modifier.description}</p>
+      </div>
+      <div className="daily-streak" data-testid="daily-streak">
+        <span>Daily streak</span>
+        <strong>{dailyStreakLabel(streak)}</strong>
+        <p>Best {streak?.bestStreak ?? 0} days. Runs {streak?.totalDailyRuns ?? 0}.</p>
+      </div>
       <div className="schedule-row">
         <span>Spawn offset</span>
         <strong>+{preview.spawnTypeOffset}</strong>
