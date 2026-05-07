@@ -317,6 +317,34 @@ export function tickEnemy(
   }
 
   moveEnemyTowardPlayer(nextEnemy, nextPlayer, deltaMs, config)
+
+  // Skitter dash crossfire: closes F-013. While in an active dash burst,
+  // a skitter that overlaps another alive enemy applies infighting damage
+  // and ends its own burst so the dash reads as a single-target lunge.
+  if (nextEnemy.type === 'skitter' && nextEnemy.dashBurstMsRemaining > 0) {
+    for (const candidate of nearbyEnemies) {
+      if (candidate.id === nextEnemy.id) {
+        continue
+      }
+
+      const cdx = candidate.position.x - nextEnemy.position.x
+      const cdz = candidate.position.z - nextEnemy.position.z
+      const cDistance = Math.hypot(cdx, cdz)
+
+      if (cDistance <= nextEnemy.radius + candidate.radius) {
+        events.push({
+          type: 'enemyMeleeArcCrossfire',
+          sourceId: nextEnemy.id,
+          sourceType: nextEnemy.type,
+          targetEnemyId: candidate.id,
+          damage: config.attackDamage
+        })
+        nextEnemy.dashBurstMsRemaining = 0
+        break
+      }
+    }
+  }
+
   return { enemy: nextEnemy, player: nextPlayer, events }
 }
 
