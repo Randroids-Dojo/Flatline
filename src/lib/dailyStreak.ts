@@ -91,6 +91,7 @@ function isDailyStreakRecord(value: unknown): value is DailyStreakRecord {
   const record = value as DailyStreakRecord
   return (
     typeof record.lastPlayedDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(record.lastPlayedDate) &&
     Number.isInteger(record.currentStreak) &&
     record.currentStreak >= 1 &&
     Number.isInteger(record.bestStreak) &&
