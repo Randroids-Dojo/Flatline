@@ -1231,13 +1231,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           let runningPlayerHealth = playerCombatState.health
           const aggregatedEvents: EnemyEvent[] = []
 
+          const nearbyEnemies = enemiesRef.current
+            .filter((candidate) => candidate.state !== 'dead')
+            .map((candidate) => ({ id: candidate.id, position: candidate.position, radius: candidate.radius }))
+
           for (let i = 0; i < enemiesRef.current.length; i += 1) {
             const candidate = enemiesRef.current[i]
             const result = tickEnemy(
               candidate,
               { ...playerCombatState, health: runningPlayerHealth },
               delta * 1000,
-              enemyConfigs[candidate.type]
+              enemyConfigs[candidate.type],
+              nearbyEnemies
             )
             enemiesRef.current[i] = result.enemy
             runningPlayerHealth = result.player.health
@@ -1278,6 +1283,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               )
               playSpitterFireCue(settingsRef.current.audio)
               setStatus('Spitter loosed acid. Sidestep.')
+            } else if (event.type === 'enemyMeleeArcCrossfire') {
+              const idx = enemiesRef.current.findIndex((candidate) => candidate.id === event.targetEnemyId)
+              if (idx !== -1 && enemiesRef.current[idx].state !== 'dead') {
+                const crossfireDamage = Math.max(1, Math.round(event.damage * INFIGHTING_DAMAGE_SCALE))
+                const damaged = damageEnemy(enemiesRef.current[idx], crossfireDamage)
+                enemiesRef.current[idx] = damaged
+
+                if (damaged.id === enemiesRef.current[0]?.id) {
+                  setEnemyHealth(damaged.health)
+                }
+              }
             }
           }
 

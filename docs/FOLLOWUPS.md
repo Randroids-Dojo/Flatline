@@ -33,9 +33,9 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 - Priority: nice-to-have
 - Context: `docs/FUN_FACTOR_AUDIT.md` 2026-05-05. Q-008 picks the damage rule; recommended default is 50%. Lands cleanly *after* F-008 (spitter) is in, since the spitter is the first enemy with a projectile that can naturally hit other enemies. Brute melee swings and skitter dashes can also damage adjacent enemies under the same rule.
-- Blocker: brute swing arc and skitter dash crossfire still pending. Hazard-on-enemy shipped in PR #73 (50% damage, no kill credit). Spitter-projectile-on-enemy crossfire shipped alongside the multi-enemy refactor (50% damage, no kill credit, firing spitter excluded from its own splash). The remaining two crossfire shapes need new collision logic in the brute swing arc and skitter dash paths.
-- Unblock condition: extend brute melee swing damage to scan adjacent enemies inside the swing arc and apply 50% damage; extend skitter dash collision against other enemies (the skitter currently has no dash mechanic, so this depends on whether to add one or treat the chase contact moment as the hit window); optional aggro hook so an enemy hit by another enemy rolls a small probability to retarget the source.
-- Status: partial (hazard-on-enemy + spitter-projectile-on-enemy shipped; brute swing arc and skitter dash crossfire still pending)
+- Blocker: skitter dash crossfire still pending (the skitter currently has no dash mechanic). Hazard-on-enemy shipped in PR #73 (50% damage, no kill credit). Spitter-projectile-on-enemy crossfire shipped alongside the multi-enemy refactor (50% damage, no kill credit, firing spitter excluded from its own splash). Brute (and any future melee enemy with a wide arc) swing crossfire shipped in PR #88 via the new `enemyMeleeArcCrossfire` event and `nearbyEnemies` parameter on `tickEnemy`.
+- Unblock condition: add a dash mechanic to the skitter or treat the chase contact moment as the hit window; optional aggro hook so an enemy hit by another enemy rolls a small probability to retarget the source.
+- Status: partial (hazard-on-enemy, spitter-projectile-on-enemy, and brute swing arc crossfire shipped; skitter dash crossfire still pending)
 
 ## Polish
 
