@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Gameplay round 8: kill-confirm score floaters
+
+- Branch: `feat/round-8-score-floaters`
+- PR: #91
+- Changed: kill confirmation was previously routed through the score pill at the top of the HUD, so the player had to break their aim to read the bonus. Add per-kill floating "+score" text that appears at the dying enemy's last screen-space position and rises as it fades. New pure helper `src/game/scoreFloater.ts` exposes `SCORE_FLOATER_TTL_MS = 1200`, the `ScoreFloater` shape, `formatScoreFloaterText(delta)` (always leading "+", rounded, defensive against NaN / negative / Infinity), and `pruneExpiredFloaters(list, nowMs)`. `src/components/FlatlineGame.tsx` adds `scoreFloaters` state and a sequence ref. On kill in `damageEnemyById`, captures the pre-kill score, lets `recordKill` mutate, computes the actual delta, projects the enemy world position to NDC via the camera, converts to canvas pixel coords, and pushes a floater entry. A `setTimeout` cleans the entry after `SCORE_FLOATER_TTL_MS + 60`. `app/globals.css` adds a `.score-floaters-layer` (absolute, inset: 0, pointer-events: none, z-index 4) plus a `.score-floater` rule with a 1.2s ease-out keyframe rising 36 px and fading to 0. The layer is rendered as a sibling of `.hud` so its absolute children share the canvas pixel origin instead of inheriting the HUD's top:18 / left:18 offset.
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (43 files / 373 tests pass; 7 new tests for the helper). Visual verification of the floater motion and screen-space alignment is pending playtest; the projection math mirrors Three.js's standard `vector.project(camera)` plus NDC-to-pixel conversion.
+- Assumptions: Recommended default uses a CSS keyframe rather than per-frame style updates so the floater animation does not couple with the React render loop; React only mounts and unmounts the entry. Recommended default gates the floater on `inFront && in canvas bounds` so kills happening behind the camera or off-screen do not spawn ghost floaters at the wrong edge. Recommended default uses a single `setTimeout` for cleanup rather than a per-frame prune so the cleanup cost is O(1) per floater instead of O(n) per frame; the prune helper is exported for future consumers that want a per-frame model.
+- GDD coverage: REQ-038 (HUD readability) gains a build-log entry naming the new floater layer.
+- Followups: none new.
+
 ## 2026-05-06, Gameplay round 7: skitter dash crossfire, F-013 fully done
 
 - Branch: `feat/round-7-skitter-dash-crossfire`

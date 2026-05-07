@@ -798,6 +798,41 @@ button {
   background: rgba(255, 176, 79, 0.86);
 }
 
+.score-floaters-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.score-floater {
+  position: absolute;
+  pointer-events: none;
+  font-weight: 700;
+  font-size: 18px;
+  color: #ffe6a1;
+  text-shadow:
+    -1px -1px 0 #1a1a1a,
+    1px -1px 0 #1a1a1a,
+    -1px 1px 0 #1a1a1a,
+    1px 1px 0 #1a1a1a,
+    0 0 6px rgba(255, 230, 161, 0.6);
+  transform: translate(-50%, 0);
+  animation: score-floater-rise 1.2s ease-out forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes score-floater-rise {
+  0% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -36px);
+    opacity: 0;
+  }
+}
+
 @media (max-width: 720px) {
   .hud {
     top: max(8px, env(safe-area-inset-top));
