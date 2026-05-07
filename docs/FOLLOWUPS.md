@@ -95,7 +95,7 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Blocker: Q-007 (buff stack) recommended default suffices for ship.
 - Unblock condition: pure helper for buff envelope + spawn rule; renderer for the screen tint + audio loop layer.
 - Status: done
-- Resolved: PR #69. Shipped under Q-007 recommended default B (damage + speed + fire-rate, no invuln). New `src/game/rageBuff.ts` plus 21 unit tests; `FlatlineGame.tsx` adds buff state, applies multipliers in fire/move/damage paths, gates rage on `runMs >= 90s` and `targetPressureForRunMs >= 2`, plays a sawtooth swoop cue on grant, and renders a radial-gradient red tint plus a "Rage Active" HUD pill. Sustained pulse audio layer deferred to a follow-up.
+- Resolved: PR #69. Shipped under Q-007 recommended default B (damage + speed + fire-rate, no invuln). New `src/game/rageBuff.ts` plus 21 unit tests; `FlatlineGame.tsx` adds buff state, applies multipliers in fire/move/damage paths, gates rage on `runMs >= 90s` and `targetPressureForRunMs >= 2`, plays a sawtooth swoop cue on grant, and renders a radial-gradient red tint plus a "Rage Active" HUD pill. Sustained pulse audio layer deferred at ship; later landed in PR #86 as `src/game/ragePulse.ts` constants plus a `ragePulseLayerRef` lifecycle in `FlatlineGame.tsx` (80 Hz square bass + 4 Hz throb + 0.05 gain, started on activation and stopped on expiry / startRun / finishRun / unmount).
 
 ### F-008: Spitter ranged enemy v1 (REQ-031)
 

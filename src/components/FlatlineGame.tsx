@@ -74,6 +74,11 @@ import {
   musicIntensityGain
 } from '@/game/musicIntensity'
 import {
+  RAGE_PULSE_BASS_HZ,
+  RAGE_PULSE_GAIN,
+  RAGE_PULSE_THROB_HZ
+} from '@/game/ragePulse'
+import {
   SCORE_TOKEN_REARM_MS,
   scoreTokenActive,
   scoreTokenMultiplier,
@@ -274,6 +279,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const prevWaveRunMsRef = useRef<number>(-1)
   const prevActiveComboRef = useRef<number>(0)
   const musicLayerRef = useRef<{
+    context: AudioContext
+    masterGain: GainNode
+    bass: OscillatorNode
+    throb: OscillatorNode
+    throbGain: GainNode
+  } | null>(null)
+  const ragePulseLayerRef = useRef<{
     context: AudioContext
     masterGain: GainNode
     bass: OscillatorNode
@@ -626,6 +638,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
     stopMusicLayer(musicLayerRef.current)
     musicLayerRef.current = settingsRef.current.audio ? startMusicLayer() : null
+    stopRagePulseLayer(ragePulseLayerRef.current)
+    ragePulseLayerRef.current = null
   }, [isPractice])
 
   const finishRun = useCallback(() => {
@@ -667,6 +681,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
     stopMusicLayer(musicLayerRef.current)
     musicLayerRef.current = null
+    stopRagePulseLayer(ragePulseLayerRef.current)
+    ragePulseLayerRef.current = null
   }, [isPractice])
 
   const resumeRun = useCallback(() => {
@@ -997,6 +1013,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
         if (rageState !== null && !rageStillActive && rageNow - rageState.startMs >= RAGE_DURATION_MS) {
           rageBuffStateRef.current = null
+          stopRagePulseLayer(ragePulseLayerRef.current)
+          ragePulseLayerRef.current = null
         }
 
         setRageActive((current) => (current === rageStillActive ? current : rageStillActive))
@@ -1137,6 +1155,16 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               setRageActive(true)
               setStatus('Rage burst absorbed. Damage and speed amplified.')
               playRageCue(settingsRef.current.audio)
+              stopRagePulseLayer(ragePulseLayerRef.current)
+              ragePulseLayerRef.current = settingsRef.current.audio ? startRagePulseLayer() : null
+              if (ragePulseLayerRef.current) {
+                const ctx = ragePulseLayerRef.current.context
+                ragePulseLayerRef.current.masterGain.gain.setTargetAtTime(
+                  RAGE_PULSE_GAIN,
+                  ctx.currentTime,
+                  0.08
+                )
+              }
             } else if (tokenEligibleNow) {
               scoreTokenStateRef.current = { startMs: performance.now() }
               nextScoreTokenEligibleRunMsRef.current = directorRef.current.runMs + SCORE_TOKEN_REARM_MS
@@ -1302,6 +1330,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             const audioEnabled = settingsRef.current.audio
             const gainNow = audioEnabled ? musicIntensityGain(ratio) * MUSIC_PEAK_GAIN : 0
             musicLayer.masterGain.gain.setTargetAtTime(gainNow, musicLayer.context.currentTime, 0.12)
+          }
+
+          const ragePulseLayer = ragePulseLayerRef.current
+          if (ragePulseLayer !== null) {
+            const audioEnabled = settingsRef.current.audio
+            const target = audioEnabled ? RAGE_PULSE_GAIN : 0
+            ragePulseLayer.masterGain.gain.setTargetAtTime(target, ragePulseLayer.context.currentTime, 0.08)
           }
 
           const directorTick = tickDirector(
@@ -1481,6 +1516,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
       stopMusicLayer(musicLayerRef.current)
       musicLayerRef.current = null
+      stopRagePulseLayer(ragePulseLayerRef.current)
+      ragePulseLayerRef.current = null
       if (runtimeRef.current) {
         disposeEnemySlots(runtimeRef.current.enemySlots)
       }
@@ -2905,6 +2942,73 @@ function startMusicLayer(): {
 }
 
 function stopMusicLayer(layer: {
+  context: AudioContext
+  masterGain: GainNode
+  bass: OscillatorNode
+  throb: OscillatorNode
+  throbGain: GainNode
+} | null) {
+  if (layer === null) {
+    return
+  }
+
+  try {
+    layer.bass.stop()
+  } catch {
+    // already stopped
+  }
+
+  try {
+    layer.throb.stop()
+  } catch {
+    // already stopped
+  }
+
+  void layer.context.close().catch(() => {
+    // noop
+  })
+}
+
+function startRagePulseLayer(): {
+  context: AudioContext
+  masterGain: GainNode
+  bass: OscillatorNode
+  throb: OscillatorNode
+  throbGain: GainNode
+} | null {
+  if (typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return null
+  }
+
+  const context = new window.AudioContext()
+  const masterGain = context.createGain()
+  masterGain.gain.value = 0
+  masterGain.connect(context.destination)
+
+  const bass = context.createOscillator()
+  bass.type = 'square'
+  bass.frequency.value = RAGE_PULSE_BASS_HZ
+
+  const throb = context.createOscillator()
+  throb.type = 'sine'
+  throb.frequency.value = RAGE_PULSE_THROB_HZ
+  const throbGain = context.createGain()
+  throbGain.gain.value = 0.5
+  const throbDepth = context.createGain()
+  throbDepth.gain.value = 0.5
+  throb.connect(throbDepth)
+  throbDepth.connect(throbGain.gain)
+
+  bass.connect(throbGain)
+  throbGain.connect(masterGain)
+
+  bass.start()
+  throb.start()
+
+  return { context, masterGain, bass, throb, throbGain }
+}
+
+function stopRagePulseLayer(layer: {
   context: AudioContext
   masterGain: GainNode
   bass: OscillatorNode

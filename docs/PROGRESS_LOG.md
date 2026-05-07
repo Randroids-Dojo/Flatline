@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Gameplay round 3: sustained rage pulse audio layer
+
+- Branch: `feat/round-3-rage-pulse-audio`
+- PR: #86
+- Changed: F-011 (rage / berserk pickup) shipped a one-shot swoop on grant plus a screen-edge red tint, but had no sustained audio while the buff was active. The state read as "I had a sound effect" instead of "I am the threat now." New constants `src/game/ragePulse.ts` (`RAGE_PULSE_BASS_HZ = 80`, `RAGE_PULSE_THROB_HZ = 4`, `RAGE_PULSE_GAIN = 0.05`); the bass sits above the music layer's 60 Hz so the two layers do not muddy, and the throb is faster than the music's 3.2 Hz so the cue reads as an angry heartbeat. `src/components/FlatlineGame.tsx` adds `ragePulseLayerRef`, `startRagePulseLayer` (square bass + sine LFO modulating an inner gain + master gain, mirroring the existing music layer pattern), `stopRagePulseLayer`, lifecycle hooks at rage activation (start + ramp gain in via `setTargetAtTime`), rage expiry (stop), `startRun` (clear residual), `finishRun` (stop), unmount (stop), and a per-frame `setTargetAtTime` so the layer mutes if `settings.audio` toggles off mid-rage. Resolves the deferred follow-up note from the F-011 entry in `docs/FOLLOWUPS.md`.
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (40 files / 346 tests pass; 3 new constant-shape tests for `ragePulse`).
+- Assumptions: Recommended default uses 80 Hz square bass (above the 60 Hz music sawtooth) and a 4 Hz throb (faster than the 3.2 Hz music throb) so the layers stack rather than blend. Recommended default uses gain 0.05 so the cue is felt without dominating combat audio. Recommended default mirrors the music layer's per-frame setTargetAtTime mute so the audio toggle path covers both layers consistently.
+- GDD coverage: REQ-040 (audio) gains a build-log entry naming the rage pulse layer.
+- Followups: F-011's deferred "sustained pulse audio layer" note is now satisfied. No new followups.
+
 ## 2026-05-06, Gameplay round 2: boomstick point-blank damage ramp
 
 - Branch: `feat/round-2-boomstick-pointblank`
