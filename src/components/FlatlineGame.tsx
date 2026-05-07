@@ -43,7 +43,7 @@ import {
 } from '@/game/spitterProjectile'
 import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
 import { hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
-import { hitstopScaleAtElapsedMs, hitstopStyle, type HitstopStyle } from '@/game/hitstop'
+import { hitstopOnKill, hitstopScaleAtElapsedMs, hitstopStyle, type HitstopStyle } from '@/game/hitstop'
 import { knockbackDistance } from '@/game/knockback'
 import {
   hudGrainOpacity,
@@ -398,8 +398,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       const enemyPosition = enemy.position
       const damaged = damageEnemy(enemy, damage)
       enemies[index] = damaged
+      const baseHitstop = hitstopStyle(selectedWeaponRef.current)
       hitstopStateRef.current = {
-        style: hitstopStyle(selectedWeaponRef.current),
+        style: damaged.state === 'dead' ? hitstopOnKill(baseHitstop) : baseHitstop,
         startMs: performance.now()
       }
 

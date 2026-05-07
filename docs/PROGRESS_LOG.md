@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Gameplay round 10: kill-confirm hitstop weight (final round)
+
+- Branch: `feat/round-10-kill-hitstop`
+- PR: #93
+- Changed: every confirmed hit set the hitstop ref to the per-weapon `hitstopStyle(...)`, so the kill-confirm moment used the same scale dip and duration as a chip-damage tick. The kill failed to read heavier than mid-fight progression. New helper `hitstopOnKill(base)` in `src/game/hitstop.ts` extends the duration by `HITSTOP_KILL_DURATION_MULT = 1.6` and pulls the scale lower by `HITSTOP_KILL_SCALE_MULT = 0.5` so the freeze is felt as a beat rather than a single frame, and the kill reads heavier than a chip hit at the same weapon. Per-weapon ordering is preserved on the kill (peashooter kill stays the snappiest, boomstick kill stays the heaviest). `src/components/FlatlineGame.tsx` `damageEnemyById` selects the kill variant when `damaged.state === 'dead'` and otherwise uses the existing base style.
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (43 files / 378 tests pass; 3 new tests for `hitstopOnKill`).
+- Assumptions: Recommended default keeps the multipliers as constants in `hitstop.ts` rather than passing them as args because the kill-feel rule applies uniformly across weapons; if a future slice wants per-weapon kill multipliers, this is the obvious extension point. Recommended default applies the kill scale to the base style (not to a fully separate style table) so any future weapon added to the per-weapon table automatically inherits a coherent kill feel without a duplicate map.
+- GDD coverage: REQ-027 (Weapon Boomstick), REQ-026 (Weapon Peashooter), REQ-028 (Weapon Inkblaster) all benefit from the kill feel beat; the build-log entry lives in `docs/gdd/24-weapon-boomstick.md` because the boomstick is the iconic kill verb.
+- Followups: none new. Closes the 10-round gameplay enhancement loop.
+
 ## 2026-05-06, Gameplay round 9: best-local-score line on the start panel
 
 - Branch: `feat/round-9-best-score`
