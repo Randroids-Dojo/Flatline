@@ -17,22 +17,25 @@ export function createDailyStreakRecord(dateKey: string): DailyStreakRecord {
 }
 
 export function readDailyStreak(storage: Storage): DailyStreakRecord | null {
-  const raw = storage.getItem(dailyStreakStorageKey)
-
-  if (!raw) {
-    return null
-  }
-
   try {
+    const raw = storage.getItem(dailyStreakStorageKey)
+    if (!raw) {
+      return null
+    }
     const parsed = JSON.parse(raw)
     return isDailyStreakRecord(parsed) ? parsed : null
   } catch {
+    // SecurityError (private-browsing) or malformed JSON: streak data is non-critical, treat as absent.
     return null
   }
 }
 
-export function writeDailyStreak(storage: Storage, record: DailyStreakRecord) {
-  storage.setItem(dailyStreakStorageKey, JSON.stringify(record))
+export function writeDailyStreak(storage: Storage, record: DailyStreakRecord): void {
+  try {
+    storage.setItem(dailyStreakStorageKey, JSON.stringify(record))
+  } catch {
+    // QuotaExceededError or SecurityError on locked-down browsers; swallow silently.
+  }
 }
 
 export function recordDailyRun(previous: DailyStreakRecord | null, dateKey: string): DailyStreakRecord {

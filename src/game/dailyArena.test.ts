@@ -58,4 +58,12 @@ describe('daily arena config', () => {
     expect(dailyCadenceScale(tunedConfig)).toBe(modifier.cadenceScale)
     expect(dailyKillScoreMultiplier(tunedConfig)).toBe(modifier.killScoreMultiplier)
   })
+
+  it('bakes modifier.supplyCooldownScale into config.supplyCooldownMs', () => {
+    const config = createDailyArenaConfig('flatline-20260430')
+    // Back-derive the base cooldown; it must fall in [7000, 12000) regardless of scale.
+    const estimatedBase = config.supplyCooldownMs / config.modifier.supplyCooldownScale
+    expect(estimatedBase).toBeGreaterThanOrEqual(7000 - 1)
+    expect(estimatedBase).toBeLessThan(12000 + 1)
+  })
 })
