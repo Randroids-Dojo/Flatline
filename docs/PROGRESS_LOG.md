@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-06, Gameplay round 1: combo break audio cue
+
+- Branch: `feat/round-1-combo-break-cue`
+- PR: #84
+- Changed: when a combo of 2+ kills times out without a fresh kill, the HUD pill silently snaps to 0 with no audio feedback. The player loses a real bonus track but the cue is invisible. New helper `src/game/comboBreakCue.ts` exposes `comboBreakCue()` (descending two-tone triangle, 620 Hz then 360 Hz over 80 + 110 ms, gain 0.05) and `comboJustBroke(prev, current)` (true when current is 0 and prev was at least `COMBO_BREAK_MIN_PRIOR = 2`). `src/components/FlatlineGame.tsx` adds `prevActiveComboRef`, calls the predicate each frame against the existing `activeCombo` calculation, plays the cue through a new `playComboBreakCue` helper that mirrors `playDashCue`, and resets the ref on `startRun`. Cue is gated on `settingsRef.current.audio` so the audio toggle and mute path already cover it.
+- Verification: dash check (clean), `npm run typecheck`, `npm run test` (38 files / 340 tests pass; 7 new tests for the helper).
+- Assumptions: Recommended default fires the cue only on a 2+ kill streak. A 1-kill streak that times out is normal pacing; cueing it would over-trigger and turn into noise. Recommended default uses a triangle waveform and 0.05 gain so the cue sits between the muted enemy windup beeps and the louder weapon stings, audible without competing with active combat.
+- GDD coverage: REQ-040 (audio) gains a build-log entry naming the new combo break cue.
+- Followups: none new.
+
 ## 2026-05-06, Cleanup round 10: name the F-013 infighting damage scale
 
 - Branch: `chore/cleanup-round-10-infighting-constant`
