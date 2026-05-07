@@ -18,6 +18,46 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-07, Daily streak return hook
+
+- Branch: `chore/ten-round-cleanup`
+- PR: local only
+- Changed: added a local daily streak record so daily mode gives returning players a visible continuity hook before the run starts. New `src/lib/dailyStreak.ts` stores last played date, current streak, best streak, and total daily runs in localStorage; `src/components/FlatlineGame.tsx` updates it after daily runs and passes it into the daily schedule panel; `app/globals.css` adds the compact streak card.
+- Verification: `rg -n '[\u2013\u2014]' . -g '!node_modules/**' -g '!.git/**' -g '!.next/**'`, `git diff --check`, `npm run lint`, `npm run typecheck`, `npm run test -- src/lib/dailyStreak.test.ts src/game/dailyArena.test.ts`, `npm run test` (44 files / 387 tests pass), `npm run build`, `npm run test:e2e` (9 passed, 3 skipped).
+- Assumptions: Recommended default records streak completion when a daily run ends, not when the panel opens, so the streak reflects participation rather than page views. Recommended default keeps this local-only because it is a personal return signal, while fair competition stays on the shared daily leaderboard.
+- GDD coverage: REQ-007 remains `done`, adds `src/lib/dailyStreak.ts` and `src/lib/dailyStreak.test.ts`, and gains a build-log entry in `docs/gdd/07-mode-daily.md`.
+- Followups: none new.
+
+## 2026-05-07, CodeRabbit review loop docs
+
+- Branch: `chore/ten-round-cleanup`
+- PR: local only
+- Changed: updated the forward-looking PR review contract in `AGENTS.md`, `docs/WORKING_AGREEMENT.md`, and `docs/IMPLEMENTATION_PLAN.md` so agents wait for and treat CodeRabbit as the active bot reviewer now that the Copilot review quota is exhausted. Historical Copilot references in old PR notes were left intact because they describe past review events.
+- Verification: `rg -n '[\u2013\u2014]' . -g '!node_modules/**' -g '!.git/**' -g '!.next/**'`, `git diff --check`, `npm run typecheck`.
+- Assumptions: Recommended default keeps the generic "other bot reviewer" fallback so the loop still works if more than one bot comments on a PR.
+- GDD coverage: none. Process-only documentation update.
+- Followups: none new.
+
+## 2026-05-07, Daily twist modifiers
+
+- Branch: `chore/ten-round-cleanup`
+- PR: local only
+- Changed: ran a ten-round gameplay and replay analysis, then added deterministic daily twist modifiers so daily mode has a clearer returning-player hook. `src/game/dailyArena.ts` now selects one seed-stable modifier with cadence, supply cooldown, and kill-score tuning; `src/components/FlatlineGame.tsx` applies daily cadence and kill-score multipliers; and the daily schedule panel shows the named twist before the run. `app/globals.css` adds the compact twist panel treatment.
+- Verification: `npm run typecheck`, `npm run test -- src/game/dailyArena.test.ts`, `npm run test` (43 files / 381 tests pass), `npm run lint`, `npm run build`, `git diff --check`, `rg -n '[\u2013\u2014]' . -g '!node_modules/**' -g '!.git/**' -g '!.next/**'`. `npm run test:e2e` had one desktop timing failure on the existing weapon recovery assertion, then `npx playwright test tests/smoke.spec.ts:3 --project=chromium` passed on rerun; daily route smoke passed in the full run.
+- Assumptions: Recommended default keeps modifiers small and daily-only so score comparability remains fair and the normal endless route stays stable. Recommended default uses the existing daily schedule panel rather than a separate tutorial modal because replay hooks should be visible without blocking the first run.
+- GDD coverage: REQ-007 remains `done` and gains a build-log entry in `docs/gdd/07-mode-daily.md`; REQ-002 gains a build-log entry in `docs/gdd/02-design-pillars.md`.
+- Followups: none new.
+
+## 2026-05-07, Ten-round review cleanup
+
+- Branch: `chore/ten-round-cleanup`
+- PR: local only
+- Changed: restored Codex path-scoped rule symlinks for `src/`, `app/`, and `tests/`; corrected the README's canonical GDD pointer from the archived `GDD.md` to `docs/gdd/`; cleared stale Dots backlog entries that were already shipped; and preserved the remaining crossfire aggro-retarget idea as `F-016` instead of leaving it buried in a completed infighting task. `docs/GDD_COVERAGE.json` now links `F-016` from REQ-015 so the gap is discoverable from requirement review.
+- Verification: `npm run lint`, `npm run typecheck`, `npm run test` (43 files / 378 tests pass), `npm run build`, `npm run test:e2e` (9 passed, 3 skipped), `git diff --check`, `rg -n '[\u2013\u2014]' . -g '!node_modules/**' -g '!.git/**' -g '!.next/**'`.
+- Assumptions: Recommended default treats crossfire aggro retargeting as nice-to-have followup scope because F-013's shipped and resolved behavior covers damage scaling, source exclusion, and no player kill credit, while aggro was only present in the stale Dots task description.
+- GDD coverage: REQ-015 gains followup ref `F-016`; no GDD section build log changes because no feature behavior shipped.
+- Followups: created `F-016`.
+
 ## 2026-05-06, Gameplay round 10: kill-confirm hitstop weight (final round)
 
 - Branch: `feat/round-10-kill-hitstop`

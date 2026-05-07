@@ -593,6 +593,60 @@ button {
   text-align: left;
 }
 
+.daily-twist {
+  display: grid;
+  gap: 3px;
+  padding: 9px;
+  border: 1px solid rgba(240, 198, 104, 0.28);
+  border-radius: 6px;
+  background: rgba(240, 198, 104, 0.08);
+}
+
+.daily-twist span {
+  color: rgba(244, 241, 232, 0.68);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.daily-twist strong {
+  color: var(--ink);
+  font-size: 17px;
+}
+
+.daily-twist p {
+  margin: 0;
+  color: rgba(244, 241, 232, 0.78);
+  font-size: 12px;
+}
+
+.daily-streak {
+  display: grid;
+  gap: 3px;
+  padding: 9px;
+  border: 1px solid rgba(98, 210, 178, 0.24);
+  border-radius: 6px;
+  background: rgba(98, 210, 178, 0.08);
+}
+
+.daily-streak span {
+  color: rgba(244, 241, 232, 0.68);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.daily-streak strong {
+  color: var(--accent);
+  font-size: 17px;
+}
+
+.daily-streak p {
+  margin: 0;
+  color: rgba(244, 241, 232, 0.78);
+  font-size: 12px;
+}
+
 .schedule-row,
 .schedule-hazards li {
   display: grid;

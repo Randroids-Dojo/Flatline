@@ -29,7 +29,12 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Nice To Have
 
-(none yet)
+### F-016: Crossfire aggro retargeting
+
+- Priority: nice-to-have
+- Context: The original Dots task for F-013 included an aggro-retarget idea after cross-faction damage, but the shipped F-013 slices resolved only the crossfire damage rule. Spitter projectiles, brute swings, skitter dash collisions, and hazard-on-enemy damage now apply 50% infighting damage without player kill credit. Enemies still keep their normal player-targeting behavior after taking crossfire damage.
+- Blocker: none.
+- Unblock condition: add a small retarget rule with tests that proves crossfire damage can briefly redirect an enemy toward the source enemy without crediting the player for resulting enemy-on-enemy kills.
 
 ## Polish
 

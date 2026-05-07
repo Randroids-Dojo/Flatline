@@ -53,6 +53,54 @@ Append-only. Earlier audits are preserved.
 
 ## Audit log
 
+### Audit 2026-05-07 (ten-round mass-appeal replay read)
+
+Trigger: dev directive "Do ten rounds of gameplay analysis and research then enhance what we have for mass appeal and replay value." The local build already has the prior Doom-feel pass: dash, hitstop, knockback, spitter, waves, rage, score token, adaptive music, score floaters, and best-score readout. This pass asked what the smallest next hook is for a broader audience and returning players.
+
+Research anchors used: current GDD pillars, release playtest checklist, prior fun audit, current daily mode implementation, Doom combat analysis around push-forward combat and combat chess, arcade replay loops built around short runs and score chasing, and roguelite daily challenge patterns where a fixed seed lets players compare one fair variant.
+
+Follow-up pass after local daily twists were already present in the worktree:
+
+Round 1. The daily twist gives today's run a reason, but it does not tell a returning player that yesterday mattered.
+
+Round 2. A personal streak is easier to understand than account XP, unlock currencies, or a cosmetic shop.
+
+Round 3. The streak should be local-only for now because the shared daily leaderboard already owns public competition.
+
+Round 4. Recording on run completion is more honest than recording when the page loads.
+
+Round 5. Same-day retries should increase total daily runs but not inflate the streak length.
+
+Round 6. UTC date keys match existing daily seed and shared leaderboard date behavior, keeping the daily reset consistent.
+
+Round 7. Showing best streak and total daily runs gives both casual and returning players a small progress read without affecting score fairness.
+
+Round 8. The start panel already contains the daily schedule, so the streak belongs there rather than in a modal or post-run gate.
+
+Round 9. Implementation fit is low-risk: a pure localStorage helper plus one React state update after daily `finishRun`.
+
+Round 10. Slice picked: local daily streak return hook. It improves replay value without adding combat rules, progression economy, or account requirements.
+
+Round 1. First 30 seconds: the game already says move, shoot, survive. The start panel can better sell today's reason to play.
+
+Round 2. Mass appeal: avoid adding build crafting or inventory. A clear one-line modifier is easier to understand than a progression tree.
+
+Round 3. Replay hook: daily seed and daily leaderboard exist, but the daily run can still feel like a shuffled version of the same arena.
+
+Round 4. Fair competition: deterministic modifiers preserve leaderboard comparability because all daily players get the same rule.
+
+Round 5. Skill expression: small scoring and pressure changes reward different tactics without replacing aim, movement, and target priority.
+
+Round 6. Surprise: rotating named modifiers create a pre-run "what is today?" moment for returning players.
+
+Round 7. Risk: too many modifier axes would make the score board hard to trust. Keep the first set to cadence, supplies, and kill-score multiplier.
+
+Round 8. UI: the daily panel already previews spawn and hazard shape, so it is the right place to show the twist without adding a modal.
+
+Round 9. Implementation fit: `src/game/dailyArena.ts` already owns deterministic date-seed tuning, and `recordKill` already accepts a multiplier, so this lands with low architectural risk.
+
+Round 10. Slice picked: daily twist modifiers. This improves replay value immediately, creates a daily return signal, and stays inside the GDD pillars.
+
 ### Audit 2026-05-05 (find-the-fun, Doom feel)
 
 Trigger: dev directive "Find the fun. What makes Doom fun. Expand the game closer to Doom." Coverage is 43/65 done (66%), below the formal ≥80% gate, but the qualitative read of the build is far enough along (3 weapons, 3 enemies, 3 hazards, scoring V2, audio cues, HUD treatment, door state machine, arena landmarks) that fun-factor work now compounds with the polish in flight rather than gating it.
