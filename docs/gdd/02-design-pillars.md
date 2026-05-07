@@ -66,4 +66,5 @@ Replay hooks:
 
 ### Build log
 
+- 2026-05-07: Daily twist modifiers add a replay hook to pillar 2 and pillar 4. The room stays the same physical arena, but daily seeds now change pressure, scoring, or supply timing in a pre-run-readable way.
 - 2026-05-03: Pillars split out of `GDD.md`. Pillar 1 (instant violence) and pillar 3 (2D in 3D) realized in code; pillar 2 (one room many states) only partially realized (lighting and spawn doors land; moving cover, props, fog, layout variants do not).

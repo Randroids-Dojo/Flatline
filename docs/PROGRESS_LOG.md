@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-07, Daily replay hooks (streak + twist modifiers)
+
+- Branch: `feat/daily-replay-hooks-slice-c`
+- PR: pending (slice C of the WIP triage)
+- Changed: added two replay hooks to daily mode driven by a ten-round gameplay and replay analysis. (1) Local daily streak record. New `src/lib/dailyStreak.ts` stores last played date, current streak, best streak, and total daily runs in localStorage; `src/components/FlatlineGame.tsx` updates it when a daily run ends and passes it into the daily schedule panel; `app/globals.css` adds the compact streak card. (2) Deterministic daily twist modifiers. `src/game/dailyArena.ts` now picks one seed-stable modifier (score rush, pressure wave, thin supplies, clean kills) and exposes cadence, supply cooldown, and kill-score multipliers; `src/components/FlatlineGame.tsx` applies cadence and kill-score multipliers and the daily schedule panel surfaces the named twist before the run; `app/globals.css` adds the twist panel treatment.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (44 files / 387 tests pass; new tests in `src/lib/dailyStreak.test.ts` and `src/game/dailyArena.test.ts`), `npm run lint`, `npm run build`, `npm run test:e2e` (9 passed, 3 skipped on stable rerun).
+- Assumptions: Recommended default records streak completion when a daily run ends, not when the panel opens, so the streak reflects participation rather than page views. Recommended default keeps streak data local-only because it is a personal return signal, while fair competition stays on the shared daily leaderboard. Recommended default keeps modifiers small and daily-only so score comparability remains fair and endless mode is unaffected. Recommended default uses the existing daily schedule panel rather than a tutorial modal because replay hooks should be visible without blocking the first run.
+- GDD coverage: REQ-007 remains `done`, adds `src/lib/dailyStreak.ts` and `src/lib/dailyStreak.test.ts` to its refs, and gains two build-log entries in `docs/gdd/07-mode-daily.md`. REQ-002 gains a build-log entry in `docs/gdd/02-design-pillars.md` for the new replay-hook pillar tie-in.
+- Followups: none new.
+
 ## 2026-05-06, Gameplay round 10: kill-confirm hitstop weight (final round)
 
 - Branch: `feat/round-10-kill-hitstop`
