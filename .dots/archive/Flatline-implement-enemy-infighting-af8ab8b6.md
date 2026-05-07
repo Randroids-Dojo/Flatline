@@ -3,7 +3,7 @@ title: "implement: enemy infighting (cross-faction crossfire)"
 status: closed
 priority: 3
 issue-type: task
-created-at: "\"2026-05-05T21:23:09.848789-05:00\""
+created-at: "2026-05-05T21:23:09.848789-05:00"
 closed-at: "2026-05-06T20:59:43.588776-05:00"
 close-reason: "Damage portions shipped in PR #73, #74, #88, and #90. Remaining aggro-retarget idea preserved as F-016."
 ---

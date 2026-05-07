@@ -3,7 +3,7 @@ title: "research: Doom-feel slice ordering and tuning targets"
 status: closed
 priority: 1
 issue-type: task
-created-at: "\"2026-05-05T21:23:22.436450-05:00\""
+created-at: "2026-05-05T21:23:22.436450-05:00"
 closed-at: "2026-05-06T20:59:43.588088-05:00"
 close-reason: "Resolved by FUN_FACTOR_AUDIT and gameplay rounds PR #64 through #93, covering hitstop, knockback, dash, and tuned feel followups."
 ---

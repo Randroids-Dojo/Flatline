@@ -3,7 +3,7 @@ title: "research: adaptive music architecture in Web Audio"
 status: closed
 priority: 3
 issue-type: task
-created-at: "\"2026-05-05T21:23:27.177044-05:00\""
+created-at: "2026-05-05T21:23:27.177044-05:00"
 closed-at: "2026-05-06T20:59:43.584169-05:00"
 close-reason: "Resolved by F-015 and PR #71. Procedural Web Audio layer shipped with tests and GDD audio ledger entry."
 ---
