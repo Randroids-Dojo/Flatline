@@ -16,7 +16,7 @@ Every slice follows the same loop:
 8. Open a PR.
 9. Inspect review comments and threaded inline comments.
 10. Fix actionable feedback, reply when useful, resolve threads.
-11. After every push to the PR branch, wait for any configured bot reviewer to finish its review pass, then re-inspect reviews and threaded comments. The wait is settled only when all required checks are green AND at least 60 seconds have passed since the latest PR branch push or latest bot review activity, whichever is later. If no fresh bot review appears after that, record that no new bot feedback was posted after the push.
+11. After every push to the PR branch, wait for CodeRabbit or any configured bot reviewer to finish its review pass, then re-inspect reviews and threaded comments. The wait is settled only when all required checks are green AND at least 60 seconds have passed since the latest PR branch push or latest bot review activity, whichever is later. If no fresh bot review appears after that, record that no new bot feedback was posted after the push.
 12. Wait for CI and preview deploy to pass.
 13. Merge only when green and bot review has settled after the latest push.
 14. Pull `main`, verify main CI and production deploy, smoke test production.

@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-07, Post-F-013 housekeeping (followups, plan, README)
+
+- Branch: `chore/post-f013-housekeeping-slice-d`
+- PR: #98 (slice D of the WIP triage)
+- Changed: paperwork that fell out of slice A's F-013 closure plus two stale-doc fixes that were sitting in the same WIP tree. `docs/FOLLOWUPS.md` adds `F-016` (crossfire aggro retargeting), the remaining idea from the original F-013 dot that did not ship in PRs #73 / #74 / #88 / #90, so the gap is discoverable from the followup ledger rather than buried in an archived task. `docs/GDD_COVERAGE.json` REQ-015 now links `F-016` and bumps `updatedAt`. `docs/IMPLEMENTATION_PLAN.md` step 11 swaps the generic "any configured bot reviewer" wording for the explicit "CodeRabbit or any configured bot reviewer", finishing the Copilot to CodeRabbit rewording started in PR #94. `README.md` corrects the canonical project-doc pointer from the archived `GDD.md` to `docs/gdd/`.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, no code paths touched.
+- Assumptions: Recommended default treats crossfire aggro retargeting as nice-to-have followup scope because the F-013 slices that shipped already cover damage scaling, source exclusion, and no player kill credit; aggro retargeting was only ever in the dot description. Recommended default closes out the bot-name rewording across all three loop docs (AGENTS.md and WORKING_AGREEMENT.md in PR #94, IMPLEMENTATION_PLAN.md here) so the loop reads consistently regardless of which doc an agent reads first.
+- GDD coverage: REQ-015 picks up `F-016` followup ref. No section build logs because no feature behavior shipped.
+- Followups: created `F-016`.
+
 ## 2026-05-07, Daily replay hooks (streak + twist modifiers)
 
 - Branch: `feat/daily-replay-hooks-slice-c`

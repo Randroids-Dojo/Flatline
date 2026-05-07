@@ -4,7 +4,7 @@ An endless single-room Doom-like shooter where hand-drawn flat enemies swarm you
 
 ## Project Docs
 
-- `GDD.md`: canonical game design document.
+- `docs/gdd/`: canonical requirement-granular game design document.
 - `AGENTS.md`: required operating rules for agentic coding tools.
 - `docs/IMPLEMENTATION_PLAN.md`: backlog shape, slice order, loop rules, and definitions of done.
 - `docs/WORKING_AGREEMENT.md`: branch, commit, PR, review, CI, and deploy rules.
