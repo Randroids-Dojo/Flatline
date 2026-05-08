@@ -22,7 +22,17 @@ export type EnemyModel = {
   animationTimeMs: number
   attackCooldownMs: number
   dashBurstMsRemaining: number
+  // F-016 v1: time remaining in a crossfire stagger window. While > 0 the
+  // enemy stops chasing the player and faces the source of the infighting
+  // damage. Decremented by tickEnemy.
+  crossfireStaggerMs: number
 }
+
+// F-016 v1 tuning. Probability is the chance per crossfire damage event
+// that the victim enters the stagger window; duration is how long the
+// victim freezes player chase and faces the source.
+export const CROSSFIRE_STAGGER_PROBABILITY = 0.35
+export const CROSSFIRE_STAGGER_DURATION_MS = 700
 
 export type PlayerCombatState = {
   position: Vec3
@@ -161,7 +171,34 @@ export function createEnemy(type: EnemyType, id: string, position: Vec3, playerP
     facingAngle: angleBetween(position, playerPosition),
     animationTimeMs: 0,
     attackCooldownMs: 0,
-    dashBurstMsRemaining: 0
+    dashBurstMsRemaining: 0,
+    crossfireStaggerMs: 0
+  }
+}
+
+// F-016 v1. Pure helper: given a roll in [0, 1), returns the enemy
+// updated with a stagger window and a facing angle pointing at the
+// source of the crossfire damage if the roll lands under
+// CROSSFIRE_STAGGER_PROBABILITY. Dead enemies are returned unchanged.
+// The caller is responsible for supplying the roll so production code
+// can use Math.random() while tests inject deterministic values.
+export function applyCrossfireStagger(
+  enemy: EnemyModel,
+  source: { position: Vec3 },
+  roll: number
+): EnemyModel {
+  if (enemy.state === 'dead') {
+    return enemy
+  }
+
+  if (roll >= CROSSFIRE_STAGGER_PROBABILITY) {
+    return enemy
+  }
+
+  return {
+    ...enemy,
+    crossfireStaggerMs: CROSSFIRE_STAGGER_DURATION_MS,
+    facingAngle: angleBetween(enemy.position, source.position)
   }
 }
 
@@ -196,21 +233,42 @@ export function tickEnemy(
     return { enemy, player, events: [] }
   }
 
+  // F-016 v1: stagger consumes wall-clock time first. Animation, attack
+  // windup, attack release, attack cooldown, and dash burst progression
+  // only advance with the un-staggered remainder of the frame so a long
+  // frame cannot bypass the freeze, and a stagger applied mid-windup
+  // pauses the windup instead of letting it elapse.
+  const staggerConsumedMs = Math.min(enemy.crossfireStaggerMs, deltaMs)
+  const activeDeltaMs = deltaMs - staggerConsumedMs
+
   const events: EnemyEvent[] = []
   const nextEnemy = {
     ...enemy,
     position: { ...enemy.position },
     velocity: { ...enemy.velocity },
-    animationTimeMs: enemy.animationTimeMs + deltaMs,
-    attackCooldownMs: Math.max(0, enemy.attackCooldownMs - deltaMs),
-    dashBurstMsRemaining: Math.max(0, enemy.dashBurstMsRemaining - deltaMs)
+    animationTimeMs: enemy.animationTimeMs + activeDeltaMs,
+    attackCooldownMs: Math.max(0, enemy.attackCooldownMs - activeDeltaMs),
+    dashBurstMsRemaining: Math.max(0, enemy.dashBurstMsRemaining - activeDeltaMs),
+    crossfireStaggerMs: Math.max(0, enemy.crossfireStaggerMs - deltaMs)
   }
   const nextPlayer = { ...player, position: { ...player.position } }
 
-  nextEnemy.facingAngle = angleBetween(nextEnemy.position, nextPlayer.position)
+  if (nextEnemy.crossfireStaggerMs <= 0) {
+    nextEnemy.facingAngle = angleBetween(nextEnemy.position, nextPlayer.position)
+  }
 
   if (nextEnemy.health <= 0) {
     nextEnemy.state = 'dead'
+    nextEnemy.velocity = { x: 0, y: 0, z: 0 }
+    return { enemy: nextEnemy, player: nextPlayer, events }
+  }
+
+  // If the entire frame was consumed by the stagger window, freeze
+  // velocity and return without running chase, attack, or dash logic.
+  // Any state ('chase', 'attackWindup', 'attackRelease', 'hurt') is
+  // implicitly paused because activeDeltaMs is 0 and animation timers
+  // did not advance.
+  if (activeDeltaMs === 0) {
     nextEnemy.velocity = { x: 0, y: 0, z: 0 }
     return { enemy: nextEnemy, player: nextPlayer, events }
   }
@@ -316,7 +374,7 @@ export function tickEnemy(
     nextEnemy.attackCooldownMs = SKITTER_DASH_REARM_COOLDOWN_MS
   }
 
-  moveEnemyTowardPlayer(nextEnemy, nextPlayer, deltaMs, config)
+  moveEnemyTowardPlayer(nextEnemy, nextPlayer, activeDeltaMs, config)
 
   // Skitter dash crossfire: closes F-013. While in an active dash burst,
   // a skitter that overlaps another alive enemy applies infighting damage

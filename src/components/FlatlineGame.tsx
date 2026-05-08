@@ -27,7 +27,7 @@ import {
   type DailyArenaConfig,
   type DailySchedulePreview
 } from '@/game/dailyArena'
-import { createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
+import { applyCrossfireStagger, createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
@@ -1350,10 +1350,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               if (idx !== -1 && enemiesRef.current[idx].state !== 'dead') {
                 const crossfireDamage = Math.max(1, Math.round(event.damage * INFIGHTING_DAMAGE_SCALE))
                 const damaged = damageEnemy(enemiesRef.current[idx], crossfireDamage)
-                enemiesRef.current[idx] = damaged
+                const source = enemiesRef.current.find((candidate) => candidate.id === event.sourceId)
+                const staggered = source && damaged.state !== 'dead'
+                  ? applyCrossfireStagger(damaged, source, Math.random())
+                  : damaged
+                enemiesRef.current[idx] = staggered
 
-                if (damaged.id === enemiesRef.current[0]?.id) {
-                  setEnemyHealth(damaged.health)
+                if (staggered.id === enemiesRef.current[0]?.id) {
+                  setEnemyHealth(staggered.health)
                 }
               }
             }
