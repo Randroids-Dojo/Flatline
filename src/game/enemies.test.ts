@@ -462,6 +462,39 @@ describe('enemy AI', () => {
     expect(tickResult.enemy.crossfirePursuitTargetId).toBeNull()
   })
 
+  it('does not let a long frame drop the tail of the pursuit window', () => {
+    // Mirror of the long-frame stagger test, but for the pursuit phase.
+    // A grunt is mid-windup against the pursuit target with only 20ms
+    // of pursuit left and the tick is 50ms. Naive code that gates
+    // isPursuing on the post-decrement value would treat the whole
+    // tick as no-pursuit and route the attack release at the player.
+    // With the pre-decrement gate, the final infighting attack still
+    // lands on the source.
+    const grunt = {
+      ...createGrunt('grunt-1', { x: 0, y: 1.05, z: 0 }, player.position),
+      state: 'attackWindup' as const,
+      animationTimeMs: enemyConfigs.grunt.attackWindupMs - 10,
+      crossfireStaggerMs: 0,
+      crossfirePursuitMs: 20,
+      crossfirePursuitTargetId: 'brute-7'
+    }
+    const pursuitTarget = {
+      id: 'brute-7',
+      position: { x: 0.6, y: 1.05, z: 0 },
+      radius: 0.6,
+      health: 50
+    }
+
+    const tickResult = tickEnemy(grunt, player, 50, enemyConfigs.grunt, [], pursuitTarget)
+
+    const attack = tickResult.events.find((event) => event.type === 'enemyAttackEnemy')
+    expect(attack).toBeDefined()
+    expect(tickResult.events.find((event) => event.type === 'enemyAttackHit')).toBeUndefined()
+    // Pursuit timer cleared at the end of the draining tick.
+    expect(tickResult.enemy.crossfirePursuitMs).toBe(0)
+    expect(tickResult.enemy.crossfirePursuitTargetId).toBeNull()
+  })
+
   it('does not emit a duplicate melee arc crossfire for the pursuit target', () => {
     // Pursuit melee release applies damage through enemyAttackEnemy;
     // the nearbyEnemies arc loop must not emit enemyMeleeArcCrossfire

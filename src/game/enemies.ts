@@ -297,28 +297,29 @@ export function tickEnemy(
   const activeDeltaMs = deltaMs - staggerConsumedMs
 
   const events: EnemyEvent[] = []
-  // F-016 v2: pursuit timer ticks down only with the un-staggered
-  // remainder so the stagger and pursuit phases stay sequential rather
-  // than overlapping.
-  let pursuitMsRemaining = Math.max(0, enemy.crossfirePursuitMs - activeDeltaMs)
-  let pursuitTargetId = enemy.crossfirePursuitTargetId
-
-  // Pursuit is "live" this tick only when the timer is still running,
-  // the source id is set, and the caller supplied a matching live
-  // pursuit target. Anything else (timer expired, target died, target
-  // missing) clears the pursuit so the AI falls back to chasing the
-  // player.
+  // F-016 v2: pursuit is "live" this tick when the pre-decrement
+  // counter is positive AND the caller supplied a matching live
+  // target. Gating on the PRE-decrement value matters when a long
+  // frame fully drains crossfirePursuitMs: the tick that drains it
+  // should still run as a pursuit tick (preserving the tail of the
+  // retarget window, including the final infighting attack), and
+  // the next tick will see the timer at 0 and revert to player chase.
   const pursuitMatches =
-    pursuitTargetId !== null &&
+    enemy.crossfirePursuitMs > 0 &&
+    enemy.crossfirePursuitTargetId !== null &&
     pursuitTarget !== undefined &&
-    pursuitTarget.id === pursuitTargetId &&
+    pursuitTarget.id === enemy.crossfirePursuitTargetId &&
     pursuitTarget.health > 0
-  const isPursuing = pursuitMsRemaining > 0 && pursuitMatches
+  const isPursuing = pursuitMatches
 
-  if (!isPursuing) {
-    pursuitMsRemaining = 0
-    pursuitTargetId = null
-  }
+  // Timer decrements (and target id clears on expiry) regardless of
+  // isPursuing so the next tick sees a consistent post-state.
+  let pursuitMsRemaining = isPursuing
+    ? Math.max(0, enemy.crossfirePursuitMs - activeDeltaMs)
+    : 0
+  let pursuitTargetId = isPursuing && pursuitMsRemaining > 0
+    ? enemy.crossfirePursuitTargetId
+    : null
 
   const nextEnemy = {
     ...enemy,
