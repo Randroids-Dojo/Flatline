@@ -26,13 +26,32 @@ export type EnemyModel = {
   // enemy stops chasing the player and faces the source of the infighting
   // damage. Decremented by tickEnemy.
   crossfireStaggerMs: number
+  // F-016 v2: time remaining in the post-stagger pursuit window. While > 0
+  // and the source is alive, the enemy chases and attempts to attack the
+  // source instead of the player.
+  crossfirePursuitMs: number
+  // F-016 v2: id of the source enemy the victim is currently retargeted
+  // against. Cleared when pursuit expires or the source dies.
+  crossfirePursuitTargetId: string | null
 }
 
-// F-016 v1 tuning. Probability is the chance per crossfire damage event
-// that the victim enters the stagger window; duration is how long the
-// victim freezes player chase and faces the source.
+// F-016 tuning. Probability is the chance per crossfire damage event
+// that the victim enters the retarget. Stagger duration is how long the
+// victim freezes player chase and faces the source. Pursuit duration is
+// how long after the stagger the victim chases and attacks the source.
 export const CROSSFIRE_STAGGER_PROBABILITY = 0.35
 export const CROSSFIRE_STAGGER_DURATION_MS = 700
+export const CROSSFIRE_PURSUIT_DURATION_MS = 1500
+
+// F-016 v2: optional pursuit target description handed to tickEnemy.
+// When pursuit is active and an entry with the matching id is supplied,
+// the enemy chases and attacks this target instead of the player.
+export type PursuitTarget = {
+  id: string
+  position: Vec3
+  radius: number
+  health: number
+}
 
 export type PlayerCombatState = {
   position: Vec3
@@ -68,6 +87,17 @@ export type EnemyEvent =
   | { type: 'enemyAttackHit'; enemyId: string; damage: number }
   | { type: 'enemyAttackMissed'; enemyId: string }
   | { type: 'enemyRecovered'; enemyId: string }
+  | {
+      // F-016 v2: emitted when a pursuing enemy lands its primary attack
+      // on the source enemy it was retargeted against. The consumer
+      // applies the damage WITHOUT crediting the player, so retargeted
+      // kills do not show up in score / kill streak / accuracy paths.
+      type: 'enemyAttackEnemy'
+      sourceId: string
+      sourceType: EnemyType
+      targetEnemyId: string
+      damage: number
+    }
   | {
       type: 'enemyProjectileFired'
       enemyId: string
@@ -172,22 +202,38 @@ export function createEnemy(type: EnemyType, id: string, position: Vec3, playerP
     animationTimeMs: 0,
     attackCooldownMs: 0,
     dashBurstMsRemaining: 0,
-    crossfireStaggerMs: 0
+    crossfireStaggerMs: 0,
+    crossfirePursuitMs: 0,
+    crossfirePursuitTargetId: null
   }
 }
 
-// F-016 v1. Pure helper: given a roll in [0, 1), returns the enemy
-// updated with a stagger window and a facing angle pointing at the
-// source of the crossfire damage if the roll lands under
-// CROSSFIRE_STAGGER_PROBABILITY. Dead enemies are returned unchanged.
-// The caller is responsible for supplying the roll so production code
-// can use Math.random() while tests inject deterministic values.
-export function applyCrossfireStagger(
+// F-016. Pure helper: given a roll in [0, 1), returns the enemy
+// updated with a stagger window, a pursuit window, and a facing angle
+// pointing at the source of the crossfire damage if the roll lands
+// under CROSSFIRE_STAGGER_PROBABILITY. Dead enemies are returned
+// unchanged. The caller is responsible for supplying the roll so
+// production code can use Math.random() while tests inject
+// deterministic values.
+//
+// v2 behavior: also stores the source id and arms a pursuit window
+// (CROSSFIRE_PURSUIT_DURATION_MS) so tickEnemy can chase and attack the
+// source after the stagger ends. Existing v1 semantics (stagger + face)
+// are unchanged for callers that only care about the freeze.
+//
+// Cascade prevention: if the victim already has an active pursuit the
+// roll is skipped so an enemy cannot get yanked between sources by
+// successive crossfire hits.
+export function applyCrossfireRetarget(
   enemy: EnemyModel,
-  source: { position: Vec3 },
+  source: { id: string; position: Vec3 },
   roll: number
 ): EnemyModel {
   if (enemy.state === 'dead') {
+    return enemy
+  }
+
+  if (enemy.crossfirePursuitMs > 0) {
     return enemy
   }
 
@@ -198,9 +244,17 @@ export function applyCrossfireStagger(
   return {
     ...enemy,
     crossfireStaggerMs: CROSSFIRE_STAGGER_DURATION_MS,
+    crossfirePursuitMs: CROSSFIRE_PURSUIT_DURATION_MS,
+    crossfirePursuitTargetId: source.id,
     facingAngle: angleBetween(enemy.position, source.position)
   }
 }
+
+// F-016 v1 alias. The v1 helper signature did not include the source
+// id; the v2 helper adds it. Existing callers and tests that imported
+// applyCrossfireStagger keep working through this alias, with the
+// caller-supplied source object simply needing an id field now.
+export const applyCrossfireStagger = applyCrossfireRetarget
 
 export function createGrunt(id: string, position: Vec3, playerPosition: Vec3): EnemyModel {
   return createEnemy('grunt', id, position, playerPosition)
@@ -227,7 +281,8 @@ export function tickEnemy(
   player: PlayerCombatState,
   deltaMs: number,
   config: EnemyConfig,
-  nearbyEnemies: readonly NearbyEnemy[] = []
+  nearbyEnemies: readonly NearbyEnemy[] = [],
+  pursuitTarget?: PursuitTarget
 ): EnemyTickResult {
   if (enemy.state === 'dead') {
     return { enemy, player, events: [] }
@@ -242,6 +297,29 @@ export function tickEnemy(
   const activeDeltaMs = deltaMs - staggerConsumedMs
 
   const events: EnemyEvent[] = []
+  // F-016 v2: pursuit timer ticks down only with the un-staggered
+  // remainder so the stagger and pursuit phases stay sequential rather
+  // than overlapping.
+  let pursuitMsRemaining = Math.max(0, enemy.crossfirePursuitMs - activeDeltaMs)
+  let pursuitTargetId = enemy.crossfirePursuitTargetId
+
+  // Pursuit is "live" this tick only when the timer is still running,
+  // the source id is set, and the caller supplied a matching live
+  // pursuit target. Anything else (timer expired, target died, target
+  // missing) clears the pursuit so the AI falls back to chasing the
+  // player.
+  const pursuitMatches =
+    pursuitTargetId !== null &&
+    pursuitTarget !== undefined &&
+    pursuitTarget.id === pursuitTargetId &&
+    pursuitTarget.health > 0
+  const isPursuing = pursuitMsRemaining > 0 && pursuitMatches
+
+  if (!isPursuing) {
+    pursuitMsRemaining = 0
+    pursuitTargetId = null
+  }
+
   const nextEnemy = {
     ...enemy,
     position: { ...enemy.position },
@@ -249,12 +327,23 @@ export function tickEnemy(
     animationTimeMs: enemy.animationTimeMs + activeDeltaMs,
     attackCooldownMs: Math.max(0, enemy.attackCooldownMs - activeDeltaMs),
     dashBurstMsRemaining: Math.max(0, enemy.dashBurstMsRemaining - activeDeltaMs),
-    crossfireStaggerMs: Math.max(0, enemy.crossfireStaggerMs - deltaMs)
+    crossfireStaggerMs: Math.max(0, enemy.crossfireStaggerMs - deltaMs),
+    crossfirePursuitMs: pursuitMsRemaining,
+    crossfirePursuitTargetId: pursuitTargetId
   }
   const nextPlayer = { ...player, position: { ...player.position } }
 
+  // chaseTarget: the entity the AI uses for movement, facing, and attack
+  // range checks. Defaults to the player; swaps to the pursuit target
+  // while v2 retarget is active. Damage routing still branches on
+  // isPursuing so the player's health is never modified during a
+  // pursuit attack release.
+  const chaseTarget: PlayerCombatState = isPursuing && pursuitTarget
+    ? { position: pursuitTarget.position, radius: pursuitTarget.radius, health: pursuitTarget.health }
+    : nextPlayer
+
   if (nextEnemy.crossfireStaggerMs <= 0) {
-    nextEnemy.facingAngle = angleBetween(nextEnemy.position, nextPlayer.position)
+    nextEnemy.facingAngle = angleBetween(nextEnemy.position, chaseTarget.position)
   }
 
   if (nextEnemy.health <= 0) {
@@ -293,12 +382,15 @@ export function tickEnemy(
       nextEnemy.animationTimeMs = 0
 
       if (config.attackKind === 'ranged') {
-        const dx = nextPlayer.position.x - nextEnemy.position.x
-        const dz = nextPlayer.position.z - nextEnemy.position.z
+        const dx = chaseTarget.position.x - nextEnemy.position.x
+        const dz = chaseTarget.position.z - nextEnemy.position.z
         const distance = Math.hypot(dx, dz)
         const direction = distance > 0
           ? { x: dx / distance, y: 0, z: dz / distance }
           : { x: 0, y: 0, z: 1 }
+        // Ranged attacks during a v2 pursuit still produce a projectile;
+        // the projectile resolution path applies infighting damage when
+        // the projectile hits a non-player enemy and credits no score.
         events.push({
           type: 'enemyProjectileFired',
           enemyId: nextEnemy.id,
@@ -308,6 +400,21 @@ export function tickEnemy(
           speed: config.projectileSpeed ?? 0,
           damage: config.attackDamage
         })
+      } else if (isPursuing && pursuitTarget) {
+        // F-016 v2 pursuit melee hit: route damage to the pursuit target
+        // through enemyAttackEnemy without touching nextPlayer.health and
+        // without going through the player kill credit path.
+        if (enemyCanHitPlayer(nextEnemy, chaseTarget, config)) {
+          events.push({
+            type: 'enemyAttackEnemy',
+            sourceId: nextEnemy.id,
+            sourceType: nextEnemy.type,
+            targetEnemyId: pursuitTarget.id,
+            damage: config.attackDamage
+          })
+        } else {
+          events.push({ type: 'enemyAttackMissed', enemyId: nextEnemy.id })
+        }
       } else if (enemyCanHitPlayer(nextEnemy, nextPlayer, config)) {
         nextPlayer.health = Math.max(0, nextPlayer.health - config.attackDamage)
         events.push({ type: 'enemyAttackHit', enemyId: nextEnemy.id, damage: config.attackDamage })
@@ -353,7 +460,7 @@ export function tickEnemy(
     return { enemy: nextEnemy, player: nextPlayer, events }
   }
 
-  if (enemyCanStartAttack(nextEnemy, nextPlayer, config)) {
+  if (enemyCanStartAttack(nextEnemy, chaseTarget, config)) {
     nextEnemy.state = 'attackWindup'
     nextEnemy.animationTimeMs = 0
     nextEnemy.velocity = { x: 0, y: 0, z: 0 }
@@ -361,20 +468,23 @@ export function tickEnemy(
     return { enemy: nextEnemy, player: nextPlayer, events }
   }
 
+  // F-016 v2: skitter dash trigger reads the distance to whichever
+  // entity the AI is currently chasing, so a pursuing skitter can dash
+  // into the source enemy as readily as it would dash into the player.
   if (
     shouldStartSkitterDash({
       type: nextEnemy.type,
       state: nextEnemy.state,
       attackCooldownMs: nextEnemy.attackCooldownMs,
       dashBurstMsRemaining: nextEnemy.dashBurstMsRemaining,
-      distanceToPlayerM: distance2d(nextEnemy.position, nextPlayer.position)
+      distanceToPlayerM: distance2d(nextEnemy.position, chaseTarget.position)
     })
   ) {
     nextEnemy.dashBurstMsRemaining = SKITTER_DASH_DURATION_MS
     nextEnemy.attackCooldownMs = SKITTER_DASH_REARM_COOLDOWN_MS
   }
 
-  moveEnemyTowardPlayer(nextEnemy, nextPlayer, activeDeltaMs, config)
+  moveEnemyTowardPlayer(nextEnemy, chaseTarget, activeDeltaMs, config)
 
   // Skitter dash crossfire: closes F-013. While in an active dash burst,
   // a skitter that overlaps another alive enemy applies infighting damage
