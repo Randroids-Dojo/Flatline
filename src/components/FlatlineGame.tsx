@@ -3000,15 +3000,11 @@ function tickAndResolveSpitterProjectiles(
       }
 
       // Skip the spitter that fired the projectile so its own splash
-      // does not blast itself in the back.
-      if (candidate.type === 'spitter') {
-        const projectileFromCandidate = Math.hypot(
-          projectile.state.position.x - candidate.position.x,
-          projectile.state.position.z - candidate.position.z
-        )
-        if (projectileFromCandidate < candidate.radius + 0.6) {
-          continue
-        }
+      // does not blast itself in the back. Now that the projectile
+      // carries sourceEnemyId, exempt only the originating spitter
+      // by id; clustered spitters remain vulnerable to each other.
+      if (candidate.id === projectile.state.sourceEnemyId) {
+        continue
       }
 
       const candidateDistance = Math.hypot(

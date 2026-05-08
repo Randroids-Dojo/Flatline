@@ -461,4 +461,45 @@ describe('enemy AI', () => {
     expect(tickResult.enemy.crossfirePursuitMs).toBe(0)
     expect(tickResult.enemy.crossfirePursuitTargetId).toBeNull()
   })
+
+  it('does not emit a duplicate melee arc crossfire for the pursuit target', () => {
+    // Pursuit melee release applies damage through enemyAttackEnemy;
+    // the nearbyEnemies arc loop must not emit enemyMeleeArcCrossfire
+    // for the same target, or infighting damage applies twice and the
+    // retarget can be re-armed on the victim.
+    const brute = {
+      ...createEnemy('brute', 'brute-1', { x: 0, y: 1.05, z: 0 }, player.position),
+      state: 'attackWindup' as const,
+      animationTimeMs: enemyConfigs.brute.attackWindupMs - 10,
+      crossfireStaggerMs: 0,
+      crossfirePursuitMs: CROSSFIRE_PURSUIT_DURATION_MS,
+      crossfirePursuitTargetId: 'grunt-target'
+    }
+    const targetPosition = { x: 0.6, y: 1.05, z: 0 }
+    const pursuitTarget = {
+      id: 'grunt-target',
+      position: targetPosition,
+      radius: 0.55,
+      health: enemyConfigs.grunt.maxHealth
+    }
+    const nearbyEnemies = [{ id: 'grunt-target', position: targetPosition, radius: 0.55 }]
+
+    const tickResult = tickEnemy(
+      brute,
+      player,
+      50,
+      enemyConfigs.brute,
+      nearbyEnemies,
+      pursuitTarget
+    )
+
+    const arcEventsForTarget = tickResult.events.filter(
+      (event) => event.type === 'enemyMeleeArcCrossfire' && event.targetEnemyId === 'grunt-target'
+    )
+    const attackEventsForTarget = tickResult.events.filter(
+      (event) => event.type === 'enemyAttackEnemy' && event.targetEnemyId === 'grunt-target'
+    )
+    expect(arcEventsForTarget).toHaveLength(0)
+    expect(attackEventsForTarget).toHaveLength(1)
+  })
 })

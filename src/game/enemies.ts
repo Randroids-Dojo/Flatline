@@ -428,6 +428,14 @@ export function tickEnemy(
             continue
           }
 
+          // The pursuit target already received its damage through the
+          // enemyAttackEnemy branch above; emitting an additional
+          // enemyMeleeArcCrossfire here would double-apply infighting
+          // damage and could re-arm the retarget on the same victim.
+          if (isPursuing && candidate.id === pursuitTargetId) {
+            continue
+          }
+
           const dx = candidate.position.x - nextEnemy.position.x
           const dz = candidate.position.z - nextEnemy.position.z
           const distance = Math.hypot(dx, dz)
