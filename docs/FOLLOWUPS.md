@@ -35,6 +35,7 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Context: The original Dots task for F-013 included an aggro-retarget idea after cross-faction damage, but the shipped F-013 slices resolved only the crossfire damage rule. Spitter projectiles, brute swings, skitter dash collisions, and hazard-on-enemy damage now apply 50% infighting damage without player kill credit. Enemies still keep their normal player-targeting behavior after taking crossfire damage.
 - Blocker: none.
 - Unblock condition: add a small retarget rule with tests that proves crossfire damage can briefly redirect an enemy toward the source enemy without crediting the player for resulting enemy-on-enemy kills.
+- Partial v1: PR #99 ships a stagger-and-face response on brute melee arc and skitter dash crossfire (probability roll, freeze player chase for 700ms, face the source). Spitter projectile / hazard crossfire and full pursuit-and-attack-the-source remain open for v2 because the spitter projectile state does not yet carry a source enemy id and tickEnemy does not yet support an enemy as the chase target.
 
 ## Polish
 

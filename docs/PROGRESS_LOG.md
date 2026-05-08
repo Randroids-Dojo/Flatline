@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-07, F-016 v1: crossfire stagger and face source
+
+- Branch: `feat/f016-crossfire-stagger-v1`
+- PR: #99
+- Changed: closed the v1 portion of F-016. `EnemyModel` gains a `crossfireStaggerMs` field; new pure helper `applyCrossfireStagger(enemy, source, roll)` returns the enemy with a 700ms stagger window and a facing angle pointing at the source when the injected roll lands under `CROSSFIRE_STAGGER_PROBABILITY = 0.35`. `tickEnemy` decrements the countdown each tick and, while the chase state is staggered, freezes velocity and skips chase or attack progression so the victim visibly hesitates and faces the source for the duration. The brute melee arc and skitter dash crossfire handlers in `src/components/FlatlineGame.tsx` call the helper with `Math.random()` after applying infighting damage. Spitter projectile crossfire is intentionally excluded for v1 because the projectile state does not carry a source enemy id; that is preserved as the open portion of F-016.
+- Verification: dash check, `git diff --check`, `npm run typecheck`, `npm run test -- src/game/enemies.test.ts` (23 / 23 pass; 5 new tests cover roll-under, roll-at-or-above, dead enemies, freeze-during-stagger, and resume-after-expiration).
+- Assumptions: Recommended default scopes v1 to brute and skitter melee crossfire because those events already carry `sourceId`. Recommended default keeps the redirect as a stagger plus facing change rather than a full pursuit-and-attack-the-source rule because enemy AI does not yet support an enemy as a chase target, and slice discipline calls for adding that capability separately. Recommended default leaves player kill credit untouched because the existing infighting damage path never credited the player; v1 inherits that.
+- GDD coverage: REQ-015 picks up a build-log entry in `docs/gdd/15-enemy-entity-model.md`. F-016 stays open in `docs/FOLLOWUPS.md` with a `Partial v1: PR #99` note describing what shipped and what is still required for full closure (spitter / hazard sources and full pursuit toward source).
+- Followups: F-016 partially shipped; remainder kept open under the same id.
+
 ## 2026-05-07, Post-F-013 housekeeping (followups, plan, README)
 
 - Branch: `chore/post-f013-housekeeping-slice-d`

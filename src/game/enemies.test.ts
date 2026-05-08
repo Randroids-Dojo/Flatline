@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { circlesOverlap, createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, gruntConfig, tickEnemy } from './enemies'
+import {
+  applyCrossfireStagger,
+  CROSSFIRE_STAGGER_DURATION_MS,
+  CROSSFIRE_STAGGER_PROBABILITY,
+  circlesOverlap,
+  createEnemy,
+  createGrunt,
+  damageEnemy,
+  enemyConfigs,
+  enemyTypeForSpawn,
+  gruntConfig,
+  tickEnemy
+} from './enemies'
 
 const player = {
   position: { x: 0, y: 1.7, z: 0 },
@@ -237,5 +249,61 @@ describe('enemy AI', () => {
 
     expect(hurt.state).toBe('hurt')
     expect(dead.state).toBe('dead')
+  })
+
+  it('applies crossfire stagger when the roll lands under the probability', () => {
+    const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
+    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const staggered = applyCrossfireStagger(enemy, source, CROSSFIRE_STAGGER_PROBABILITY - 0.0001)
+
+    expect(staggered.crossfireStaggerMs).toBe(CROSSFIRE_STAGGER_DURATION_MS)
+    expect(staggered.facingAngle).not.toBe(enemy.facingAngle)
+  })
+
+  it('skips crossfire stagger when the roll lands at or above the probability', () => {
+    const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
+    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const unchanged = applyCrossfireStagger(enemy, source, CROSSFIRE_STAGGER_PROBABILITY)
+
+    expect(unchanged).toBe(enemy)
+  })
+
+  it('skips crossfire stagger on dead enemies', () => {
+    const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
+    const dead = damageEnemy(damageEnemy(enemy, enemy.health), enemy.health)
+    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const result = applyCrossfireStagger(dead, source, 0)
+
+    expect(result).toBe(dead)
+    expect(result.crossfireStaggerMs).toBe(0)
+  })
+
+  it('freezes player chase while staggered and decrements the timer', () => {
+    const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
+    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const staggered = applyCrossfireStagger(enemy, source, 0)
+
+    const tickResult = tickEnemy(staggered, player, 100, gruntConfig)
+
+    expect(tickResult.enemy.crossfireStaggerMs).toBe(CROSSFIRE_STAGGER_DURATION_MS - 100)
+    expect(tickResult.enemy.velocity).toEqual({ x: 0, y: 0, z: 0 })
+    // Position must not advance toward the player while staggered.
+    expect(tickResult.enemy.position).toEqual(staggered.position)
+    // Facing angle was set toward source by applyCrossfireStagger and must not flip
+    // back toward the player while the stagger is still active.
+    expect(tickResult.enemy.facingAngle).toBe(staggered.facingAngle)
+  })
+
+  it('resumes player chase after the stagger window expires', () => {
+    const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
+    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const staggered = applyCrossfireStagger(enemy, source, 0)
+    const expirationDelta = CROSSFIRE_STAGGER_DURATION_MS + 16
+
+    const tickResult = tickEnemy(staggered, player, expirationDelta, gruntConfig)
+
+    expect(tickResult.enemy.crossfireStaggerMs).toBe(0)
+    // After the stagger expires the enemy should be facing the player again.
+    expect(tickResult.enemy.facingAngle).not.toBe(staggered.facingAngle)
   })
 })
