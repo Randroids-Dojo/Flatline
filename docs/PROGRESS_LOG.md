@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, F-016 v2: crossfire pursuit and spitter source attribution
+
+- Branch: `feat/f016-v2-pursuit-and-spitter-source`
+- PR: #100
+- Changed: closed F-016. Built on top of v1's stagger by adding a pursuit window (`crossfirePursuitMs` 1500ms) and a target id (`crossfirePursuitTargetId`) on `EnemyModel`. `tickEnemy` accepts an optional `pursuitTarget: PursuitTarget` parameter, and while pursuit is active and a matching live target is supplied, the chase target swaps from the player to the source enemy for movement, facing, attack range checks, the attack windup decision, and the skitter dash trigger. Attack release on a pursuit target emits a new `enemyAttackEnemy { sourceId, sourceType, targetEnemyId, damage }` event so the consumer in `src/components/FlatlineGame.tsx` can apply infighting-scaled damage without touching player health, score, kill streak, or accuracy. Spitter projectile state gains `sourceEnemyId`, threaded through `createSpitterProjectile` and the `tickAndResolveSpitterProjectiles` `onEnemyHit` callback, so spitter projectile crossfire now arms the same retarget the brute and skitter melee paths arm. Renamed `applyCrossfireStagger` to `applyCrossfireRetarget` (the v1 name is kept as an alias so the v1 tests keep working). Cascade prevention: `applyCrossfireRetarget` is a no-op when the victim already has an active pursuit. The `enemyAttackEnemy` consumer ends the attacker's pursuit on hit so retarget reads as one attack per cycle.
+- Verification: dash check, `git diff --check`, `npm run typecheck`, `npm run test` (44 files / 401 tests pass; 6 new tests cover pursuit window arming, cascade prevention, chase-target swap, attack damage routing without player credit, dead-target clear, and missing-target clear).
+- Assumptions: Recommended default treats pursuit as one attack release per retarget so the cycle reads cleanly and the source enemy does not get death-spiraled by an indefinite chase. Recommended default keeps the same probability and 700ms stagger duration from v1, then layers a 1500ms pursuit on top, because the stagger plus one attack cycle fits inside that envelope for all current configs. Recommended default applies the same `INFIGHTING_DAMAGE_SCALE` (0.5) on the `enemyAttackEnemy` consumer so v2 hits inherit the v1 damage rule without changing scoring.
+- GDD coverage: REQ-015 picks up a build-log entry in `docs/gdd/15-enemy-entity-model.md`. F-016 moves from Nice To Have to Resolved in `docs/FOLLOWUPS.md`.
+- Followups: F-016 closed. None new.
+
 ## 2026-05-07, F-016 v1: crossfire stagger and face source
 
 - Branch: `feat/f016-crossfire-stagger-v1`

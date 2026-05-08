@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyCrossfireRetarget,
   applyCrossfireStagger,
+  CROSSFIRE_PURSUIT_DURATION_MS,
   CROSSFIRE_STAGGER_DURATION_MS,
   CROSSFIRE_STAGGER_PROBABILITY,
   circlesOverlap,
@@ -253,7 +255,7 @@ describe('enemy AI', () => {
 
   it('applies crossfire stagger when the roll lands under the probability', () => {
     const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
-    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const source = { id: 'source-1', position: { x: 5, y: 1.05, z: 3 } }
     const staggered = applyCrossfireStagger(enemy, source, CROSSFIRE_STAGGER_PROBABILITY - 0.0001)
 
     expect(staggered.crossfireStaggerMs).toBe(CROSSFIRE_STAGGER_DURATION_MS)
@@ -262,7 +264,7 @@ describe('enemy AI', () => {
 
   it('skips crossfire stagger when the roll lands at or above the probability', () => {
     const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
-    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const source = { id: 'source-1', position: { x: 5, y: 1.05, z: 3 } }
     const unchanged = applyCrossfireStagger(enemy, source, CROSSFIRE_STAGGER_PROBABILITY)
 
     expect(unchanged).toBe(enemy)
@@ -271,7 +273,7 @@ describe('enemy AI', () => {
   it('skips crossfire stagger on dead enemies', () => {
     const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
     const dead = damageEnemy(damageEnemy(enemy, enemy.health), enemy.health)
-    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const source = { id: 'source-1', position: { x: 5, y: 1.05, z: 3 } }
     const result = applyCrossfireStagger(dead, source, 0)
 
     expect(result).toBe(dead)
@@ -280,7 +282,7 @@ describe('enemy AI', () => {
 
   it('freezes player chase while staggered and decrements the timer', () => {
     const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
-    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const source = { id: 'source-1', position: { x: 5, y: 1.05, z: 3 } }
     const staggered = applyCrossfireStagger(enemy, source, 0)
 
     const tickResult = tickEnemy(staggered, player, 100, gruntConfig)
@@ -296,7 +298,7 @@ describe('enemy AI', () => {
 
   it('resumes player chase after the stagger window expires', () => {
     const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
-    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const source = { id: 'source-1', position: { x: 5, y: 1.05, z: 3 } }
     const staggered = applyCrossfireStagger(enemy, source, 0)
     const expirationDelta = CROSSFIRE_STAGGER_DURATION_MS + 16
 
@@ -316,7 +318,7 @@ describe('enemy AI', () => {
       state: 'attackWindup' as const,
       animationTimeMs: enemyConfigs.brute.attackWindupMs - 50
     }
-    const source = { position: { x: 5, y: 1.05, z: 1 } }
+    const source = { id: 'source-1', position: { x: 5, y: 1.05, z: 1 } }
     const staggered = applyCrossfireStagger(brute, source, 0)
 
     const tickResult = tickEnemy(staggered, player, 100, enemyConfigs.brute)
@@ -334,7 +336,7 @@ describe('enemy AI', () => {
     // value would skip the freeze entirely; the activeDeltaMs split keeps
     // movement off until the stagger has been credited.
     const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
-    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const source = { id: 'source-1', position: { x: 5, y: 1.05, z: 3 } }
     const staggered = applyCrossfireStagger(enemy, source, 0)
     const longDeltaMs = CROSSFIRE_STAGGER_DURATION_MS + 50
 
@@ -344,5 +346,200 @@ describe('enemy AI', () => {
     expect(tickResult.enemy.crossfireStaggerMs).toBe(0)
     // Animation timer only advances by the post-stagger remainder of the frame.
     expect(tickResult.enemy.animationTimeMs).toBe(expectedActiveMs)
+  })
+
+  it('arms a pursuit window alongside the stagger on retarget', () => {
+    const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
+    const source = { id: 'brute-7', position: { x: 4, y: 1.05, z: 3 } }
+    const retargeted = applyCrossfireRetarget(enemy, source, 0)
+
+    expect(retargeted.crossfirePursuitMs).toBe(CROSSFIRE_PURSUIT_DURATION_MS)
+    expect(retargeted.crossfirePursuitTargetId).toBe('brute-7')
+  })
+
+  it('skips retarget when the victim is already pursuing a different source', () => {
+    // Cascade prevention: a victim already chasing source A should not be
+    // redirected mid-stride to source B by another infighting hit.
+    const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
+    const sourceA = { id: 'brute-7', position: { x: 4, y: 1.05, z: 3 } }
+    const sourceB = { id: 'spitter-2', position: { x: -4, y: 1.05, z: 3 } }
+    const firstRetarget = applyCrossfireRetarget(enemy, sourceA, 0)
+    const secondRetarget = applyCrossfireRetarget(firstRetarget, sourceB, 0)
+
+    expect(secondRetarget).toBe(firstRetarget)
+    expect(secondRetarget.crossfirePursuitTargetId).toBe('brute-7')
+  })
+
+  it('chases the pursuit target instead of the player after stagger ends', () => {
+    // Place the player to the +z side, the pursuit target to the +x side,
+    // and an enemy at the origin. Drive a tick whose deltaMs spans the
+    // stagger window so movement begins; verify the enemy moved toward
+    // the pursuit target, not the player.
+    const enemy = {
+      ...createGrunt('grunt-1', { x: 0, y: 1.05, z: 0 }, player.position),
+      crossfireStaggerMs: 0,
+      crossfirePursuitMs: CROSSFIRE_PURSUIT_DURATION_MS,
+      crossfirePursuitTargetId: 'brute-7'
+    }
+    const pursuitTarget = {
+      id: 'brute-7',
+      position: { x: 5, y: 1.05, z: 0 },
+      radius: 0.6,
+      health: 50
+    }
+
+    const tickResult = tickEnemy(enemy, player, 100, gruntConfig, [], pursuitTarget)
+
+    expect(tickResult.enemy.position.x).toBeGreaterThan(0)
+    expect(Math.abs(tickResult.enemy.position.z)).toBeLessThan(0.01)
+  })
+
+  it('attacks the pursuit target with enemyAttackEnemy and does not damage the player', () => {
+    // Drive a grunt mid-windup against the pursuit target standing in
+    // melee range. Tick past the windup so attackRelease fires.
+    const grunt = {
+      ...createGrunt('grunt-1', { x: 0, y: 1.05, z: 0 }, player.position),
+      state: 'attackWindup' as const,
+      animationTimeMs: enemyConfigs.grunt.attackWindupMs - 10,
+      crossfireStaggerMs: 0,
+      crossfirePursuitMs: CROSSFIRE_PURSUIT_DURATION_MS,
+      crossfirePursuitTargetId: 'brute-7'
+    }
+    const pursuitTarget = {
+      id: 'brute-7',
+      position: { x: 0.6, y: 1.05, z: 0 },
+      radius: 0.6,
+      health: 50
+    }
+    const playerStart = { ...player, health: player.health }
+
+    const tickResult = tickEnemy(grunt, playerStart, 50, enemyConfigs.grunt, [], pursuitTarget)
+
+    const attack = tickResult.events.find((event) => event.type === 'enemyAttackEnemy')
+    expect(attack).toBeDefined()
+    if (attack && attack.type === 'enemyAttackEnemy') {
+      expect(attack.sourceId).toBe('grunt-1')
+      expect(attack.targetEnemyId).toBe('brute-7')
+      expect(attack.damage).toBe(enemyConfigs.grunt.attackDamage)
+    }
+    // No enemyAttackHit (player damage) on this tick.
+    expect(tickResult.events.find((event) => event.type === 'enemyAttackHit')).toBeUndefined()
+    expect(tickResult.player.health).toBe(player.health)
+  })
+
+  it('clears pursuit when the pursuit target is dead', () => {
+    const enemy = {
+      ...createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position),
+      crossfireStaggerMs: 0,
+      crossfirePursuitMs: CROSSFIRE_PURSUIT_DURATION_MS,
+      crossfirePursuitTargetId: 'brute-7'
+    }
+    const deadTarget = {
+      id: 'brute-7',
+      position: { x: 4, y: 1.05, z: 3 },
+      radius: 0.6,
+      health: 0
+    }
+
+    const tickResult = tickEnemy(enemy, player, 50, gruntConfig, [], deadTarget)
+
+    expect(tickResult.enemy.crossfirePursuitMs).toBe(0)
+    expect(tickResult.enemy.crossfirePursuitTargetId).toBeNull()
+  })
+
+  it('clears pursuit when the caller does not supply a matching target', () => {
+    const enemy = {
+      ...createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position),
+      crossfireStaggerMs: 0,
+      crossfirePursuitMs: CROSSFIRE_PURSUIT_DURATION_MS,
+      crossfirePursuitTargetId: 'brute-7'
+    }
+
+    // Call without a pursuit target; AI should fall back to the player.
+    const tickResult = tickEnemy(enemy, player, 50, gruntConfig)
+
+    expect(tickResult.enemy.crossfirePursuitMs).toBe(0)
+    expect(tickResult.enemy.crossfirePursuitTargetId).toBeNull()
+  })
+
+  it('does not let a long frame drop the tail of the pursuit window', () => {
+    // Mirror of the long-frame stagger test, but for the pursuit phase.
+    // A grunt is mid-windup against the pursuit target with only 20ms
+    // of pursuit left and the tick is 50ms. Naive code that gates
+    // isPursuing on the post-decrement value would treat the whole
+    // tick as no-pursuit and route the attack release at the player.
+    // With the pre-decrement gate, the final infighting attack still
+    // lands on the source. The pursuit target is also passed inside
+    // nearbyEnemies, exercising the arc crossfire suppression on the
+    // same long-frame path so pursuit-target damage is not double-emitted.
+    const grunt = {
+      ...createGrunt('grunt-1', { x: 0, y: 1.05, z: 0 }, player.position),
+      state: 'attackWindup' as const,
+      animationTimeMs: enemyConfigs.grunt.attackWindupMs - 10,
+      crossfireStaggerMs: 0,
+      crossfirePursuitMs: 20,
+      crossfirePursuitTargetId: 'brute-7'
+    }
+    const pursuitTarget = {
+      id: 'brute-7',
+      position: { x: 0.6, y: 1.05, z: 0 },
+      radius: 0.6,
+      health: 50
+    }
+    const nearbyEnemies = [{ id: 'brute-7', position: pursuitTarget.position, radius: pursuitTarget.radius }]
+
+    const tickResult = tickEnemy(grunt, player, 50, enemyConfigs.grunt, nearbyEnemies, pursuitTarget)
+
+    const attackEnemyEvents = tickResult.events.filter((event) => event.type === 'enemyAttackEnemy')
+    const arcCrossfireForTarget = tickResult.events.filter(
+      (event) => event.type === 'enemyMeleeArcCrossfire' && event.targetEnemyId === 'brute-7'
+    )
+    expect(attackEnemyEvents).toHaveLength(1)
+    expect(arcCrossfireForTarget).toHaveLength(0)
+    expect(tickResult.events.find((event) => event.type === 'enemyAttackHit')).toBeUndefined()
+    // Pursuit timer cleared at the end of the draining tick.
+    expect(tickResult.enemy.crossfirePursuitMs).toBe(0)
+    expect(tickResult.enemy.crossfirePursuitTargetId).toBeNull()
+  })
+
+  it('does not emit a duplicate melee arc crossfire for the pursuit target', () => {
+    // Pursuit melee release applies damage through enemyAttackEnemy;
+    // the nearbyEnemies arc loop must not emit enemyMeleeArcCrossfire
+    // for the same target, or infighting damage applies twice and the
+    // retarget can be re-armed on the victim.
+    const brute = {
+      ...createEnemy('brute', 'brute-1', { x: 0, y: 1.05, z: 0 }, player.position),
+      state: 'attackWindup' as const,
+      animationTimeMs: enemyConfigs.brute.attackWindupMs - 10,
+      crossfireStaggerMs: 0,
+      crossfirePursuitMs: CROSSFIRE_PURSUIT_DURATION_MS,
+      crossfirePursuitTargetId: 'grunt-target'
+    }
+    const targetPosition = { x: 0.6, y: 1.05, z: 0 }
+    const pursuitTarget = {
+      id: 'grunt-target',
+      position: targetPosition,
+      radius: 0.55,
+      health: enemyConfigs.grunt.maxHealth
+    }
+    const nearbyEnemies = [{ id: 'grunt-target', position: targetPosition, radius: 0.55 }]
+
+    const tickResult = tickEnemy(
+      brute,
+      player,
+      50,
+      enemyConfigs.brute,
+      nearbyEnemies,
+      pursuitTarget
+    )
+
+    const arcEventsForTarget = tickResult.events.filter(
+      (event) => event.type === 'enemyMeleeArcCrossfire' && event.targetEnemyId === 'grunt-target'
+    )
+    const attackEventsForTarget = tickResult.events.filter(
+      (event) => event.type === 'enemyAttackEnemy' && event.targetEnemyId === 'grunt-target'
+    )
+    expect(arcEventsForTarget).toHaveLength(0)
+    expect(attackEventsForTarget).toHaveLength(1)
   })
 })

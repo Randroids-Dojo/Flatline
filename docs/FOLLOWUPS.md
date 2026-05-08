@@ -29,19 +29,22 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Nice To Have
 
-### F-016: Crossfire aggro retargeting
-
-- Priority: nice-to-have
-- Context: The original Dots task for F-013 included an aggro-retarget idea after cross-faction damage, but the shipped F-013 slices resolved only the crossfire damage rule. Spitter projectiles, brute swings, skitter dash collisions, and hazard-on-enemy damage now apply 50% infighting damage without player kill credit. Enemies still keep their normal player-targeting behavior after taking crossfire damage.
-- Blocker: none.
-- Unblock condition: add a small retarget rule with tests that proves crossfire damage can briefly redirect an enemy toward the source enemy without crediting the player for resulting enemy-on-enemy kills.
-- Partial v1: PR #99 ships a stagger-and-face response on brute melee arc and skitter dash crossfire (probability roll, freeze player chase for 700ms, face the source). Spitter projectile / hazard crossfire and full pursuit-and-attack-the-source remain open for v2 because the spitter projectile state does not yet carry a source enemy id and tickEnemy does not yet support an enemy as the chase target.
+(none yet)
 
 ## Polish
 
 (none yet)
 
 ## Resolved
+
+### F-016: Crossfire aggro retargeting
+
+- Priority: nice-to-have
+- Context: The original Dots task for F-013 included an aggro-retarget idea after cross-faction damage, but the shipped F-013 slices resolved only the crossfire damage rule. Spitter projectiles, brute swings, skitter dash collisions, and hazard-on-enemy damage now apply 50% infighting damage without player kill credit. Enemies still keep their normal player-targeting behavior after taking crossfire damage.
+- Blocker: none.
+- Unblock condition: add a small retarget rule with tests that proves crossfire damage can briefly redirect an enemy toward the source enemy without crediting the player for resulting enemy-on-enemy kills.
+- Partial v1: PR #99 shipped a stagger-and-face response on brute melee arc and skitter dash crossfire (probability roll, freeze player chase for 700ms, face the source).
+- Resolved: PR #100. v2 adds a `crossfirePursuitMs` window after the stagger ends. While pursuing, the victim chases the source enemy as its chase target via a new optional `pursuitTarget` parameter on `tickEnemy`, and a primary attack release on the source emits a new `enemyAttackEnemy { sourceId, sourceType, targetEnemyId, damage }` event. Spitter projectile state now carries `sourceEnemyId`, so spitter projectile crossfire arms the same retarget. The `enemyAttackEnemy` consumer in `FlatlineGame.tsx` applies infighting-scaled damage and ends the attacker's pursuit immediately, so retarget is one attack per cycle. Cascade prevention: `applyCrossfireRetarget` is a no-op against an enemy already mid-pursuit.
 
 ### F-013: Enemy infighting (cross-faction crossfire damage)
 

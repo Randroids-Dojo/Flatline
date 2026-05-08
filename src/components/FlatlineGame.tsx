@@ -27,7 +27,7 @@ import {
   type DailyArenaConfig,
   type DailySchedulePreview
 } from '@/game/dailyArena'
-import { applyCrossfireStagger, createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
+import { applyCrossfireRetarget, createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
@@ -1297,14 +1297,33 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             .filter((candidate) => candidate.state !== 'dead')
             .map((candidate) => ({ id: candidate.id, position: candidate.position, radius: candidate.radius }))
 
+          // F-016 v2: build a quick lookup so a pursuing enemy can hand
+          // its source enemy to tickEnemy as a pursuit target. Each entry
+          // adapts EnemyModel to the PursuitTarget shape (just the fields
+          // tickEnemy needs to drive chase, attack range, and liveness).
+          const enemyById = new Map(enemiesRef.current.map((entry) => [entry.id, entry] as const))
+
           for (let i = 0; i < enemiesRef.current.length; i += 1) {
             const candidate = enemiesRef.current[i]
+            const sourceCandidate = candidate.crossfirePursuitTargetId !== null
+              ? enemyById.get(candidate.crossfirePursuitTargetId)
+              : undefined
+            const pursuitTarget = sourceCandidate && sourceCandidate.state !== 'dead'
+              ? {
+                  id: sourceCandidate.id,
+                  position: sourceCandidate.position,
+                  radius: sourceCandidate.radius,
+                  health: sourceCandidate.health
+                }
+              : undefined
+
             const result = tickEnemy(
               candidate,
               { ...playerCombatState, health: runningPlayerHealth },
               delta * 1000,
               enemyConfigs[candidate.type],
-              nearbyEnemies
+              nearbyEnemies,
+              pursuitTarget
             )
             enemiesRef.current[i] = result.enemy
             runningPlayerHealth = result.player.health
@@ -1341,7 +1360,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               spawnSpitterProjectile(
                 runtime,
                 spitterProjectilesRef.current,
-                createSpitterProjectile(projectileId, event.origin, event.direction, event.speed, event.damage)
+                createSpitterProjectile(projectileId, event.origin, event.direction, event.speed, event.damage, event.enemyId)
               )
               playSpitterFireCue(settingsRef.current.audio)
               setStatus('Spitter loosed acid. Sidestep.')
@@ -1351,13 +1370,37 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                 const crossfireDamage = Math.max(1, Math.round(event.damage * INFIGHTING_DAMAGE_SCALE))
                 const damaged = damageEnemy(enemiesRef.current[idx], crossfireDamage)
                 const source = enemiesRef.current.find((candidate) => candidate.id === event.sourceId)
-                const staggered = source && damaged.state !== 'dead'
-                  ? applyCrossfireStagger(damaged, source, Math.random())
+                const retargeted = source && damaged.state !== 'dead'
+                  ? applyCrossfireRetarget(damaged, source, Math.random())
                   : damaged
-                enemiesRef.current[idx] = staggered
+                enemiesRef.current[idx] = retargeted
 
-                if (staggered.id === enemiesRef.current[0]?.id) {
-                  setEnemyHealth(staggered.health)
+                if (retargeted.id === enemiesRef.current[0]?.id) {
+                  setEnemyHealth(retargeted.health)
+                }
+              }
+            } else if (event.type === 'enemyAttackEnemy') {
+              // F-016 v2: pursuit melee landed on the source enemy.
+              // Apply infighting-scaled damage WITHOUT crediting the
+              // player, then end the attacker's pursuit so the cycle is
+              // one attack per retarget rather than indefinite chasing.
+              const targetIdx = enemiesRef.current.findIndex((candidate) => candidate.id === event.targetEnemyId)
+              if (targetIdx !== -1 && enemiesRef.current[targetIdx].state !== 'dead') {
+                const pursuitDamage = Math.max(1, Math.round(event.damage * INFIGHTING_DAMAGE_SCALE))
+                const damaged = damageEnemy(enemiesRef.current[targetIdx], pursuitDamage)
+                enemiesRef.current[targetIdx] = damaged
+
+                if (damaged.id === enemiesRef.current[0]?.id) {
+                  setEnemyHealth(damaged.health)
+                }
+              }
+
+              const attackerIdx = enemiesRef.current.findIndex((candidate) => candidate.id === event.sourceId)
+              if (attackerIdx !== -1) {
+                enemiesRef.current[attackerIdx] = {
+                  ...enemiesRef.current[attackerIdx],
+                  crossfirePursuitMs: 0,
+                  crossfirePursuitTargetId: null
                 }
               }
             }
@@ -1381,17 +1424,23 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               setStatus(`Spitter splashed for ${damage}.`)
               playPlayerDamageCue(playerDamageCue('hazard'), settingsRef.current.audio)
             },
-            (enemyId, damage) => {
+            (enemyId, damage, sourceEnemyId) => {
               const idx = enemiesRef.current.findIndex((candidate) => candidate.id === enemyId)
               if (idx === -1) {
                 return
               }
               const damaged = damageEnemy(enemiesRef.current[idx], damage)
-              enemiesRef.current[idx] = damaged
+              // F-016 v2: spitter projectile crossfire now arms the
+              // same retarget the brute and skitter melee paths arm.
+              const source = enemiesRef.current.find((candidate) => candidate.id === sourceEnemyId)
+              const retargeted = source && damaged.state !== 'dead'
+                ? applyCrossfireRetarget(damaged, source, Math.random())
+                : damaged
+              enemiesRef.current[idx] = retargeted
               setStatus(
-                damaged.state === 'dead'
-                  ? `Crossfire finished the ${enemyLabel(damaged.type)}.`
-                  : `Crossfire splashed the ${enemyLabel(damaged.type)}.`
+                retargeted.state === 'dead'
+                  ? `Crossfire finished the ${enemyLabel(retargeted.type)}.`
+                  : `Crossfire splashed the ${enemyLabel(retargeted.type)}.`
               )
               setEnemyHealth(enemiesRef.current[0]?.health ?? 0)
               playCue(180, settingsRef.current.audio)
@@ -2923,7 +2972,7 @@ function tickAndResolveSpitterProjectiles(
   enemies: EnemyModel[],
   deltaMs: number,
   onPlayerHit: (damage: number) => void,
-  onEnemyHit: (enemyId: string, damage: number) => void
+  onEnemyHit: (enemyId: string, damage: number, sourceEnemyId: string) => void
 ) {
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index]
@@ -2951,15 +3000,11 @@ function tickAndResolveSpitterProjectiles(
       }
 
       // Skip the spitter that fired the projectile so its own splash
-      // does not blast itself in the back.
-      if (candidate.type === 'spitter') {
-        const projectileFromCandidate = Math.hypot(
-          projectile.state.position.x - candidate.position.x,
-          projectile.state.position.z - candidate.position.z
-        )
-        if (projectileFromCandidate < candidate.radius + 0.6) {
-          continue
-        }
+      // does not blast itself in the back. Now that the projectile
+      // carries sourceEnemyId, exempt only the originating spitter
+      // by id; clustered spitters remain vulnerable to each other.
+      if (candidate.id === projectile.state.sourceEnemyId) {
+        continue
       }
 
       const candidateDistance = Math.hypot(
@@ -2975,7 +3020,7 @@ function tickAndResolveSpitterProjectiles(
 
     if (crossfireHitId !== null) {
       const crossfireDamage = Math.max(1, Math.round(projectile.state.damage * INFIGHTING_DAMAGE_SCALE))
-      onEnemyHit(crossfireHitId, crossfireDamage)
+      onEnemyHit(crossfireHitId, crossfireDamage, projectile.state.sourceEnemyId)
       disposeSpitterProjectile(runtime, projectile)
       projectiles.splice(index, 1)
       continue

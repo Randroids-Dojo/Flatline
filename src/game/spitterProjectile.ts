@@ -10,6 +10,9 @@ export type SpitterProjectile = {
   speed: number
   damage: number
   ageMs: number
+  // F-016 v2: id of the spitter that fired this projectile, so a
+  // crossfire splash can route an aggro retarget back to the source.
+  sourceEnemyId: string
 }
 
 export function createSpitterProjectile(
@@ -17,7 +20,8 @@ export function createSpitterProjectile(
   origin: Vec3,
   direction: Vec3,
   speed: number,
-  damage: number
+  damage: number,
+  sourceEnemyId: string
 ): SpitterProjectile {
   return {
     id,
@@ -25,7 +29,8 @@ export function createSpitterProjectile(
     direction: { x: direction.x, y: direction.y, z: direction.z },
     speed,
     damage,
-    ageMs: 0
+    ageMs: 0,
+    sourceEnemyId
   }
 }
 
