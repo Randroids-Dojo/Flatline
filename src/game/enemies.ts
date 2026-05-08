@@ -250,11 +250,27 @@ export function applyCrossfireRetarget(
   }
 }
 
+
 // F-016 v1 alias. The v1 helper signature did not include the source
 // id; the v2 helper adds it. Existing callers and tests that imported
 // applyCrossfireStagger keep working through this alias, with the
 // caller-supplied source object simply needing an id field now.
 export const applyCrossfireStagger = applyCrossfireRetarget
+
+// F-016 feel: how strongly to apply the stagger tint to the victim.
+// Linear from 1 (just armed) to 0 (window expired). Clamped at the
+// edges so a stale crossfireStaggerMs value above the duration does
+// not blow past the lerp factor and a value below 0 does not go
+// negative.
+export function crossfireStaggerIntensity(crossfireStaggerMs: number): number {
+  if (crossfireStaggerMs <= 0) {
+    return 0
+  }
+  if (crossfireStaggerMs >= CROSSFIRE_STAGGER_DURATION_MS) {
+    return 1
+  }
+  return crossfireStaggerMs / CROSSFIRE_STAGGER_DURATION_MS
+}
 
 export function createGrunt(id: string, position: Vec3, playerPosition: Vec3): EnemyModel {
   return createEnemy('grunt', id, position, playerPosition)

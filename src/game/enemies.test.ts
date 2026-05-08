@@ -8,6 +8,7 @@ import {
   circlesOverlap,
   createEnemy,
   createGrunt,
+  crossfireStaggerIntensity,
   damageEnemy,
   enemyConfigs,
   enemyTypeForSpawn,
@@ -500,6 +501,14 @@ describe('enemy AI', () => {
     // Pursuit timer cleared at the end of the draining tick.
     expect(tickResult.enemy.crossfirePursuitMs).toBe(0)
     expect(tickResult.enemy.crossfirePursuitTargetId).toBeNull()
+  })
+
+  it('reports crossfire stagger intensity as a normalized 0..1 ramp', () => {
+    expect(crossfireStaggerIntensity(0)).toBe(0)
+    expect(crossfireStaggerIntensity(-50)).toBe(0)
+    expect(crossfireStaggerIntensity(CROSSFIRE_STAGGER_DURATION_MS)).toBe(1)
+    expect(crossfireStaggerIntensity(CROSSFIRE_STAGGER_DURATION_MS + 200)).toBe(1)
+    expect(crossfireStaggerIntensity(CROSSFIRE_STAGGER_DURATION_MS / 2)).toBeCloseTo(0.5, 5)
   })
 
   it('does not emit a duplicate melee arc crossfire for the pursuit target', () => {
