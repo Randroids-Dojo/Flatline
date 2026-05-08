@@ -17,6 +17,7 @@ type Enemy = {
   animation: AnimationName
   animationTimeMs: number
   attackCooldownMs: number
+  crossfireStaggerMs: number
   targetId: 'player'
 }
 ```

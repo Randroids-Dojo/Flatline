@@ -306,4 +306,43 @@ describe('enemy AI', () => {
     // After the stagger expires the enemy should be facing the player again.
     expect(tickResult.enemy.facingAngle).not.toBe(staggered.facingAngle)
   })
+
+  it('pauses attack windup progression while staggered', () => {
+    // Set up a brute mid-windup. Stagger for 700ms is longer than any single
+    // animation frame and should freeze the windup so the attack does not
+    // release on schedule.
+    const brute = {
+      ...createEnemy('brute', 'brute-1', { x: 0, y: 1.05, z: 1 }, player.position),
+      state: 'attackWindup' as const,
+      animationTimeMs: enemyConfigs.brute.attackWindupMs - 50
+    }
+    const source = { position: { x: 5, y: 1.05, z: 1 } }
+    const staggered = applyCrossfireStagger(brute, source, 0)
+
+    const tickResult = tickEnemy(staggered, player, 100, enemyConfigs.brute)
+
+    // animationTimeMs must NOT advance during the stagger window or the
+    // brute would punch through a 100ms tick at the 50ms-from-release mark.
+    expect(tickResult.enemy.animationTimeMs).toBe(brute.animationTimeMs)
+    expect(tickResult.enemy.state).toBe('attackWindup')
+    expect(tickResult.events).toHaveLength(0)
+  })
+
+  it('does not let a long-frame tick bypass the stagger window', () => {
+    // A 16-second tick is well past the 700ms stagger duration. A naive
+    // implementation that decrements first and gates on the post-decrement
+    // value would skip the freeze entirely; the activeDeltaMs split keeps
+    // movement off until the stagger has been credited.
+    const enemy = createGrunt('grunt-1', { x: 0, y: 1.05, z: 3 }, player.position)
+    const source = { position: { x: 5, y: 1.05, z: 3 } }
+    const staggered = applyCrossfireStagger(enemy, source, 0)
+    const longDeltaMs = CROSSFIRE_STAGGER_DURATION_MS + 50
+
+    const tickResult = tickEnemy(staggered, player, longDeltaMs, gruntConfig)
+
+    const expectedActiveMs = longDeltaMs - CROSSFIRE_STAGGER_DURATION_MS
+    expect(tickResult.enemy.crossfireStaggerMs).toBe(0)
+    // Animation timer only advances by the post-stagger remainder of the frame.
+    expect(tickResult.enemy.animationTimeMs).toBe(expectedActiveMs)
+  })
 })

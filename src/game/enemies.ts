@@ -233,14 +233,22 @@ export function tickEnemy(
     return { enemy, player, events: [] }
   }
 
+  // F-016 v1: stagger consumes wall-clock time first. Animation, attack
+  // windup, attack release, attack cooldown, and dash burst progression
+  // only advance with the un-staggered remainder of the frame so a long
+  // frame cannot bypass the freeze, and a stagger applied mid-windup
+  // pauses the windup instead of letting it elapse.
+  const staggerConsumedMs = Math.min(enemy.crossfireStaggerMs, deltaMs)
+  const activeDeltaMs = deltaMs - staggerConsumedMs
+
   const events: EnemyEvent[] = []
   const nextEnemy = {
     ...enemy,
     position: { ...enemy.position },
     velocity: { ...enemy.velocity },
-    animationTimeMs: enemy.animationTimeMs + deltaMs,
-    attackCooldownMs: Math.max(0, enemy.attackCooldownMs - deltaMs),
-    dashBurstMsRemaining: Math.max(0, enemy.dashBurstMsRemaining - deltaMs),
+    animationTimeMs: enemy.animationTimeMs + activeDeltaMs,
+    attackCooldownMs: Math.max(0, enemy.attackCooldownMs - activeDeltaMs),
+    dashBurstMsRemaining: Math.max(0, enemy.dashBurstMsRemaining - activeDeltaMs),
     crossfireStaggerMs: Math.max(0, enemy.crossfireStaggerMs - deltaMs)
   }
   const nextPlayer = { ...player, position: { ...player.position } }
@@ -255,11 +263,12 @@ export function tickEnemy(
     return { enemy: nextEnemy, player: nextPlayer, events }
   }
 
-  // F-016 v1: while staggered by infighting damage, freeze player chase
-  // and attack progression. Hurt and existing attack states still run
-  // their own timing because those windows are shorter than the stagger
-  // and the visual read should not be a stagger-on-top-of-hurt double freeze.
-  if (nextEnemy.crossfireStaggerMs > 0 && nextEnemy.state === 'chase') {
+  // If the entire frame was consumed by the stagger window, freeze
+  // velocity and return without running chase, attack, or dash logic.
+  // Any state ('chase', 'attackWindup', 'attackRelease', 'hurt') is
+  // implicitly paused because activeDeltaMs is 0 and animation timers
+  // did not advance.
+  if (activeDeltaMs === 0) {
     nextEnemy.velocity = { x: 0, y: 0, z: 0 }
     return { enemy: nextEnemy, player: nextPlayer, events }
   }
@@ -365,7 +374,7 @@ export function tickEnemy(
     nextEnemy.attackCooldownMs = SKITTER_DASH_REARM_COOLDOWN_MS
   }
 
-  moveEnemyTowardPlayer(nextEnemy, nextPlayer, deltaMs, config)
+  moveEnemyTowardPlayer(nextEnemy, nextPlayer, activeDeltaMs, config)
 
   // Skitter dash crossfire: closes F-013. While in an active dash burst,
   // a skitter that overlaps another alive enemy applies infighting damage
