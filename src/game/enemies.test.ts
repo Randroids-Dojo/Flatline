@@ -469,7 +469,9 @@ describe('enemy AI', () => {
     // isPursuing on the post-decrement value would treat the whole
     // tick as no-pursuit and route the attack release at the player.
     // With the pre-decrement gate, the final infighting attack still
-    // lands on the source.
+    // lands on the source. The pursuit target is also passed inside
+    // nearbyEnemies, exercising the arc crossfire suppression on the
+    // same long-frame path so pursuit-target damage is not double-emitted.
     const grunt = {
       ...createGrunt('grunt-1', { x: 0, y: 1.05, z: 0 }, player.position),
       state: 'attackWindup' as const,
@@ -484,11 +486,16 @@ describe('enemy AI', () => {
       radius: 0.6,
       health: 50
     }
+    const nearbyEnemies = [{ id: 'brute-7', position: pursuitTarget.position, radius: pursuitTarget.radius }]
 
-    const tickResult = tickEnemy(grunt, player, 50, enemyConfigs.grunt, [], pursuitTarget)
+    const tickResult = tickEnemy(grunt, player, 50, enemyConfigs.grunt, nearbyEnemies, pursuitTarget)
 
-    const attack = tickResult.events.find((event) => event.type === 'enemyAttackEnemy')
-    expect(attack).toBeDefined()
+    const attackEnemyEvents = tickResult.events.filter((event) => event.type === 'enemyAttackEnemy')
+    const arcCrossfireForTarget = tickResult.events.filter(
+      (event) => event.type === 'enemyMeleeArcCrossfire' && event.targetEnemyId === 'brute-7'
+    )
+    expect(attackEnemyEvents).toHaveLength(1)
+    expect(arcCrossfireForTarget).toHaveLength(0)
     expect(tickResult.events.find((event) => event.type === 'enemyAttackHit')).toBeUndefined()
     // Pursuit timer cleared at the end of the draining tick.
     expect(tickResult.enemy.crossfirePursuitMs).toBe(0)

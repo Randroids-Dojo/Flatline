@@ -312,14 +312,18 @@ export function tickEnemy(
     pursuitTarget.health > 0
   const isPursuing = pursuitMatches
 
-  // Timer decrements (and target id clears on expiry) regardless of
-  // isPursuing so the next tick sees a consistent post-state.
-  let pursuitMsRemaining = isPursuing
+  // activePursuitTargetId is the source id used during this tick (arc
+  // guard, attack routing). It stays set for the entire pursuing tick
+  // so the arc crossfire loop can correctly skip the pursuit target
+  // even on the long frame that drains the timer.
+  const activePursuitTargetId = isPursuing ? enemy.crossfirePursuitTargetId : null
+
+  // Stored next-state values. The id clears at end of tick when the
+  // timer reaches 0 so the following tick reverts to player chase.
+  const pursuitMsRemaining = isPursuing
     ? Math.max(0, enemy.crossfirePursuitMs - activeDeltaMs)
     : 0
-  let pursuitTargetId = isPursuing && pursuitMsRemaining > 0
-    ? enemy.crossfirePursuitTargetId
-    : null
+  const nextPursuitTargetId = pursuitMsRemaining > 0 ? activePursuitTargetId : null
 
   const nextEnemy = {
     ...enemy,
@@ -330,7 +334,7 @@ export function tickEnemy(
     dashBurstMsRemaining: Math.max(0, enemy.dashBurstMsRemaining - activeDeltaMs),
     crossfireStaggerMs: Math.max(0, enemy.crossfireStaggerMs - deltaMs),
     crossfirePursuitMs: pursuitMsRemaining,
-    crossfirePursuitTargetId: pursuitTargetId
+    crossfirePursuitTargetId: nextPursuitTargetId
   }
   const nextPlayer = { ...player, position: { ...player.position } }
 
@@ -433,7 +437,7 @@ export function tickEnemy(
           // enemyAttackEnemy branch above; emitting an additional
           // enemyMeleeArcCrossfire here would double-apply infighting
           // damage and could re-arm the retarget on the same victim.
-          if (isPursuing && candidate.id === pursuitTargetId) {
+          if (isPursuing && candidate.id === activePursuitTargetId) {
             continue
           }
 
