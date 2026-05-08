@@ -1374,6 +1374,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                   ? applyCrossfireRetarget(damaged, source, Math.random())
                   : damaged
                 enemiesRef.current[idx] = retargeted
+                // F-016 feel: audible cue only when the retarget actually
+                // armed a fresh stagger window (transition from 0 to > 0).
+                // Cascade no-ops and rolls under probability are silent.
+                if (damaged.crossfireStaggerMs === 0 && retargeted.crossfireStaggerMs > 0) {
+                  playCrossfireStaggerCue(settingsRef.current.audio)
+                }
 
                 if (retargeted.id === enemiesRef.current[0]?.id) {
                   setEnemyHealth(retargeted.health)
@@ -1444,6 +1450,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               )
               setEnemyHealth(enemiesRef.current[0]?.health ?? 0)
               playCue(180, settingsRef.current.audio)
+              if (damaged.crossfireStaggerMs === 0 && retargeted.crossfireStaggerMs > 0) {
+                playCrossfireStaggerCue(settingsRef.current.audio)
+              }
             }
           )
 
@@ -3823,6 +3832,40 @@ function playDoorOpenCue(cue: DoorCueStyle, enabled: boolean) {
   const stopTime = startTime + cue.durationMs / 1000
   gain.gain.setValueAtTime(0, startTime)
   gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.012, cue.durationMs / 1000 / 5))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+// F-016 v2 feel pass. Plays a short, low, off-balance two-tone slide
+// when crossfire damage arms a stagger window on the victim. This is
+// the audible signal that an infighting opening just opened, so the
+// player can bias toward the staggered enemy. Distinct from the dash
+// cue (above): higher amplitude envelope opens the channel, then a
+// downward pitch slide reads as "knocked off rhythm" rather than
+// "closing distance."
+function playCrossfireStaggerCue(enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = 'triangle'
+  const startTime = context.currentTime
+  const durationMs = 220
+  const stopTime = startTime + durationMs / 1000
+  // Sweep from a contact-shape mid frequency down to a stumble.
+  oscillator.frequency.setValueAtTime(360, startTime)
+  oscillator.frequency.exponentialRampToValueAtTime(150, stopTime)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(0.046, startTime + 0.018)
   gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
   oscillator.connect(gain)
   gain.connect(context.destination)
