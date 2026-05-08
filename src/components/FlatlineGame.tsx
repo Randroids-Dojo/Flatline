@@ -27,7 +27,7 @@ import {
   type DailyArenaConfig,
   type DailySchedulePreview
 } from '@/game/dailyArena'
-import { applyCrossfireRetarget, createEnemy, createGrunt, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
+import { applyCrossfireRetarget, createEnemy, createGrunt, crossfireStaggerIntensity, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
@@ -999,6 +999,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     const enemyHurtFlashColor = new THREE.Color()
     const spitterChargeColor = new THREE.Color('#f0ffd0')
     const skitterDashColor = new THREE.Color('#ffffff')
+    // F-016 stagger tint: a cool pale steel-blue reads as "shaken / off
+    // balance" without colliding with the hurt flash (which is enemy-tinted
+    // hot), the spitter charge (yellow-green), or the skitter dash (white).
+    const crossfireStaggerColor = new THREE.Color('#9fb4c8')
 
     function animate(time: number) {
       animationRef.current = requestAnimationFrame(animate)
@@ -1595,6 +1599,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           const intensity = enemyHurtFlashIntensity(flashStyle, enemy.animationTimeMs)
           enemyHurtFlashColor.setRGB(flashStyle.flashColor.r, flashStyle.flashColor.g, flashStyle.flashColor.b)
           slot.material.color.set(baseTint).lerp(enemyHurtFlashColor, intensity)
+        } else if (enemy.crossfireStaggerMs > 0) {
+          // F-016 feel: pull the billboard toward a cool steel-blue while
+          // staggered so the player can see at a glance that this enemy
+          // is the open one. Half-strength lerp peak so the silhouette
+          // stays readable; intensity fades with the remaining stagger.
+          const intensity = crossfireStaggerIntensity(enemy.crossfireStaggerMs)
+          slot.material.color.set(baseTint).lerp(crossfireStaggerColor, 0.5 * intensity)
         } else if (enemy.type === 'spitter' && enemy.state === 'attackWindup') {
           const charge = spitterChargeIntensity(enemy.state, enemy.animationTimeMs, enemyConfigs.spitter.attackWindupMs)
           slot.material.color.set(baseTint).lerp(spitterChargeColor, charge)

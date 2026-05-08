@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Crossfire stagger tint
+
+- Branch: `feat/feel-crossfire-stagger-tint`
+- PR: #102
+- Changed: paired the audio cue from PR #101 with a visible cue. New pure helper `crossfireStaggerIntensity(crossfireStaggerMs)` in `src/game/enemies.ts` returns a clamped 0..1 ramp from the remaining stagger duration. The enemy billboard render branch in `src/components/FlatlineGame.tsx` now lerps the billboard color toward a cool steel-blue (`#9fb4c8`) at half strength while staggered, so a player can read at a glance which enemy is the open one. Placed in the priority chain AFTER the hurt flash (so a fresh hit still takes precedence) and BEFORE the spitter charge / skitter dash cues (those states are paused while staggered, but the explicit ordering keeps the chain readable).
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (44 files / 404 tests pass; 1 new test covers the intensity helper edges and midpoint).
+- Assumptions: Recommended default chooses cool steel-blue rather than red because red is reserved for the hurt flash and the danger palette; the stagger tint should read as "shaken / off balance," distinct from "just took damage." Recommended default keeps the lerp at 0.5 peak so the tint is visible but does not overwhelm the silhouette read.
+- GDD coverage: REQ-015 picks up a build-log entry in `docs/gdd/15-enemy-entity-model.md`. No coverage status changes.
+- Followups: none new.
+
 ## 2026-05-08, Crossfire stagger audio cue
 
 - Branch: `feat/feel-crossfire-stagger-cue`
