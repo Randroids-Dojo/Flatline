@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Crossfire stagger audio cue
+
+- Branch: `feat/feel-crossfire-stagger-cue`
+- PR: #101
+- Changed: made the F-016 crossfire stagger audible. New `playCrossfireStaggerCue` in `src/components/FlatlineGame.tsx` plays a 220ms triangle slide from 360 Hz down to 150 Hz at gain 0.046 so the cue reads as "knocked off rhythm" rather than chase or impact. The `enemyMeleeArcCrossfire` handler and the spitter projectile crossfire callback both compare `crossfireStaggerMs` before and after `applyCrossfireRetarget` and call the cue only when the value transitions from 0 to > 0, so cascade no-ops (already-pursuing victim) and rolls under probability stay silent. The player now hears a tactical opening the same moment it opens and can bias toward the staggered enemy.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (44 files / 403 tests pass; no new tests because the new function is a Web Audio sink with no return value worth asserting on, and the trigger is a one-line comparison checked at the call site).
+- Assumptions: Recommended default fires the cue only on a fresh stagger (0 to > 0 transition) rather than on every crossfire damage event, because the stagger window is the player-facing "opening" and the underlying damage event already has a `playCue(180)` and the `Crossfire splashed the ${enemy}` status string. Recommended default keeps the cue at gain 0.046, sitting between the dash cue (0.038) and the rage pulse (0.05) so it is audible without overwhelming a damage frame.
+- GDD coverage: REQ-040 (audio) gains a build-log entry in `docs/gdd/40-audio.md`. No coverage status changes; REQ-040 stays `partial` per the existing list of unaudited cues.
+- Followups: none new.
+
 ## 2026-05-08, F-016 v2: crossfire pursuit and spitter source attribution
 
 - Branch: `feat/f016-v2-pursuit-and-spitter-source`
