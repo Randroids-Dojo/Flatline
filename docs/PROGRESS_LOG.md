@@ -21,7 +21,7 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 ## 2026-05-09, Per-type enemy hurt audio cue (REQ-040 progress)
 
 - Branch: `feat/enemy-hurt-cue`
-- PR: #TBD
+- PR: #145
 - Changed: closes the "Enemy hurt" required-SFX line. New pure helper `src/game/enemyHurtCue.ts` exposes `enemyHurtCue(type)` returning per-enemy `{ frequency, waveform, durationMs, gain }` so a hit on each enemy reads as a distinct quick blip (skitter triangle 620 Hz / 60 ms / 0.018, grunt square 380 Hz / 80 ms / 0.022, brute sawtooth 220 Hz / 110 ms / 0.030, spitter triangle 480 Hz / 90 ms / 0.024). Replaces the previous generic `playCue(320)` blip in the hurt-but-alive branch of `damageEnemyById` so the player can track damage on multiple enemies in flight by ear. New local helper `playEnemyHurtCue` in `src/components/FlatlineGame.tsx` mirrors the flat-pitch `playWindupCue` envelope.
 - Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean), `git diff --check`, `npm run typecheck`, `npm run test` (525 / 525, +7 new for the pure helper).
 - Assumptions: Recommended default mirrors the death-cue waveform per type so the timbre is internally consistent within an enemy's audio family. Recommended default keeps every hurt cue strictly shorter and quieter than the matching death cue so a hit never sounds as final as a kill; the player learns "short blip = still up, longer fall = down."
