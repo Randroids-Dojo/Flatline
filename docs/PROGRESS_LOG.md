@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Score token drops on enemy kill (closes REQ-035)
+
+- Branch: `feat/score-token-drops`
+- PR: #TBD
+- Changed: ships the spec's "small floating tokens dropped by enemies" form alongside the existing v1 altar-buff multiplier window. New pure helper `src/game/scoreTokenDrop.ts` exposes per-type drop chance (skitter 0.20, grunt 0.25, spitter 0.30, brute 0.45 so heavier enemies drop more often), `SCORE_TOKEN_TTL_MS = 1500` (vanish quickly per the "reward aggressive play" line), `SCORE_TOKEN_PICKUP_RADIUS_M = 0.9`, `SCORE_TOKEN_BONUS = 25`, plus pure `shouldDropScoreToken(type, rng)`, `tickScoreTokens(tokens, deltaMs)`, `scoreTokenPickupIds(tokens, playerPosition)`, and `scoreTokenBobY(ageMs)` helpers. `src/components/FlatlineGame.tsx` adds `scoreTokenDropsRef` + `scoreTokenDropSeqRef`, spawns a teal `THREE.TorusGeometry` token mesh on the kill detection roll right after `spawnEnemyDeathPop`, ticks the bob + spin per frame next to `tickEnemyDeathPops`, fades opacity over the TTL, runs a 2D pickup-radius check against player position, awards `SCORE_TOKEN_BONUS` per collected token, and plays the existing `pickupCue('supply')` on collect. Reset on `startRun`, cleanup on unmount.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean), `git diff --check`, `npm run typecheck`, `npm run test` (561 / 561, +14 new for the pure helper).
+- Assumptions: Recommended default keeps the v1 altar-buff multiplier and the v2 dropped-token mechanics as separate systems rather than choosing one or the other; the spec text describes the dropped form but the v1 already shipped a different shape under the same row, and removing the v1 would be a regression. The v2 dropped tokens add direct bonus score; the v1 multiplies kill score during a window. Both reward aggressive play in different shapes. Recommended default uses heavier-enemy higher-chance tuning (brute 0.45 is more than 2x skitter 0.20) so finishing the heavy unit is rewarded without making the floor a confetti shower; total drop rate sits below 0.5 for every type.
+- GDD coverage: `REQ-035` flipped `partial` to `done`. Build log entry appended to `docs/gdd/35-pickup-score.md`. `implementationRefs` and `testRefs` extended with `scoreTokenDrop.ts`.
+- Followups: none new.
+
 ## 2026-05-09, Crossfire cues use per-type hurt cue (REQ-040 progress)
 
 - Branch: `chore/crossfire-cue-per-type`

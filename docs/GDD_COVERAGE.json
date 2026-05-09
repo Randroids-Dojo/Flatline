@@ -314,9 +314,9 @@
       "id": "REQ-035",
       "requirement": "Pickup score tokens: optional aggressive-play reward (post-MVP).",
       "gddRef": "docs/gdd/35-pickup-score.md",
-      "status": "partial",
-      "implementationRefs": ["src/game/scoreToken.ts", "src/game/scoring.ts", "src/components/FlatlineGame.tsx"],
-      "testRefs": ["src/game/scoreToken.test.ts", "src/game/scoring.test.ts"],
+      "status": "done",
+      "implementationRefs": ["src/game/scoreToken.ts", "src/game/scoreTokenDrop.ts", "src/game/scoring.ts", "src/components/FlatlineGame.tsx"],
+      "testRefs": ["src/game/scoreToken.test.ts", "src/game/scoreTokenDrop.test.ts", "src/game/scoring.test.ts"],
       "followupRefs": []
     },
     {
