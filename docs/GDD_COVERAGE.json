@@ -305,7 +305,7 @@
       "id": "REQ-034",
       "requirement": "Pickup Ammo: shells (Boomstick) and ink cells (Inkblaster); pistol stays infinite.",
       "gddRef": "docs/gdd/34-pickup-ammo.md",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": ["src/game/weapons.ts", "src/components/FlatlineGame.tsx"],
       "testRefs": [],
       "followupRefs": []
