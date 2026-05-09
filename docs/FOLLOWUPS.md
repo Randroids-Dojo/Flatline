@@ -40,6 +40,13 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Blocker: none.
 - Unblock condition: in `FlatlineGame.tsx`, swap the foreground weapon sprite to the cooldown PNG while `weaponState === 'cooldown'`, surface a `<img src="{weapon}-pickup.png">` next to ammo / weapon pickups in the supply notification, and replace the per-weapon text labels in the weapon-ready HUD pill with the per-weapon HUD icon. The reload-{0..3} sequence is currently unreferenced; either wire a 4-frame animation when entering the cooldown state OR delete the unused frames before merging.
 
+### F-019: Wire HUD rubber-hose icons + ink-bleed pill borders into FlatlineGame.tsx
+
+- Priority: polish
+- Context: art slice 3 generated `health.png`, `score.png`, `time.png`, `kills.png`, `combo.png`, `wave.png` (32x32 rubber-hose icons) under `public/assets/hud/`. The dot also called for an inline SVG `<feTurbulence>` + `<feDisplacementMap>` filter on the HUD pill borders for the cartoon-title-card ink-bleed effect. Both pieces are deferred so the asset-generator slice stays small.
+- Blocker: none.
+- Unblock condition: in `FlatlineGame.tsx`, render each HUD pill with the matching icon next to its text (Health / Score / Time / Kills / Combo / Wave). Add a single inline SVG `<defs>` block at the top of the HUD root carrying a named `ink-bleed` filter (`<feTurbulence type="fractalNoise" baseFrequency="0.9" seed="3"/>` + `<feDisplacementMap in="SourceGraphic" scale="2"/>`). Apply the filter to `.hud-pill` borders via `filter: url(#ink-bleed)` in `globals.css`. Confirm via the Rule-10 motion smoke that the existing pill animations still render correctly under the filter. Closes the rubber-hose-icons + ink-bleed-borders gap on REQ-039.
+
 ## Resolved
 
 ### F-017: Playwright motion coverage for new HUD animations
