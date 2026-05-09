@@ -882,7 +882,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
 
     setInitials(cleanInitials)
-    writeStorage(initialsStorageKey, cleanInitials)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(initialsStorageKey, cleanInitials)
+    }
     setSubmitStatus('submitting')
 
     try {
@@ -3849,8 +3851,11 @@ function LocalLeaderboard({ entries }: { entries: LeaderboardEntry[] }) {
 }
 
 function loadInitials(): string {
-  const stored = readStorage(initialsStorageKey, z.string())
-  return normalizeClientInitials(stored ?? 'YOU') || 'YOU'
+  if (typeof window === 'undefined') {
+    return 'YOU'
+  }
+
+  return normalizeClientInitials(window.localStorage.getItem(initialsStorageKey) ?? 'YOU') || 'YOU'
 }
 
 function normalizeClientInitials(value: string): string {
