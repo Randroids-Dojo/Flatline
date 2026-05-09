@@ -1,3 +1,6 @@
+import { z } from 'zod'
+import { readStorage, writeStorage } from './storage'
+
 export type LeaderboardEntry = {
   playerInitials: string
   score: number
@@ -10,6 +13,18 @@ export type LeaderboardEntry = {
 
 export const leaderboardStorageKey = 'flatline.localLeaderboard.v1'
 
+const LeaderboardEntrySchema = z.object({
+  playerInitials: z.string(),
+  score: z.number(),
+  survivalMs: z.number(),
+  kills: z.number(),
+  accuracy: z.number(),
+  bestCombo: z.number(),
+  createdAt: z.string()
+})
+
+const LeaderboardSchema = z.array(LeaderboardEntrySchema)
+
 export function insertLeaderboardEntry(
   entries: LeaderboardEntry[],
   entry: LeaderboardEntry,
@@ -20,23 +35,12 @@ export function insertLeaderboardEntry(
     .slice(0, limit)
 }
 
-export function readLeaderboard(storage: Storage): LeaderboardEntry[] {
-  const raw = storage.getItem(leaderboardStorageKey)
-
-  if (!raw) {
-    return []
-  }
-
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed.filter(isLeaderboardEntry) : []
-  } catch {
-    return []
-  }
+export function readLeaderboard(): LeaderboardEntry[] {
+  return readStorage(leaderboardStorageKey, LeaderboardSchema) ?? []
 }
 
-export function writeLeaderboard(storage: Storage, entries: LeaderboardEntry[]) {
-  storage.setItem(leaderboardStorageKey, JSON.stringify(entries))
+export function writeLeaderboard(entries: LeaderboardEntry[]): void {
+  writeStorage(leaderboardStorageKey, entries)
 }
 
 /** Top score across the current local leaderboard. Returns null if there
@@ -55,21 +59,4 @@ export function bestLocalScore(entries: readonly LeaderboardEntry[]): number | n
   }
 
   return best === Number.NEGATIVE_INFINITY ? null : best
-}
-
-function isLeaderboardEntry(value: unknown): value is LeaderboardEntry {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const entry = value as LeaderboardEntry
-  return (
-    typeof entry.playerInitials === 'string' &&
-    typeof entry.score === 'number' &&
-    typeof entry.survivalMs === 'number' &&
-    typeof entry.kills === 'number' &&
-    typeof entry.accuracy === 'number' &&
-    typeof entry.bestCombo === 'number' &&
-    typeof entry.createdAt === 'string'
-  )
 }

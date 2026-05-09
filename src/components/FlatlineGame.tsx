@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { z } from 'zod'
+import { readStorage, writeStorage } from '@/lib/storage'
 import {
   CURTAIN_DOOR_HALF_GAP_M,
   CURTAIN_HEIGHT_M,
@@ -272,6 +274,15 @@ type Settings = {
   audio: boolean
 }
 
+const settingsStorageKey = 'flatline.settings.v1'
+const initialsStorageKey = 'flatline.initials.v1'
+
+const SettingsSchema = z.object({
+  sensitivity: z.number(),
+  fov: z.number(),
+  audio: z.boolean()
+})
+
 type SharedLeaderboardStatus = 'loading' | 'ready' | 'unavailable' | 'error'
 type SubmitStatus = 'idle' | 'submitting' | 'submitted' | 'unavailable' | 'error'
 
@@ -402,9 +413,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     look: createJoystick()
   }))
   const [summary, setSummary] = useState<RunSummary | null>(null)
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
-    typeof window === 'undefined' ? [] : readLeaderboard(window.localStorage)
-  )
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => readLeaderboard())
   const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
   const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>(() => createPracticeSettings())
   const [seed] = useState(() => dailySeed())
@@ -418,7 +427,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   })
   const [dailyDate] = useState(() => dailyDateKey())
   const [dailyStreak, setDailyStreak] = useState<DailyStreakRecord | null>(() =>
-    typeof window === 'undefined' || arenaMode !== 'daily' ? null : readDailyStreak(window.localStorage)
+    arenaMode !== 'daily' ? null : readDailyStreak()
   )
   const [sharedScope, setSharedScope] = useState<LeaderboardScope>(initialLeaderboardScope)
   const [sharedEntries, setSharedEntries] = useState<RankedLeaderboardEntry[]>([])
@@ -774,9 +783,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
     setSummary(runSummary)
 
-    if (!isPractice && typeof window !== 'undefined') {
+    if (!isPractice) {
       const nextLeaderboard = insertLeaderboardEntry(
-        readLeaderboard(window.localStorage),
+        readLeaderboard(),
         {
           playerInitials: 'YOU',
           score: runSummary.score,
@@ -787,12 +796,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           createdAt: new Date().toISOString()
         }
       )
-      writeLeaderboard(window.localStorage, nextLeaderboard)
+      writeLeaderboard(nextLeaderboard)
       setLeaderboard(nextLeaderboard)
 
       if (arenaMode === 'daily') {
-        const nextDailyStreak = recordDailyRun(readDailyStreak(window.localStorage), dailyDate)
-        writeDailyStreak(window.localStorage, nextDailyStreak)
+        const nextDailyStreak = recordDailyRun(readDailyStreak(), dailyDate)
+        writeDailyStreak(nextDailyStreak)
         setDailyStreak(nextDailyStreak)
       }
     }
@@ -821,10 +830,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const updateSettings = useCallback((nextSettings: typeof settings) => {
     settingsRef.current = nextSettings
     setSettings(nextSettings)
-
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('flatline.settings.v1', JSON.stringify(nextSettings))
-    }
+    writeStorage(settingsStorageKey, nextSettings)
   }, [])
 
   const updatePracticeSettings = useCallback((nextSettings: PracticeSettings) => {
@@ -876,7 +882,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
 
     setInitials(cleanInitials)
-    window.localStorage.setItem('flatline.initials.v1', cleanInitials)
+    writeStorage(initialsStorageKey, cleanInitials)
     setSubmitStatus('submitting')
 
     try {
@@ -3843,11 +3849,8 @@ function LocalLeaderboard({ entries }: { entries: LeaderboardEntry[] }) {
 }
 
 function loadInitials(): string {
-  if (typeof window === 'undefined') {
-    return 'YOU'
-  }
-
-  return normalizeClientInitials(window.localStorage.getItem('flatline.initials.v1') ?? 'YOU') || 'YOU'
+  const stored = readStorage(initialsStorageKey, z.string())
+  return normalizeClientInitials(stored ?? 'YOU') || 'YOU'
 }
 
 function normalizeClientInitials(value: string): string {
@@ -3871,22 +3874,7 @@ function submitButtonLabel(status: SubmitStatus): string {
 }
 
 function loadInitialSettings(): Settings {
-  if (typeof window === 'undefined') {
-    return { sensitivity: 1, fov: 75, audio: true }
-  }
-
-  const savedSettings = window.localStorage.getItem('flatline.settings.v1')
-
-  if (!savedSettings) {
-    return { sensitivity: 1, fov: 75, audio: true }
-  }
-
-  try {
-    return JSON.parse(savedSettings) as Settings
-  } catch {
-    window.localStorage.removeItem('flatline.settings.v1')
-    return { sensitivity: 1, fov: 75, audio: true }
-  }
+  return readStorage(settingsStorageKey, SettingsSchema) ?? { sensitivity: 1, fov: 75, audio: true }
 }
 
 function createPracticeSettings(): PracticeSettings {
