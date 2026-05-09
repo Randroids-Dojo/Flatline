@@ -21,7 +21,7 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 ## 2026-05-09, Audit dailyStreak vs VibeRacer for VibeKit contribution: skip
 
 - Branch: `chore/audit-daily-streak`
-- PR: TBD
+- PR: #120
 - Changed: closes the priority-4 dot `Flatline-audit-src-lib-5b838268`. The dot asked whether Flatline's `src/lib/dailyStreak.ts` and VibeRacer's `src/game/dailyStreak.ts` could collapse into one shared kit module. Audit verdict: SKIP. The two implementations are deliberately different at the data-model level. Flatline stores a snapshot (`{lastPlayedDate, currentStreak, bestStreak, totalDailyRuns}`) sized for an O(1) "X day streak" label and a strict "missed day breaks" rule. VibeRacer stores a sorted history of UTC date keys (capped at 366 days) sized for a rolling 7-day activity grid, a "yesterday still counts" forgiveness rule, and a `becameBest` PB toast flag. Converging would force one project to migrate its on-disk format (lossy for Flatline's `totalDailyRuns` snapshot, since existing records do not preserve play-day history) and adopt the other project's forgiveness rule, which is a UX change, not a refactor. The cost-to-value ratio is bad for Flatline. Dot file moved to `.dots/archive/`.
 - Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`. No code changes; no tests touched.
 - Assumptions: Recommended default ships the audit verdict in this PROGRESS_LOG entry rather than spinning up a separate `docs/decisions/` file. The decision is small enough that an entry is the right grain; a future kit contribution can revisit by reading this entry from `git log`.
