@@ -33,14 +33,17 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Polish
 
+(none active)
+
+## Resolved
+
 ### F-023: Cover + pillar collision rectangles
 
 - Priority: polish
 - Context: REQ-021 spec says "enemies should path around cover, not get stuck on it." Pillars and the new cover billboards (F-020) are visual only today. Player and enemies walk through both freely. The partial REQ-021 status reflects this gap.
 - Blocker: none.
 - Unblock condition: add a `coverColliders` rectangle list shared by pillars (cylinders at `[±3.5, ±1.8]` and `[±3.5, 2.1]`) and the four cover billboard positions. Update player movement and enemy AI to check against these rects (clamp position to nearest valid edge OR raycast). Confirm enemies do not get stuck against cover; test the spitter projectile path against cover for line-of-sight blocking. Closes REQ-021's partial state.
-
-## Resolved
+- Resolved: PR #134. Single source-of-truth `ARENA_COVER_RECTS` in new `src/game/coverCollision.ts` covers four pillars and four ground-level cover billboards (the hanging banner above head height is excluded). `clampOutsideRects` uses shortest-axis push; player movement (radius 0.4), enemy AI inside `tickEnemy` (radius 0.4), and the spitter projectile's per-frame segment test all share the same rect list. `segmentBlockedByRects` uses slab-test entry-point intersection. The spitter projectile gains a `blockedByCover` flag that `spitterProjectileExpired` reports so the existing consumer cleanup path removes blocked projectiles. Tests in `src/game/coverCollision.test.ts` cover passthrough, axis pushes, corner shortest-axis push, segment-clear, segment-hit, multi-rect closest-hit, and the regression case (player previously walking through pillar `[-3.5, -1.8]`).
 
 ### F-020: Wire arena cover billboards into the room renderer
 
