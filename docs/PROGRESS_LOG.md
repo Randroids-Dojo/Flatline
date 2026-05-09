@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Combo increase audio tick (REQ-040 progress)
+
+- Branch: `feat/combo-increase-cue`
+- PR: #TBD
+- Changed: closes the "Combo increase" required-SFX line. The milestone cue (`comboMilestone.ts`) fires only at 5 / 10 / 20; intermediate kills landed silently. New pure helper `src/game/comboIncreaseCue.ts` exposes `comboIncreaseCue(combo)` returning a frozen sine cue that rises in pitch with the streak (base 360 Hz, +24 Hz per combo step, capped at 720 Hz) so the build feels like ascent rather than flat-line repetition. Sine timbre keeps the tick distinct from the sawtooth milestone cues; gain 0.022 sits well below the milestone family (0.05 to 0.074) so the tick is felt as texture. New predicate `shouldPlayComboIncreaseCue(prev, current, crossedMilestone)` gates against streak resets, no-growth ticks, and milestone overlap. Wired in `src/components/FlatlineGame.tsx` right after the existing milestone check.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean), `git diff --check`, `npm run typecheck`, `npm run test` (547 / 547, +11 new for the pure helper).
+- Assumptions: Recommended default suppresses the increase tick on milestone kills so the chunky milestone callout stays the dominant moment. Recommended default caps the pitch at 720 Hz so very long streaks (combo 30+) do not climb past audible sweet spots and start to feel piercing. Recommended default uses sine, not the milestone family's sawtooth, so the tick reads as "another in the chain" rather than another "big moment."
+- GDD coverage: `REQ-040` stays `partial`. Build log entry appended to `docs/gdd/40-audio.md`. `implementationRefs` and `testRefs` extended.
+- Followups: none new.
+
 ## 2026-05-09, Run end audio sting (REQ-040 progress)
 
 - Branch: `feat/run-end-cue`
