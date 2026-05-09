@@ -1284,6 +1284,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             let appliedAny = false
             let lastBurnedLabel: string | null = null
             let lastBurnedKilled = false
+            let lastBurnedType: EnemyType | null = null
 
             for (let i = 0; i < enemiesNow.length; i += 1) {
               const candidate = enemiesNow[i]
@@ -1301,17 +1302,23 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                 appliedAny = true
                 lastBurnedLabel = enemyLabel(damaged.type)
                 lastBurnedKilled = damaged.state === 'dead'
+                lastBurnedType = damaged.type
               }
             }
 
-            if (appliedAny && lastBurnedLabel !== null) {
+            if (appliedAny && lastBurnedLabel !== null && lastBurnedType !== null) {
               enemyHazardCooldownRef.current = 900
               setStatus(
                 lastBurnedKilled
                   ? `Hazard finished the ${lastBurnedLabel}.`
                   : `Hazard scorched the ${lastBurnedLabel}.`
               )
-              playCue(180, settingsRef.current.audio)
+              // Only fire the hurt cue here. The kill detection block
+              // below handles the death cue on any fresh state === 'dead'
+              // transition, so firing one here would double up.
+              if (!lastBurnedKilled) {
+                playEnemyHurtCue(enemyHurtCue(lastBurnedType), settingsRef.current.audio)
+              }
               setEnemyHealth(enemiesRef.current[0]?.health ?? 0)
             }
           }
@@ -1601,7 +1608,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                   : `Crossfire splashed the ${enemyLabel(retargeted.type)}.`
               )
               setEnemyHealth(enemiesRef.current[0]?.health ?? 0)
-              playCue(180, settingsRef.current.audio)
+              // Only fire the hurt cue here. The kill detection block
+              // below handles the death cue on any fresh state === 'dead'
+              // transition, so firing one here would double up.
+              if (retargeted.state !== 'dead') {
+                playEnemyHurtCue(enemyHurtCue(retargeted.type), settingsRef.current.audio)
+              }
               if (damaged.crossfireStaggerMs === 0 && retargeted.crossfireStaggerMs > 0) {
                 playCrossfireStaggerCue(settingsRef.current.audio)
               }
