@@ -21,7 +21,7 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 ## 2026-05-09, Enemy death audio cue (REQ-040 progress)
 
 - Branch: `feat/enemy-death-cue`
-- PR: #TBD
+- PR: #143
 - Changed: closes the "Enemy death" required-SFX line in `docs/gdd/40-audio.md`. New pure helper `src/game/enemyDeathCue.ts` exposes `enemyDeathCue(type)` returning per-enemy `{ frequencyStart, frequencyEnd, waveform, durationMs, gain }` so each death reads as a falling pitch envelope (skitter triangle 720 to 320 Hz / 110 ms / 0.024, grunt square 420 to 160 Hz / 160 ms / 0.030, brute sawtooth 220 to 70 Hz / 280 ms / 0.040, spitter triangle 540 to 180 Hz / 200 ms / 0.032). New local helper `playEnemyDeathCue` in `src/components/FlatlineGame.tsx` mirrors the existing `playWindupCue` envelope and adds an exponential frequency ramp from `frequencyStart` to `frequencyEnd`. Wired into the existing kill detection block alongside `spawnEnemyDeathPop`, so every fresh `state === 'dead'` transition fires both the visual ring and the audio cue.
 - Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean), `git diff --check`, `npm run typecheck`, `npm run test` (510 / 510, +7 new for the pure helper).
 - Assumptions: Recommended default uses different waveforms across types (triangle / square / sawtooth) so two simultaneous kills stay distinguishable; same-waveform per-pitch separation only would smear together. Recommended default makes heavier enemies louder and longer (brute 0.040 / 280 ms vs skitter 0.024 / 110 ms) so the kill weight matches the silhouette; flat tuning would mute the brute and over-emphasize the skitter pop.
