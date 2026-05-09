@@ -485,6 +485,24 @@ button {
   margin: 0 auto 22px;
 }
 
+/* PB delta callout. Spans both columns at the top of the summary
+   so the achievement reads first. Warmer color scheme matches the
+   ascending personal-best audio cue from PR #105. */
+.summary p.summary-new-best {
+  grid-column: 1 / -1;
+  background: rgba(40, 26, 6, 0.82);
+  border-color: rgba(255, 209, 102, 0.55);
+  color: #ffd166;
+  text-align: center;
+  font-size: 14px;
+}
+
+.summary p.summary-new-best strong {
+  color: #ffe6a1;
+  letter-spacing: 0.08em;
+  margin-right: 6px;
+}
+
 .summary p {
   margin: 0;
   padding: 8px;

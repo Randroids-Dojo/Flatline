@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Run-summary personal-best delta
+
+- Branch: `feat/feel-run-summary-stats`
+- PR: #110
+- Changed: the run-end summary panel now shows a "NEW BEST! +N over previous M" line when the run beat the player's local best. `RunSummary` gains a `previousBestScore: number | null` field snapshotted from `previousBestAtRunStartRef.current` so the comparison uses the same record the personal-best audio cue from PR #105 fired against. The callout sits at the top of the summary grid (full-width row) in a warm gold palette that matches the PB audio cue, so the mid-run audio and the post-run visual close the loop on the same achievement. The leaderboard insert call was tightened to pick fields explicitly rather than spreading `runSummary`, so the new field does not leak into leaderboard storage.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (48 files / 435 tests pass; no new tests because the feature is purely a JSX render driven by existing state, with no pure helper to assert against).
+- Assumptions: Recommended default uses strict greater-than (`score > previousBestScore`) so tying the previous best does not trigger NEW BEST, matching the personal-best cue's strict rule from PR #105. Recommended default places the callout at the top of the summary grid because the achievement is the most relevant thing to read first if it happened.
+- GDD coverage: REQ-056 (post-MVP feel pass) gains a build-log entry in `docs/gdd/56-post-mvp-feel-pass.md`.
+- Followups: none new.
+
 ## 2026-05-08, Score floater combo-tier coloring
 
 - Branch: `feat/feel-score-floater-combo-tier`

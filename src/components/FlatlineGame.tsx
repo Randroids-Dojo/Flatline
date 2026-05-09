@@ -258,6 +258,11 @@ type RunSummary = {
   closeRangeKills: number
   weaponsUsed: number
   bestNoDamageStreak: number
+  // Best score from the local leaderboard at the moment this run
+  // started. null when the player has no prior runs recorded. The
+  // summary panel compares score against this to show a NEW BEST
+  // callout and the delta over the previous record.
+  previousBestScore: number | null
 }
 
 type Settings = {
@@ -749,15 +754,20 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     resetTouchControls(touchJoysticksRef.current, keysRef.current)
     touchLookVectorRef.current = { x: 0, y: 0 }
     setTouchJoysticksView(cloneTouchJoysticks(touchJoysticksRef.current))
+    const finalScoreValue = finalScore(scoreRef.current, directorRef.current.runMs)
+    const previousBestSnapshot = previousBestAtRunStartRef.current
     const runSummary = {
-      score: finalScore(scoreRef.current, directorRef.current.runMs),
+      score: finalScoreValue,
       survivalMs: directorRef.current.runMs,
       kills: scoreRef.current.kills,
       accuracy: accuracy(scoreRef.current),
       bestCombo: scoreRef.current.bestCombo,
       closeRangeKills: scoreRef.current.closeRangeKills,
       weaponsUsed: scoreRef.current.weaponsUsedForKills.length,
-      bestNoDamageStreak: scoreRef.current.bestNoDamageStreak
+      bestNoDamageStreak: scoreRef.current.bestNoDamageStreak,
+      // Snapshot at run start so the summary panel can compute and show
+      // a personal-best delta. null when no prior runs are recorded.
+      previousBestScore: previousBestSnapshot
     }
     setSummary(runSummary)
 
@@ -766,7 +776,11 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         readLeaderboard(window.localStorage),
         {
           playerInitials: 'YOU',
-          ...runSummary,
+          score: runSummary.score,
+          survivalMs: runSummary.survivalMs,
+          kills: runSummary.kills,
+          accuracy: runSummary.accuracy,
+          bestCombo: runSummary.bestCombo,
           createdAt: new Date().toISOString()
         }
       )
@@ -2203,6 +2217,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             ) : null}
             {summary ? (
               <div className="summary" data-testid="run-summary">
+                {summary.previousBestScore !== null && summary.score > summary.previousBestScore ? (
+                  <p className="summary-new-best" data-testid="summary-new-best">
+                    <strong>NEW BEST!</strong>{' '}
+                    +{summary.score - summary.previousBestScore} over previous {summary.previousBestScore}
+                  </p>
+                ) : null}
                 <p>Score {summary.score}</p>
                 <p>Kills {summary.kills}</p>
                 <p>Time {formatTime(summary.survivalMs)}</p>
