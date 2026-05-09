@@ -25,6 +25,10 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 
 ## Open
 
+(none)
+
+## Resolved
+
 ### Q-008: Should enemies hurt each other through crossfire?
 
 - Context: Infighting is one of Doom's signature mechanics. Imps shooting pinkies aggro the pinkies; the player can engineer kills by positioning. Flatline's enemy roster does not yet have a ranged enemy (Q-N/A, REQ-031 not_started), so infighting first lands when the spitter ships. The damage rule decides whether infighting is a flavor mechanic or a primary combat solver.
@@ -33,9 +37,8 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
   - B. Half damage. Cross-faction projectiles do 50% of player damage. Reads as "I can soften a brute by tricking a spitter, but I still have to finish."
   - C. No infighting. Cross-faction projectiles pass through other enemies harmlessly.
 - Recommended default: B. Half damage keeps infighting a *flavor* mechanic that rewards positioning without letting the player skip combat entirely. It also keeps the player accountable for the kill so combo and accuracy bonuses still mean something.
-- Status: open
-
-## Resolved
+- Status: resolved
+- Resolution: Shipped under Recommended default B (50% scale) in F-013 / PR #82 and the F-016 v2 pursuit pass. `INFIGHTING_DAMAGE_SCALE = 0.5` lives in `src/components/FlatlineGame.tsx` and routes both the spitter projectile crossfire path and the skitter-overlap / hazard-tick infighting paths through the scale. Decided 2026-05-09.
 
 ### Q-007: What does the rage / berserk powerup actually do?
 

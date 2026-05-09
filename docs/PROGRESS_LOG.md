@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Close Q-008 (infighting damage scale shipped at 50%)
+
+- Branch: `chore/close-q008`
+- PR: #122
+- Changed: `Q-008` "Should enemies hurt each other through crossfire?" was answered the moment infighting shipped. The implementation chose Recommended default B (50% damage) and lives at `INFIGHTING_DAMAGE_SCALE = 0.5` in `src/components/FlatlineGame.tsx`, applied to both the spitter projectile crossfire path and the skitter-overlap / hazard-tick infighting paths. Updated `docs/OPEN_QUESTIONS.md` to flip Q-008 status to `resolved`, added a Resolution line citing F-013 / PR #82 and the F-016 v2 pursuit pass, and moved the entry under `## Resolved`.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`. No code changes; no tests touched.
+- Assumptions: Recommended default treats Q-008 as already answered by the shipped code rather than re-litigating the damage rule. The 50% scale has been tuned across F-013, F-016 v1, and F-016 v2 without complaint, so the rule reads as accepted.
+- GDD coverage: no rows changed.
+- Followups: none.
+
 ## 2026-05-09, Playwright motion coverage for HUD animations (closes F-017)
 
 - Branch: `test/hud-motion-coverage`
