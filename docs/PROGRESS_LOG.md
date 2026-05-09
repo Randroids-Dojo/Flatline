@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Playwright motion coverage for HUD animations (closes F-017)
+
+- Branch: `test/hud-motion-coverage`
+- PR: TBD
+- Changed: closes `F-017`. New `tests/hud-motion.spec.ts` adds four tests: (1) ammo-pill `data-critical` flips on boomstick depletion to 1 and computed `animationName` is `ammo-critical-pulse`; (2) score-floater mounts on a confirmed kill with a valid combo tier and the combo-pill's `--combo-time-ratio` CSS variable rises above zero; (3) crosshair `data-locked` binding exists and the `data-locked='true'` CSS rule paints a different `::before` background than the inactive baseline; (4) `prefers-reduced-motion: reduce` collapses the ammo-pulse `animationName` to `none`. Score-floater coverage uses a MutationObserver that records every floater that mounts (the element unmounts ~1.2s after spawn so a stale snapshot misses it). Crosshair-lock and damage-indicator severity are verified via a CSS-rule probe instead of enemy-positioning gameplay because both depend on non-deterministic enemy AI; per the recorded codebase learning, a CSS-rule probe is enough for CSS-only data-attribute-driven animations.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), `npx playwright test` (17 passed, 3 mobile-only skipped under chromium). The new spec adds 4 tests to the chromium project and 4 to the mobile-chromium project.
+- Assumptions: Recommended default verifies crosshair-lock and damage-indicator via CSS-rule probes rather than gameplay because the gameplay paths depend on enemy AI that does not converge on a deterministic outcome inside a Playwright timeout. Recommended default uses a MutationObserver per Playwright test rather than reaching for a shared fixture; only the score-floater test needs persistent capture across unmounts.
+- GDD coverage: no requirement rows changed. F-017 is internal QA, not a GDD requirement.
+- Followups: none.
+
 ## 2026-05-09, Audit dailyStreak vs VibeRacer for VibeKit contribution: skip
 
 - Branch: `chore/audit-daily-streak`

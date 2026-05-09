@@ -33,14 +33,17 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Polish
 
+(none yet)
+
+## Resolved
+
 ### F-017: Playwright motion coverage for new HUD animations
 
 - Priority: polish
 - Context: PRs #109 (score floater combo tier), #111 (crosshair on-target), #113 (combo timer bar), #114 (damage indicator severity), and #115 (critical-ammo pulse) each shipped a new HUD animation or visual state. CodeRabbit's review on PR #115 flagged that none of them have Playwright motion coverage per Rule 10. Each was deferred individually; the followup batches them so the test infrastructure investment compounds.
 - Blocker: none.
 - Unblock condition: add a Playwright spec that drives a practice-arena run, exercises each animated HUD path (combo build to streak / rolling / rampage tiers, crosshair lock and unlock, combo timer drain, damage taken at low / medium / high severity, ammo spent down to 1), and asserts changing DOM rect / opacity / data-attribute flips for each. Use `expect.poll` for time-windowed checks and assert at least one `prefers-reduced-motion` path skips animation.
-
-## Resolved
+- Resolved: PR #TBD. Shipped `tests/hud-motion.spec.ts` with four tests: (1) ammo-pill `data-critical` flips when boomstick depletes to 1 and the `ammo-critical-pulse` keyframe applies; (2) score-floater mounts on a confirmed peashooter kill with a valid combo tier (`base` / `streak` / `rolling` / `rampage`) and the combo-pill's `--combo-time-ratio` CSS variable rises above zero; (3) crosshair `data-locked` binding exists and the `data-locked='true'` CSS rule paints a different `::before` background than the `data-locked='false'` baseline (proves the rule is wired); (4) `prefers-reduced-motion: reduce` collapses the ammo-pulse `animationName` to `none`. Crosshair-lock and damage-indicator severity are exercised through CSS-rule probes rather than enemy-positioning gameplay because both depend on non-deterministic enemy AI; a CSS-rule probe is enough for CSS-only animations per the recorded codebase learning. The Playwright spec uses `expect.poll`-style helpers and a MutationObserver that survives the floater's 1.2s unmount window.
 
 ### F-016: Crossfire aggro retargeting
 
