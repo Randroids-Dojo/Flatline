@@ -27,7 +27,7 @@ import {
   type DailyArenaConfig,
   type DailySchedulePreview
 } from '@/game/dailyArena'
-import { applyCrossfireRetarget, createEnemy, createGrunt, crossfireStaggerIntensity, damageEnemy, enemyConfigs, enemyTypeForSpawn, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
+import { applyCrossfireRetarget, createEnemy, createGrunt, crossfireStaggerIntensity, damageEnemy, enemyConfigs, enemyTypeForSpawn, isFinisherReady, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
@@ -1008,6 +1008,11 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     // balance" without colliding with the hurt flash (which is enemy-tinted
     // hot), the spitter charge (yellow-green), or the skitter dash (white).
     const crossfireStaggerColor = new THREE.Color('#9fb4c8')
+    // Finisher tint: a warm amber pulled toward the billboard says "one
+    // more hit kills this one." Persistent (not animated) so the player
+    // can clock it at a glance without a moving signal competing with
+    // the transient hurt flash and stagger blue.
+    const finisherReadyColor = new THREE.Color('#ffaa55')
 
     function animate(time: number) {
       animationRef.current = requestAnimationFrame(animate)
@@ -1618,6 +1623,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           // Telegraph the dash burst: lerp toward white at the leading edge.
           const intensity = Math.min(1, enemy.dashBurstMsRemaining / SKITTER_DASH_DURATION_MS)
           slot.material.color.set(baseTint).lerp(skitterDashColor, 0.5 * intensity)
+        } else if (isFinisherReady(enemy.health, enemyConfigs[enemy.type].maxHealth)) {
+          // Finisher tint at the lowest priority so transient cues
+          // (hurt, stagger, charge, dash) still win the frame, but a
+          // wounded enemy idling between hits reads as the obvious
+          // next target. Persistent half-strength lerp keeps the
+          // silhouette readable.
+          slot.material.color.set(baseTint).lerp(finisherReadyColor, 0.5)
         } else {
           slot.material.color.set(baseTint)
         }

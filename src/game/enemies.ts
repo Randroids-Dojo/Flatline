@@ -257,6 +257,17 @@ export function applyCrossfireRetarget(
 // caller-supplied source object simply needing an id field now.
 export const applyCrossfireStagger = applyCrossfireRetarget
 
+// Feel pass: returns true when the enemy is one hit from death AND
+// the enemy type can take more than one hit. Skitters (maxHealth: 1)
+// are always one-hit kills, so they would always satisfy the literal
+// "1 HP" check; the maxHealth filter excludes them so the tint only
+// fires for enemies the player has actually softened up. The render
+// branch in FlatlineGame.tsx uses this to paint a warm "finisher
+// ready" tint on the billboard.
+export function isFinisherReady(currentHealth: number, maxHealth: number): boolean {
+  return maxHealth > 1 && currentHealth === 1
+}
+
 // F-016 feel: how strongly to apply the stagger tint to the victim.
 // Linear from 1 (just armed) to 0 (window expired). Clamped at the
 // edges so a stale crossfireStaggerMs value above the duration does
