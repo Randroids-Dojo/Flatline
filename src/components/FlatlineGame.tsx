@@ -2183,6 +2183,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           </div>
           <div className="hud-pill">
             Weapon
+            <img className="weapon-hud-icon" src={`/assets/weapons/${selectedWeapon}-hud.png`} alt="" aria-hidden="true" />
             <strong>{weaponConfigs[selectedWeapon].label}</strong>
           </div>
           <div className={`hud-pill weapon-ready-pill${weaponReady ? '' : ' weapon-recovering'}`} data-testid="weapon-ready">
@@ -2392,8 +2393,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         const recoilStyle = weaponRecoilStyle(selectedWeapon)
         return (
           <div
-            key={`weapon-${selectedWeapon}-${weaponFiring ? 'firing' : 'idle'}-${weaponFireKey}`}
-            className={`weapon weapon-${selectedWeapon}${weaponFiring ? ' weapon-firing' : ''}`}
+            key={`weapon-${selectedWeapon}-${weaponFiring ? 'firing' : weaponReady ? 'idle' : 'cooldown'}-${weaponFireKey}`}
+            className={`weapon weapon-${selectedWeapon}${weaponFiring ? ' weapon-firing' : !weaponReady ? ' weapon-cooldown' : ''}`}
             data-testid="weapon-sprite"
             aria-hidden="true"
             style={{
