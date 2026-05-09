@@ -21,7 +21,7 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 ## 2026-05-09, Wire HUD rubber-hose icons (partial close on F-019)
 
 - Branch: `feat/wire-hud-icons-f019`
-- PR: TBD
+- PR: #130
 - Changed: art slice 3 (PR #126) generated six 32x32 rubber-hose HUD icons but they were unused on disk. Now wired: `FlatlineGame.tsx` adds `<img class="hud-icon">` to the Health, Wave, Score, Combo, Kills, and Time pills, sitting between each pill's existing label text and its `<strong>` value. The shared `.hud-icon` CSS rule (which now co-styles `.weapon-hud-icon` shipped in PR #129) sets 18x18 + `image-rendering: pixelated` so the rubber-hose silhouettes stay crisp. The inline SVG `<feTurbulence>` ink-bleed filter from the dot is intentionally deferred; tracked as `F-022`.
 - Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), Playwright smoke + HUD-motion (7 chromium passing, 3 mobile-only skipped). The existing `getByText('Hits').locator('..').toContainText('1')` smoke pattern continues to work because the icons sit between the label and the strong value, not around them.
 - Assumptions: Recommended default places each icon between the label and the value (`Label <icon> <value>`) rather than left-of-label or right-of-value, because the smoke test asserts `getByText(label).locator('..').toContainText(value)` and the structural layout keeps both sides reachable. Recommended default ships the icons without the ink-bleed filter so the tuning + Safari-bug check on `<feDisplacementMap>` lands as its own reviewable slice.
