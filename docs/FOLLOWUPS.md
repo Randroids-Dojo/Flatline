@@ -33,7 +33,12 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Polish
 
-(none yet)
+### F-018: Wire weapon cooldown / pickup / HUD frames into FlatlineGame.tsx
+
+- Priority: polish
+- Context: art slice 1 generated `{weapon}-cooldown.png`, `{weapon}-pickup.png`, `{weapon}-hud.png`, and `{weapon}-reload-{0..3}.png` for all three weapons via `scripts/generate-weapon-sprites.mjs`. The PNGs are committed to `public/assets/weapons/` but `FlatlineGame.tsx` still only renders the idle / fire frames through the existing `weapon-{id}` CSS classes; the new frames are unused on disk.
+- Blocker: none.
+- Unblock condition: in `FlatlineGame.tsx`, swap the foreground weapon sprite to the cooldown PNG while `weaponState === 'cooldown'`, surface a `<img src="{weapon}-pickup.png">` next to ammo / weapon pickups in the supply notification, and replace the per-weapon text labels in the weapon-ready HUD pill with the per-weapon HUD icon. The reload-{0..3} sequence is currently unreferenced; either wire a 4-frame animation when entering the cooldown state OR delete the unused frames before merging.
 
 ## Resolved
 

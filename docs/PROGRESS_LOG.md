@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Art slice 1: weapon cooldown / pickup / HUD / reload frames
+
+- Branch: `feat/art-1-weapon-frames`
+- PR: #124
+- Changed: closes the priority-2 dot `Flatline-art-1-weapon-frames`. `scripts/generate-weapon-sprites.mjs` was refactored to thread `width` / `height` per render and now emits seven new PNGs per weapon on top of the existing idle / fire pair: `cooldown.png` (slight recoil position with a fading ember halo, no muzzle spike), `pickup.png` (64x64, body + dark barrel + accent dot, with a -30deg tilt so the icon reads as a collectible), `hud.png` (32x32 monochrome silhouette in the weapon's accent color), and `reload-{0..3}.png` (4-frame interpolated break-open tilt rotating around the grip). All three weapons (peashooter, boomstick, inkblaster) get the full set; 27 PNGs total under `public/assets/weapons/`. Updated the GDD section build log and added `F-018` (Polish) tracking the FlatlineGame.tsx wiring follow-up that consumes the new frames.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), `node scripts/generate-weapon-sprites.mjs` (clean run, 27 PNGs deterministic), visual spot-check on each new PNG via the Read tool. The new files are static assets; no unit tests are warranted for the generator itself.
+- Assumptions: Recommended default ships the asset frames in this PR and defers the `FlatlineGame.tsx` wiring to F-018 because the wiring touches three separate code paths (weapon-state machine, supply-pickup notification, weapon-ready HUD pill) that are easier to review individually. Recommended default keeps `REQ-026` status `partial` until F-018 lands; the GDD section text reads "frame set verified" which the visual spot-check satisfies, but the requirement implicitly assumes the frames are visible in-game.
+- GDD coverage: `REQ-026` followupRefs gain `F-018`; status stays `partial`. Build log entry appended to `docs/gdd/26-weapon-presentation.md`.
+- Followups: created `F-018`.
+
 ## 2026-05-09, Leaderboard time / kills / accuracy columns (closes REQ-061)
 
 - Branch: `feat/leaderboard-extra-columns`
