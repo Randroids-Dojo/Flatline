@@ -21,7 +21,7 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 ## 2026-05-09, Crossfire cues use per-type hurt cue (REQ-040 progress)
 
 - Branch: `chore/crossfire-cue-per-type`
-- PR: #TBD
+- PR: #148
 - Changed: replaces the two remaining flat `playCue(180)` blips on enemy-on-enemy damage paths with `playEnemyHurtCue(enemyHurtCue(type))`. Hazard-on-enemy in the animate loop now tracks `lastBurnedType` alongside the existing `lastBurnedLabel` / `lastBurnedKilled`. Spitter-projectile-on-enemy crossfire splash uses the retargeted enemy's type. Both sites only fire the hurt cue when the victim survives; the kill detection block downstream handles the death cue on any fresh `state === 'dead'` transition, so no double-fire. Pure helpers untouched; this is a wiring slice that finishes the per-type cue family (no more generic `playCue(180)` blips on enemy damage).
 - Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean), `git diff --check`, `npm run typecheck`, `npm run test` (547 / 547, no new tests).
 - Assumptions: Recommended default fires only the hurt cue at the crossfire site to avoid stomping on the kill detection block's death cue; doubling up would make every crossfire kill sound louder than every player kill, which would be backwards. Recommended default uses the hazard-loop's "last burned" pattern (one cue per tick, not per enemy) because the existing label / killed plumbing already does the same; switching to one cue per damaged enemy would require a bigger refactor and is out of scope.
