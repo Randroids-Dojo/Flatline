@@ -54,6 +54,14 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Context: art slice 3 generated `health.png`, `score.png`, `time.png`, `kills.png`, `combo.png`, `wave.png` (32x32 rubber-hose icons) under `public/assets/hud/`. The dot also called for an inline SVG `<feTurbulence>` + `<feDisplacementMap>` filter on the HUD pill borders for the cartoon-title-card ink-bleed effect. Both pieces are deferred so the asset-generator slice stays small.
 - Blocker: none.
 - Unblock condition: in `FlatlineGame.tsx`, render each HUD pill with the matching icon next to its text (Health / Score / Time / Kills / Combo / Wave). Add a single inline SVG `<defs>` block at the top of the HUD root carrying a named `ink-bleed` filter (`<feTurbulence type="fractalNoise" baseFrequency="0.9" seed="3"/>` + `<feDisplacementMap in="SourceGraphic" scale="2"/>`). Apply the filter to `.hud-pill` borders via `filter: url(#ink-bleed)` in `globals.css`. Confirm via the Rule-10 motion smoke that the existing pill animations still render correctly under the filter. Closes the rubber-hose-icons + ink-bleed-borders gap on REQ-039.
+- Resolved (partial): PR #TBD wired all six HUD icons (health / wave / score / combo / kills / time) inline as `<img class="hud-icon">` next to each pill's existing label text. The shared `.hud-icon` CSS rule (which co-styles `.weapon-hud-icon` from F-018 partial) sets 18x18 + `image-rendering: pixelated`. The inline SVG `<feTurbulence>` ink-bleed filter remains deferred; tracked as the remaining unblock condition on F-022.
+
+### F-022: Add inline SVG ink-bleed filter to HUD pill borders
+
+- Priority: polish
+- Context: F-019 partial-shipped. The six HUD icons are wired but the inline SVG `<feTurbulence>` + `<feDisplacementMap>` filter on `.hud-pill` borders for the cartoon-title-card ink-bleed effect was not added; the filter interacts with the existing `hudJitter` wobble + grain animations and wants its own slice for visual tuning.
+- Blocker: none.
+- Unblock condition: add a single inline SVG `<defs>` block at the top of the HUD root carrying a named `ink-bleed` filter (`<feTurbulence type="fractalNoise" baseFrequency="0.9" seed="3"/>` + `<feDisplacementMap in="SourceGraphic" scale="2"/>`). Apply the filter to `.hud-pill` borders via `filter: url(#ink-bleed)` in `globals.css`, behind a `prefers-reduced-motion: reduce` opt-out and a Safari-bug workaround if testing reveals one. Confirm the existing `tests/hud-motion.spec.ts` keyframes still render correctly under the filter. Closes the remaining ink-bleed-border piece of REQ-039.
 
 ### F-020: Wire arena cover billboards into the room renderer
 
