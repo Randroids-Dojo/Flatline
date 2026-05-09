@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Lighting flicker phase (REQ-047 progress)
+
+- Branch: `feat/lighting-flicker-phase`
+- PR: #TBD
+- Changed: ships the second of REQ-047's five lighting phases, the "flicker" phase. The room previously had a smooth pressure-tied intensity ramp on the overhead light; under high pressure (wave-director `pressure >= 0.7`) the light now stutters between baseline, a half-intensity trough, and a slight peak so the room reads as overloaded right when the spawn director is dumping waves. New pure helper `src/game/lightingPhase.ts` exposes `lightingPhaseForPressure(pressure)` returning `'normal' | 'flicker'`, `flickerIntensityScale(elapsedMs)` returning a deterministic stair-stepped multiplier from a sin-based hash (no per-frame allocation, no RNG state), and `lightingIntensityScale(pressure, elapsedMs)` composing the two so the consumer site is one call. `src/components/FlatlineGame.tsx` multiplies `runtime.overhead.intensity` by `lightingIntensityScale(targetPressureForRunMs(runMs), roomStateMsRef.current)` once per frame. Status stays `partial` because three more lighting phases (emergency lights, near-death pulse, darkness with enemy eyes) and the hazard / cover phase mutations are still ahead.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean), `git diff --check`, `npm run typecheck`, `npm run test` (503 / 503, +9 new for the pure helper).
+- Assumptions: Recommended default uses a stair-stepped flicker (80 ms steps with discrete trough / baseline / peak values) instead of a continuous sine wave. The discrete pattern reads as electrical fault, the continuous wave would read as an organic pulse and double up with the existing `pickupGlowIntensity` rhythm. Recommended default sets the flicker threshold at pressure 0.7 so the flicker is felt as a "things are getting bad" pressure cue rather than a fixed run-time event.
+- GDD coverage: `REQ-047` stays `partial`. Build log entry appended to `docs/gdd/47-arena-mutations.md`. `implementationRefs` and `testRefs` extended.
+- Followups: none new.
+
 ## 2026-05-09, Corner pickup-zone markers (closes REQ-019)
 
 - Branch: `feat/req-019-corner-pickup-zones`
