@@ -71,7 +71,7 @@ import {
 } from '@/game/pickupReadability'
 import { playerDamageCue, type PlayerDamageCueStyle } from '@/game/playerDamageCue'
 import { weaponRecoilStyle } from '@/game/weaponRecoil'
-import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
+import { accuracy, comboTimeRemainingRatio, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { crossedScoreMilestone, type ScoreMilestone } from '@/game/scoreMilestone'
 import { crossedComboMilestone, type ComboMilestone } from '@/game/comboMilestone'
 import { justCrossedPersonalBest } from '@/game/personalBest'
@@ -390,6 +390,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [weaponReady, setWeaponReady] = useState(true)
   const [dashReady, setDashReady] = useState(true)
   const [crosshairLocked, setCrosshairLocked] = useState(false)
+  const [comboTimeRatio, setComboTimeRatio] = useState(0)
   const [rageActive, setRageActive] = useState(false)
   const [rageTint, setRageTint] = useState(0)
   const [scoreTokenActiveState, setScoreTokenActiveState] = useState(false)
@@ -1684,6 +1685,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       }
       prevActiveComboRef.current = activeCombo
       setCombo((current) => current === activeCombo ? current : activeCombo)
+      const comboTimeRatio = activeCombo > 0
+        ? comboTimeRemainingRatio(scoreRef.current.comboExpiresAtMs, directorRef.current.runMs)
+        : 0
+      setComboTimeRatio((current) => (Math.abs(current - comboTimeRatio) < 0.01 ? current : comboTimeRatio))
 
       const enemiesNow = enemiesRef.current
       const debugBillboardEnemy = enemiesNow[0] ?? null
@@ -2198,9 +2203,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             Score
             <strong>{score}</strong>
           </div>
-          <div className="hud-pill combo-pill" data-testid="combo-pill">
+          <div
+            className="hud-pill combo-pill"
+            data-testid="combo-pill"
+            style={{ ['--combo-time-ratio' as string]: comboTimeRatio.toFixed(3) }}
+          >
             Combo
             <strong>{combo}</strong>
+            <span className="combo-timer-bar" data-testid="combo-timer-bar" aria-hidden="true" />
           </div>
           <div className="hud-pill">
             Kills

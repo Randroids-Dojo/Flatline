@@ -38,6 +38,11 @@ export const NO_DAMAGE_STREAK_BONUS = 30
 /** Final-score multiplier applied to accuracy (0..1). */
 export const ACCURACY_BONUS_MULTIPLIER = 500
 
+/** Window from a kill until the combo decays. Each successful kill
+ * resets `comboExpiresAtMs = nowMs + COMBO_WINDOW_MS`. The HUD timer
+ * bar reads this constant to render remaining combo time. */
+export const COMBO_WINDOW_MS = 2500
+
 export function createScoreState(): ScoreState {
   return {
     score: 0,
@@ -93,7 +98,7 @@ export function recordKill(score: ScoreState, nowMs: number, options: RecordKill
     kills: score.kills + 1,
     combo,
     bestCombo: Math.max(score.bestCombo, combo),
-    comboExpiresAtMs: nowMs + 2500,
+    comboExpiresAtMs: nowMs + COMBO_WINDOW_MS,
     closeRangeKills: score.closeRangeKills + (isCloseRange ? 1 : 0),
     weaponsUsedForKills,
     noDamageStreakKills,
@@ -103,6 +108,29 @@ export function recordKill(score: ScoreState, nowMs: number, options: RecordKill
 
 export function survivalBonus(runMs: number): number {
   return Math.floor(runMs / 1000) * 5
+}
+
+/** Returns the fraction (0..1) of the combo window still on the
+ * clock. 0 when the combo has decayed (or never existed); 1 when a
+ * fresh kill just refreshed the timer. The HUD progress bar reads
+ * this each frame to render decay. Clamped at the edges so a stale
+ * `comboExpiresAtMs` from a previous run cannot blow past the bar. */
+export function comboTimeRemainingRatio(
+  comboExpiresAtMs: number,
+  nowMs: number,
+  windowMs: number = COMBO_WINDOW_MS
+): number {
+  if (windowMs <= 0) {
+    return 0
+  }
+  const remaining = comboExpiresAtMs - nowMs
+  if (remaining <= 0) {
+    return 0
+  }
+  if (remaining >= windowMs) {
+    return 1
+  }
+  return remaining / windowMs
 }
 
 export function accuracy(score: ScoreState): number {

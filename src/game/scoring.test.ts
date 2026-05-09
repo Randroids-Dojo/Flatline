@@ -3,10 +3,12 @@ import {
   ACCURACY_BONUS_MULTIPLIER,
   CLOSE_RANGE_BONUS,
   CLOSE_RANGE_THRESHOLD,
+  COMBO_WINDOW_MS,
   NO_DAMAGE_STREAK_BONUS,
   WEAPON_VARIETY_BONUS,
   accuracy,
   accuracyBonus,
+  comboTimeRemainingRatio,
   createScoreState,
   finalScore,
   recordKill,
@@ -115,5 +117,29 @@ describe('scoring', () => {
     const state = recordKill(createScoreState(), 1000)
     expect(accuracyBonus(state)).toBe(0)
     expect(finalScore(state, 0)).toBe(state.score)
+  })
+})
+
+describe('comboTimeRemainingRatio', () => {
+  it('returns 1 when the combo timer was just refreshed', () => {
+    expect(comboTimeRemainingRatio(1000 + COMBO_WINDOW_MS, 1000)).toBe(1)
+  })
+
+  it('returns 0.5 when the timer is half elapsed', () => {
+    expect(comboTimeRemainingRatio(1000 + COMBO_WINDOW_MS, 1000 + COMBO_WINDOW_MS / 2)).toBeCloseTo(0.5, 5)
+  })
+
+  it('returns 0 when the timer has decayed', () => {
+    expect(comboTimeRemainingRatio(1000, 2000)).toBe(0)
+    expect(comboTimeRemainingRatio(1000, 1000)).toBe(0)
+  })
+
+  it('clamps to 1 when the expiry sits beyond a full window (stale state)', () => {
+    expect(comboTimeRemainingRatio(10_000, 1000)).toBe(1)
+  })
+
+  it('returns 0 for non-positive window', () => {
+    expect(comboTimeRemainingRatio(2000, 1000, 0)).toBe(0)
+    expect(comboTimeRemainingRatio(2000, 1000, -100)).toBe(0)
   })
 })
