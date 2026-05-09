@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
+import { finishAsset } from './finish-asset.mjs'
 
 const cell = 192
 const columns = 8
@@ -60,6 +61,7 @@ function generateAtlases() {
     const atlas = createAtlas(variant.type, variant.durations)
     const directory = `public/assets/enemies/${variant.type}`
     mkdirSync(directory, { recursive: true })
+    finishAsset(pixels)
     writeFileSync(`${directory}/${variant.type}.png`, writePng(pixels))
     writeFileSync(`${directory}/${variant.type}.atlas.json`, `${JSON.stringify(atlas, null, 2)}\n`)
   }

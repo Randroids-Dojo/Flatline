@@ -1,5 +1,6 @@
 import { deflateSync } from 'node:zlib'
 import { writeFileSync } from 'node:fs'
+import { finishAsset } from './finish-asset.mjs'
 
 const cell = 192
 const columns = 8
@@ -309,5 +310,6 @@ function crc32(buffer) {
   return (value ^ 0xffffffff) >>> 0
 }
 
+finishAsset(pixels)
 writeFileSync('public/assets/enemies/grunt/grunt.png', writePng())
 writeFileSync('public/assets/enemies/grunt/grunt.atlas.json', `${JSON.stringify(atlas, null, 2)}\n`)
