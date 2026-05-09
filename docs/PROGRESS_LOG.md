@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Per-weapon fire audio cue (REQ-040 progress)
+
+- Branch: `feat/weapon-fire-cue`
+- PR: #TBD
+- Changed: closes the "Weapon fire" required-SFX line. New pure helper `src/game/weaponFireCue.ts` exposes `weaponFireCue(weapon)` returning per-weapon `{ frequencyStart, frequencyEnd, waveform, durationMs, gain }` so each shot reads as a falling pitch envelope distinct to the gun (peashooter triangle 720 to 480 Hz / 70 ms / 0.028 quick pluck, boomstick sawtooth 180 to 60 Hz / 220 ms / 0.05 shotgun thud, inkblaster square 540 to 240 Hz / 130 ms / 0.038 wet blip). Replaces the previous generic `playCue(weapon === 'boomstick' ? 120 : 180)` that made peashooter and inkblaster sound identical. New local helper `playWeaponFireCue` in `src/components/FlatlineGame.tsx` mirrors the `playEnemyDeathCue` envelope (linear attack, exponential decay, exponential frequency ramp).
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean), `git diff --check`, `npm run typecheck`, `npm run test` (518 / 518, +8 new for the pure helper).
+- Assumptions: Recommended default makes the boomstick the heaviest cue (loudest gain 0.05, longest duration 220 ms, lowest pitch 180-60 Hz) so the shotgun thud feels weightier than the rapid peashooter pluck. Recommended default keeps the peashooter the quietest (0.028) because it fires the most often (220 ms cadence vs 760 / 680 ms); flat tuning would make the rapid plinks fatiguing.
+- GDD coverage: `REQ-040` stays `partial`. Build log entry appended to `docs/gdd/40-audio.md`. `implementationRefs` and `testRefs` extended.
+- Followups: none new.
+
 ## 2026-05-09, Enemy death audio cue (REQ-040 progress)
 
 - Branch: `feat/enemy-death-cue`
