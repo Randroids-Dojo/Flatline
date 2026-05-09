@@ -12,7 +12,6 @@ import { finishAsset } from './finish-asset.mjs'
 
 const outputDir = 'public/assets/cover'
 const ink = [9, 9, 9, 255]
-const outline = [244, 241, 232, 255]
 const teal = [80, 209, 192, 255]
 const tealDark = [45, 116, 108, 255]
 const danger = [240, 90, 79, 255]
