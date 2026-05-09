@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Lighting near-death pulse phase (REQ-047 progress)
+
+- Branch: `feat/lighting-near-death-pulse`
+- PR: #150
+- Changed: ships the third of REQ-047's five lighting phases. When player health is at or below 25 and alive, the overhead light pulses at heart-rate cadence (1.33 Hz) between scales 0.55 and 1.25, so the room visibly throbs when the player is one hit from down. New helpers in `src/game/lightingPhase.ts`: `lightingPhase(pressure, playerHealth)` returning `'normal' | 'flicker' | 'near-death'` with near-death precedence over flicker on overlap, `nearDeathIntensityScale(elapsedMs)`, and `combinedLightingIntensityScale(pressure, playerHealth, elapsedMs)` composing the three phases. `src/components/FlatlineGame.tsx` swaps the existing `lightingIntensityScale(pressure, t)` call for `combinedLightingIntensityScale(pressure, playerHealthRef.current, t)`. Status stays `partial` because two more lighting phases (emergency lights, darkness with enemy eyes) and the hazard / cover phase mutations are still ahead.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean), `git diff --check`, `npm run typecheck`, `npm run test` (573 / 573, +12 new for the new phase + combinator).
+- Assumptions: Recommended default lets near-death win over flicker on overlap because the player is the protagonist; the room's pressure flicker is a setting cue, the heart-rate pulse is a self cue, and overriding makes the player's urgency dominant. Recommended default keeps the trough at 0.55 (not lower) so the player can still see enemies during the pulse trough; deeper troughs would feel like blackouts rather than urgency. Recommended default ties the threshold to 25 HP not the rage threshold (35) so the heartbeat and the rage-on-collect window do not overlap by definition.
+- GDD coverage: `REQ-047` stays `partial`. Build log entry appended to `docs/gdd/47-arena-mutations.md`.
+- Followups: none new.
+
 ## 2026-05-09, Score token drops on enemy kill (closes REQ-035)
 
 - Branch: `feat/score-token-drops`
