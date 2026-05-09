@@ -13,7 +13,6 @@ const dark = [9, 9, 9, 255]
 const flash = [255, 236, 160, 255]
 const glow = [240, 90, 79, 190]
 const emberGlow = [240, 130, 70, 110]
-const reloadFrameCount = 4
 const crcTable = new Uint32Array(256)
 
 for (let index = 0; index < crcTable.length; index += 1) {
@@ -36,13 +35,6 @@ for (const weapon of weapons) {
   writeFileSync(`${outputDir}/${weapon.id}-fire.png`, renderAt(384, 256, (pixels) => drawWeapon(pixels, weapon, 'fire')))
   writeFileSync(`${outputDir}/${weapon.id}-cooldown.png`, renderAt(384, 256, (pixels) => drawWeapon(pixels, weapon, 'cooldown')))
 
-  for (let frame = 0; frame < reloadFrameCount; frame += 1) {
-    writeFileSync(
-      `${outputDir}/${weapon.id}-reload-${frame}.png`,
-      renderAt(384, 256, (pixels) => drawWeapon(pixels, weapon, 'reload', { reloadProgress: frame / (reloadFrameCount - 1) }))
-    )
-  }
-
   writeFileSync(`${outputDir}/${weapon.id}-pickup.png`, renderAt(64, 64, (pixels) => drawWeaponIcon(pixels, weapon, 'pickup')))
   writeFileSync(`${outputDir}/${weapon.id}-hud.png`, renderAt(32, 32, (pixels) => drawWeaponIcon(pixels, weapon, 'hud')))
 }
@@ -56,24 +48,14 @@ function renderAt(w, h, drawFn) {
   return writePng(pixels)
 }
 
-function drawWeapon(pixels, weapon, mode, opts = {}) {
+function drawWeapon(pixels, weapon, mode) {
   const cx = width / 2
   const baseY = height - 6
-  // Cooldown nudges the gun a few pixels down + back from the recoil position
-  // so it reads as "just fired" without the visible flash. Reload tilts the
-  // whole rig from 0 to 90 deg around the grip so the player sees the gun
-  // being broken open across the four frames.
+  // Cooldown nudges the gun a few pixels down from the recoil position so
+  // it reads as "just fired" without the muzzle flash spike.
   const recoilOffsetY = mode === 'cooldown' ? 6 : 0
-  const reloadAngle = mode === 'reload' ? (opts.reloadProgress ?? 0) * (Math.PI / 2) : 0
 
-  const tx = (x, y) => {
-    if (reloadAngle === 0) return [x, y + recoilOffsetY]
-    const dx = x - cx
-    const dy = y - baseY
-    const cos = Math.cos(reloadAngle)
-    const sin = Math.sin(reloadAngle)
-    return [cx + dx * cos - dy * sin, baseY + dx * sin + dy * cos + recoilOffsetY]
-  }
+  const tx = (x, y) => [x, y + recoilOffsetY]
 
   const bodyPoints = [
     [cx - 68, baseY],

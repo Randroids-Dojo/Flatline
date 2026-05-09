@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Delete unused weapon reload frames (closes F-021, F-018)
+
+- Branch: `chore/close-f021-delete-reload-frames`
+- PR: #132
+- Changed: closes `F-021` and the still-deferred parts of `F-018` via the dot's "delete the reload frames" branch. The 4-frame reload sequence per weapon (`{peashooter,boomstick,inkblaster}-reload-{0..3}.png`, 12 files total) was generated in art slice 1 but never wired; the cooldown sprite swap shipped in PR #129 already reads as a clean recovery window, so layering a 4-frame break-open animation would be incremental polish at best and would require new React state + timing. Removed the 12 PNG files plus the reload-generation code (`reloadFrameCount` constant, the reload-mode rotation transform, the for-loop that wrote the four files) from `scripts/generate-weapon-sprites.mjs`; the helper retains its cooldown / pickup / HUD branches. The pickup-icon overlay piece of F-021 is also closed by deferral: the existing `setStatus('Supplies collected.')` line plus the existing pickup audio cue read clearly today, and a richer pickup overlay would be new-feature work rather than polish. F-018 and F-021 move to `## Resolved`.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), `node scripts/generate-weapon-sprites.mjs` (clean run, 15 PNGs total per weapon: idle / fire / cooldown / pickup / hud, no reload).
+- Assumptions: Recommended default chooses the dot's deletion branch over the implementation branch because the cooldown swap already covers the recovery-window read and the four reload frames added clutter without commensurate polish. Recommended default leaves the pickup-icon idea as a future-feature spawn rather than retrofitting a notification overlay UI; the existing status-line + audio cue is sufficient feedback today.
+- GDD coverage: `REQ-026` already names `scripts/generate-weapon-sprites.mjs`; status stays `partial` (the `{weapon}-pickup.png` file is still unused; if/when a pickup overlay UI lands as its own feature, REQ-026 can flip to `done`).
+- Followups: closed `F-018` and `F-021`. Both moved to `## Resolved`.
+
 ## 2026-05-09, HUD pill ink-bleed filter (closes F-022, F-019, REQ-039)
 
 - Branch: `feat/hud-ink-bleed-f022`
