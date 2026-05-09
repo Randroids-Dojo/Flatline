@@ -47,6 +47,13 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Blocker: none.
 - Unblock condition: in `FlatlineGame.tsx`, render each HUD pill with the matching icon next to its text (Health / Score / Time / Kills / Combo / Wave). Add a single inline SVG `<defs>` block at the top of the HUD root carrying a named `ink-bleed` filter (`<feTurbulence type="fractalNoise" baseFrequency="0.9" seed="3"/>` + `<feDisplacementMap in="SourceGraphic" scale="2"/>`). Apply the filter to `.hud-pill` borders via `filter: url(#ink-bleed)` in `globals.css`. Confirm via the Rule-10 motion smoke that the existing pill animations still render correctly under the filter. Closes the rubber-hose-icons + ink-bleed-borders gap on REQ-039.
 
+### F-020: Wire arena cover billboards into the room renderer
+
+- Priority: polish
+- Context: art slice 6 generated `crate.png`, `partition.png`, `broken-wall.png`, `hanging-banner.png` under `public/assets/cover/`. The PNGs are committed but the arena renderer in `FlatlineGame.tsx` still only places pillars; the new cover billboards are unused on disk.
+- Blocker: none.
+- Unblock condition: in `FlatlineGame.tsx`, place a small fixed set of cover instances around the arena (e.g., two crates near the south doors, a partition between the two west pillars, a broken-wall fragment near the supply altar, a hanging banner below the ceiling near the east landmark). Use `THREE.SpriteMaterial` or a billboard `PlaneGeometry` with the corresponding texture; size them so the player can route around. Add a collision rectangle per cover instance so enemies path around it (or block the player from clipping through). Confirm the existing arena landmarks still render correctly. Closes the partial state of REQ-021.
+
 ## Resolved
 
 ### F-017: Playwright motion coverage for new HUD animations
