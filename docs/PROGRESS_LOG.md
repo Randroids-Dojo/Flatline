@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Combo timer bar in the HUD pill
+
+- Branch: `feat/feel-combo-timer-bar`
+- PR: #113
+- Changed: the combo pill now renders a thin progress bar along its bottom edge that shrinks as the combo window decays. Players can see at a glance when their streak is about to break and decide whether to push or reposition. New constant `COMBO_WINDOW_MS = 2500` exported from `src/game/scoring.ts` (the prior `recordKill` literal now references it). New pure helper `comboTimeRemainingRatio(comboExpiresAtMs, nowMs, windowMs)` returns a clamped 0..1 ratio. The animate loop writes the ratio into a `--combo-time-ratio` CSS custom property on the combo pill (set through a value-change guard so React only re-renders on a 1% delta). `app/globals.css` adds `.combo-pill .combo-timer-bar` with `transform: scaleX(var(--combo-time-ratio))` and a short `transition: transform 80ms linear` so the bar reads as a continuous decay.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (49 files / 453 tests pass; 5 new tests cover fresh-kill (1.0), half-elapsed (0.5), decayed (0), stale-state clamp (1.0), and zero / negative window edge cases).
+- Assumptions: Recommended default ties the bar to `comboExpiresAtMs - nowMs` rather than tracking a separate decay state, because `comboExpiresAtMs` is already the canonical source of combo timing. Recommended default writes through a 1% value-change guard so the component does not re-render every animation frame for sub-percent ratio drift, while the CSS transition smooths the visible bar.
+- GDD coverage: REQ-056 (post-MVP feel pass) gains a build-log entry in `docs/gdd/56-post-mvp-feel-pass.md`.
+- Followups: none new.
+
 ## 2026-05-08, Wave lull cue (peak end recovery signal)
 
 - Branch: `feat/feel-wave-lull-cue`
