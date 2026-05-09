@@ -116,14 +116,15 @@ test.describe('HUD animation coverage', () => {
     expect(sawComboTimer).not.toBeNull()
   })
 
-  test('crosshair, damage-indicator, score-floater all carry their data-attribute hooks', async ({ page }) => {
-    // Verify the wiring without depending on enemy positioning: render
-    // the HUD, confirm the binding exists for each animated element, and
-    // probe that the CSS rule attached to the active variant of each
-    // attribute paints differently from the inactive variant. The Rule 10
-    // motion-coverage requirement is satisfied for CSS-only animations
-    // by checking that (a) the data-attr binding is present and (b) the
-    // CSS rule fires when the binding flips.
+  test('crosshair, damage-indicator, score-floater CSS rules paint distinct variants', async ({ page }) => {
+    // Verify each animated HUD element's data-attribute CSS rule actually
+    // does something distinct, without depending on enemy AI to mount the
+    // element through gameplay. Rule 10 motion coverage is satisfied for
+    // CSS-only data-attribute animations by proving the rule paints
+    // differently per attribute value; the binding-from-state path is
+    // covered by unit tests on the helpers (isAmmoCritical, isEnemyOnCrosshair,
+    // damageIndicatorSeverity, scoreFloaterTier) and by the gameplay tests
+    // above for ammo-pill and score-floater.
     await page.goto('/arena/practice')
     await page.getByRole('button', { name: 'Start run' }).click()
     await expect(page.getByTestId('hud')).toBeVisible()
@@ -131,11 +132,7 @@ test.describe('HUD animation coverage', () => {
     const crosshair = page.getByTestId('crosshair')
     await expect(crosshair).toHaveAttribute('data-locked', /^(true|false)$/)
 
-    // Probe: under data-locked='true' the ::before pseudo-element paints
-    // a warmer background and a stronger box-shadow (see the
-    // .crosshair[data-locked='true']::before rule in globals.css). Force
-    // the attribute via DOM and read the computed style synchronously
-    // before React reconciles the next commit.
+    // Crosshair: the data-locked='true' rule warms the ::before bar.
     const lockedBackground = await crosshair.evaluate((el) => {
       el.setAttribute('data-locked', 'true')
       return getComputedStyle(el, '::before').backgroundColor
@@ -145,6 +142,40 @@ test.describe('HUD animation coverage', () => {
       return getComputedStyle(el, '::before').backgroundColor
     })
     expect(lockedBackground).not.toEqual(unlockedBackground)
+
+    // Damage-indicator + score-floater do not exist in the DOM at idle
+    // (the indicator unmounts ~720ms after a hit, and floaters unmount
+    // ~1.2s after a kill). Append detached probe elements with the right
+    // class + data-attribute, read computed style, then remove. The
+    // computed style reflects the global stylesheet so the data-attribute
+    // CSS rules apply.
+    const probes = await page.evaluate(() => {
+      const probe = (className: string, attrs: Record<string, string>): { background: string; color: string; fontSize: string } => {
+        const el = document.createElement('div')
+        el.className = className
+        for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
+        document.body.appendChild(el)
+        const style = getComputedStyle(el)
+        const result = {
+          background: style.backgroundImage || style.background,
+          color: style.color,
+          fontSize: style.fontSize
+        }
+        document.body.removeChild(el)
+        return result
+      }
+      return {
+        damageMedium: probe('damage-indicator', { 'data-severity': 'medium' }),
+        damageHigh: probe('damage-indicator', { 'data-severity': 'high' }),
+        floaterStreak: probe('score-floater', { 'data-tier': 'streak' }),
+        floaterRampage: probe('score-floater', { 'data-tier': 'rampage' })
+      }
+    })
+    // Damage indicator paints distinct conic gradients per severity.
+    expect(probes.damageMedium.background).not.toEqual(probes.damageHigh.background)
+    // Score floater escalates color + font-size as the tier climbs.
+    expect(probes.floaterStreak.color).not.toEqual(probes.floaterRampage.color)
+    expect(probes.floaterStreak.fontSize).not.toEqual(probes.floaterRampage.fontSize)
   })
 
   test('prefers-reduced-motion suppresses ammo-critical pulse keyframes', async ({ browser }) => {
