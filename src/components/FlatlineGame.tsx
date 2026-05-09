@@ -73,6 +73,7 @@ import { playerDamageCue, type PlayerDamageCueStyle } from '@/game/playerDamageC
 import { weaponRecoilStyle } from '@/game/weaponRecoil'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { crossedScoreMilestone, type ScoreMilestone } from '@/game/scoreMilestone'
+import { justCrossedPersonalBest } from '@/game/personalBest'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
 import { encounterWaveSignal, peakStartedBetween } from '@/game/encounterWave'
@@ -294,6 +295,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const directorRef = useRef<DirectorState>(createDirectorState())
   const roomStateMsRef = useRef<number>(0)
   const scoreRef = useRef<ScoreState>(createScoreState())
+  // PB cue: snapshot of the player's local best at run start. The kill
+  // branch checks against this so the cue fires at most once per run,
+  // exactly when the score crosses the snapshot. Set by startRun.
+  const previousBestAtRunStartRef = useRef<number | null>(null)
   const healthPickupReadyRef = useRef<boolean>(true)
   const healthPickupCooldownRef = useRef<number>(0)
   const hazardDamageCooldownRef = useRef<number>(0)
@@ -446,6 +451,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         const milestone = crossedScoreMilestone(previousScore, scoreRef.current.score)
         if (milestone !== null) {
           playScoreMilestoneCue(milestone, settingsRef.current.audio)
+        }
+        if (justCrossedPersonalBest(previousScore, scoreRef.current.score, previousBestAtRunStartRef.current)) {
+          playPersonalBestCue(settingsRef.current.audio)
         }
 
         const runtime = runtimeRef.current
@@ -630,6 +638,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     directorRef.current = createDirectorState()
     roomStateMsRef.current = 0
     scoreRef.current = createScoreState()
+    previousBestAtRunStartRef.current = bestLocalScore(leaderboard)
     enemySpawnSeqRef.current = 1
     enemiesRef.current = [createEnemy(firstEnemyType, `${firstEnemyType}-${enemySpawnSeqRef.current}`, { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)]
     healthPickupReadyRef.current = true
@@ -3860,6 +3869,39 @@ function playDoorOpenCue(cue: DoorCueStyle, enabled: boolean) {
   const stopTime = startTime + cue.durationMs / 1000
   gain.gain.setValueAtTime(0, startTime)
   gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.012, cue.durationMs / 1000 / 5))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+// Personal-best cue. Fires once when the run crosses the player's
+// local best at run start. Pitched higher and held longer than the
+// top-tier score milestone cue, with a small extra ascending step so
+// the moment reads as a personal achievement rather than a generic
+// threshold crossing.
+function playPersonalBestCue(enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = 'triangle'
+  const startTime = context.currentTime
+  const durationMs = 540
+  const stopTime = startTime + durationMs / 1000
+  oscillator.frequency.setValueAtTime(720, startTime)
+  oscillator.frequency.exponentialRampToValueAtTime(1080, startTime + 0.12)
+  oscillator.frequency.exponentialRampToValueAtTime(1440, startTime + 0.28)
+  oscillator.frequency.exponentialRampToValueAtTime(1280, stopTime)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(0.085, startTime + 0.03)
   gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
   oscillator.connect(gain)
   gain.connect(context.destination)
