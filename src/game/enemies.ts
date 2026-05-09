@@ -1,3 +1,4 @@
+import { ARENA_COVER_RECTS, clampOutsideRects } from './coverCollision'
 import {
   SKITTER_DASH_DURATION_MS,
   SKITTER_DASH_REARM_COOLDOWN_MS,
@@ -525,6 +526,25 @@ export function tickEnemy(
   }
 
   moveEnemyTowardPlayer(nextEnemy, chaseTarget, activeDeltaMs, config)
+
+  // F-023 / REQ-021: clamp the enemy out of the arena cover and pillar
+  // rectangles after movement so chasing AI does not drive itself into
+  // a pillar. Radius 0.4 matches the player radius; enemy radius scales
+  // with `enemyConfig.scale` but a single shared collision radius keeps
+  // the slice tight, and pathing-around behavior reads correctly with
+  // 0.4 because the cover rects are larger than the visible silhouette
+  // by enough margin for any enemy size.
+  const clampedEnemy = clampOutsideRects(
+    nextEnemy.position.x,
+    nextEnemy.position.z,
+    0.4,
+    ARENA_COVER_RECTS
+  )
+  nextEnemy.position = {
+    x: clampedEnemy.x,
+    y: nextEnemy.position.y,
+    z: clampedEnemy.z
+  }
 
   // Skitter dash crossfire: closes F-013. While in an active dash burst,
   // a skitter that overlaps another alive enemy applies infighting damage

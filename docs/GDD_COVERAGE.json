@@ -188,10 +188,10 @@
       "id": "REQ-021",
       "requirement": "Arena cover: pillars, broken walls, low crates, hanging props, moving partitions; enemies path around cover.",
       "gddRef": "docs/gdd/21-arena-cover.md",
-      "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "scripts/generate-cover-billboards.mjs", "public/assets/cover"],
-      "testRefs": [],
-      "followupRefs": ["F-020", "F-023"]
+      "status": "done",
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "scripts/generate-cover-billboards.mjs", "public/assets/cover", "src/game/coverCollision.ts", "src/game/enemies.ts", "src/game/spitterProjectile.ts"],
+      "testRefs": ["src/game/coverCollision.test.ts"],
+      "followupRefs": ["F-020"]
     },
     {
       "id": "REQ-022",

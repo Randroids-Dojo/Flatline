@@ -62,6 +62,7 @@ import {
   hudPillWobbleRotationDeg,
   hudSplatterIntensity
 } from '@/game/hudJitter'
+import { ARENA_COVER_RECTS, clampOutsideRects } from '@/game/coverCollision'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
 import { pickupCue, type PickupCueStyle } from '@/game/pickupCue'
@@ -1148,6 +1149,21 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           }
         } else if (dashStateRef.current !== null) {
           dashStateRef.current = null
+        }
+
+        // F-023 / REQ-021: clamp the player out of the arena cover and
+        // pillar collision rectangles. Radius 0.4 matches the player
+        // radius used for enemy attack range checks.
+        const clampedPlayer = clampOutsideRects(
+          positionRef.current.x,
+          positionRef.current.z,
+          0.4,
+          ARENA_COVER_RECTS
+        )
+        positionRef.current = {
+          x: clampedPlayer.x,
+          y: positionRef.current.y,
+          z: clampedPlayer.z
         }
 
         const dashIsReady = dashReadyAt(performance.now(), lastDashStartMsRef.current)
