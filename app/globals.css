@@ -463,7 +463,8 @@ button {
   background-image: url("/assets/weapons/inkblaster-cooldown.png");
 }
 
-.weapon-hud-icon {
+.weapon-hud-icon,
+.hud-icon {
   display: inline-block;
   width: 18px;
   height: 18px;

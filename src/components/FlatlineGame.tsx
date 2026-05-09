@@ -2179,6 +2179,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         >
           <div className="hud-pill">
             Health
+            <img className="hud-icon" src="/assets/hud/health.png" alt="" aria-hidden="true" />
             <strong>{playerHealth}</strong>
           </div>
           <div className="hud-pill">
@@ -2208,6 +2209,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           ) : null}
           <div className={`hud-pill wave-pill wave-${wavePhase}`} data-testid="wave-pill">
             Wave
+            <img className="hud-icon" src="/assets/hud/wave.png" alt="" aria-hidden="true" />
             <strong>{wavePhase === 'lull' ? 'Lull' : wavePhase === 'surge' ? 'Surge' : 'Peak'}</strong>
           </div>
           <div
@@ -2219,6 +2221,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           </div>
           <div className="hud-pill">
             Score
+            <img className="hud-icon" src="/assets/hud/score.png" alt="" aria-hidden="true" />
             <strong>{score}</strong>
           </div>
           <div
@@ -2227,15 +2230,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             style={{ ['--combo-time-ratio' as string]: comboTimeRatio.toFixed(3) }}
           >
             Combo
+            <img className="hud-icon" src="/assets/hud/combo.png" alt="" aria-hidden="true" />
             <strong>{combo}</strong>
             <span className="combo-timer-bar" data-testid="combo-timer-bar" aria-hidden="true" />
           </div>
           <div className="hud-pill">
             Kills
+            <img className="hud-icon" src="/assets/hud/kills.png" alt="" aria-hidden="true" />
             <strong>{kills}</strong>
           </div>
           <div className="hud-pill">
             Time
+            <img className="hud-icon" src="/assets/hud/time.png" alt="" aria-hidden="true" />
             <strong>{formatTime(runMs)}</strong>
           </div>
           <div className="hud-pill">
