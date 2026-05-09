@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Leaderboard time / kills / accuracy columns (closes REQ-061)
+
+- Branch: `feat/leaderboard-extra-columns`
+- PR: TBD
+- Changed: closes the last partial of `REQ-061`. Both leaderboard renderings (`LocalLeaderboard` and the inline `SharedLeaderboardPanel`) now show all four GDD-spec columns per row: score, time, kills, accuracy. New local helper `formatAccuracyPercent(ratio)` joins the existing `formatTime(ms)` so the percent column clamps + rounds consistently. CSS widens the leaderboard panel from 360px to 420px, switches the row grid from `1fr auto` to `minmax(0, 1fr) auto auto auto auto`, and adds `tabular-nums` to the numeric columns so the digits align. `REQ-061` flips from `partial` to `done` in `docs/GDD_COVERAGE.json` and `docs/gdd/61-post-mvp-scoring-v2.md`.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), `npm run lint` (2 pre-existing warnings, unrelated), Playwright smoke (3 / 3 chromium passing, 3 mobile-only skipped).
+- Assumptions: Recommended default formats kills as `Nk` (e.g. `5k`) on the leaderboard rows because the GDD spec says "kills" without specifying notation and the compact form keeps the row from wrapping. Recommended default keeps the rest of the four bonus tallies (close-range, weapon variety, no-damage streak) off the leaderboard row because the spec calls for "score, time, kills, and accuracy" specifically; the bonus tallies remain in the run-summary panel where they read as personal-run achievements rather than competitive columns.
+- GDD coverage: `REQ-061` flipped `partial` to `done` (impl refs gain `app/globals.css`).
+- Followups: none.
+
 ## 2026-05-09, Close Q-008 (infighting damage scale shipped at 50%)
 
 - Branch: `chore/close-q008`
