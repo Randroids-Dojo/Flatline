@@ -82,6 +82,7 @@ import { playerDamageCue, type PlayerDamageCueStyle } from '@/game/playerDamageC
 import { weaponRecoilStyle } from '@/game/weaponRecoil'
 import { accuracy, comboTimeRemainingRatio, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { crossedScoreMilestone, type ScoreMilestone } from '@/game/scoreMilestone'
+import { comboIncreaseCue, shouldPlayComboIncreaseCue, type ComboIncreaseCueStyle } from '@/game/comboIncreaseCue'
 import { crossedComboMilestone, type ComboMilestone } from '@/game/comboMilestone'
 import { justCrossedPersonalBest } from '@/game/personalBest'
 import { isAmmoCritical, justHitLastAmmo } from '@/game/ammoWarning'
@@ -510,6 +511,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         const comboMilestone = crossedComboMilestone(previousCombo, scoreRef.current.combo)
         if (comboMilestone !== null) {
           playComboMilestoneCue(comboMilestone, settingsRef.current.audio)
+        } else if (shouldPlayComboIncreaseCue(previousCombo, scoreRef.current.combo, comboMilestone)) {
+          playComboIncreaseCue(comboIncreaseCue(scoreRef.current.combo), settingsRef.current.audio)
         }
         if (justCrossedPersonalBest(previousScore, scoreRef.current.score, previousBestAtRunStartRef.current)) {
           playPersonalBestCue(settingsRef.current.audio)
@@ -4479,6 +4482,30 @@ function playLastAmmoCue(enabled: boolean) {
 // with a quick double-tap rise so the cue reads as "you are on a
 // streak" rather than "you crossed a score line." Each tier is
 // pitched a step higher and held a touch longer.
+function playComboIncreaseCue(cue: ComboIncreaseCueStyle, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = cue.waveform
+  oscillator.frequency.value = cue.frequency
+  const startTime = context.currentTime
+  const stopTime = startTime + cue.durationMs / 1000
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(cue.gain, startTime + Math.min(0.008, cue.durationMs / 1000 / 4))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
 function playComboMilestoneCue(milestone: ComboMilestone, enabled: boolean) {
   if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
     return
