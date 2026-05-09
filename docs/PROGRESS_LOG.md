@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Score floater combo-tier coloring
+
+- Branch: `feat/feel-score-floater-combo-tier`
+- PR: #109
+- Changed: per-kill score floaters now escalate visually at the same combo break points the audio milestones cue. New `ScoreFloaterTier` type ('base' / 'streak' / 'rolling' / 'rampage') and pure helper `scoreFloaterTier(combo)` in `src/game/scoreFloater.ts`. `ScoreFloater` carries the tier; the JSX in `src/components/FlatlineGame.tsx` applies `data-tier`, and `app/globals.css` adds `.score-floater[data-tier='streak' / 'rolling' / 'rampage']` overrides that warm the color (gold to orange to red) and bump the font size at higher tiers. Tier breakpoints (5 / 10 / 20) match `COMBO_MILESTONES` so the visual escalation tracks the audio milestone boundaries.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (48 files / 435 tests pass; 5 new tests cover the four tier ranges and the non-finite / non-positive fallback).
+- Assumptions: Recommended default aligns the visual tier breakpoints with the existing `COMBO_MILESTONES` from `src/game/comboMilestone.ts` so a player who hears the 5 / 10 / 20 audio cues sees the floater shift simultaneously. Recommended default fades font-size escalation 18 to 20 to 22 to 26 px (small steps) rather than dramatic jumps so the rampage tier still reads as a number rather than a banner.
+- GDD coverage: REQ-056 (post-MVP feel pass) gains a build-log entry in `docs/gdd/56-post-mvp-feel-pass.md`.
+- Followups: none new.
+
 ## 2026-05-08, Last-ammo warning cue
 
 - Branch: `feat/feel-pickup-magnet` (originally scoped for pickup magnet; pivoted because pickups are anchored to the central altar, so a magnet did not apply)
