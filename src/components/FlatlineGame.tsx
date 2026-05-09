@@ -73,6 +73,7 @@ import { playerDamageCue, type PlayerDamageCueStyle } from '@/game/playerDamageC
 import { weaponRecoilStyle } from '@/game/weaponRecoil'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
 import { crossedScoreMilestone, type ScoreMilestone } from '@/game/scoreMilestone'
+import { crossedComboMilestone, type ComboMilestone } from '@/game/comboMilestone'
 import { justCrossedPersonalBest } from '@/game/personalBest'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
@@ -435,6 +436,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         const fallbackDistance = Math.sqrt(dx * dx + dz * dz)
         const distance = hitDistance ?? fallbackDistance
         const previousScore = scoreRef.current.score
+        const previousCombo = scoreRef.current.combo
         scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs, {
           distance,
           weapon: selectedWeaponRef.current,
@@ -451,6 +453,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         const milestone = crossedScoreMilestone(previousScore, scoreRef.current.score)
         if (milestone !== null) {
           playScoreMilestoneCue(milestone, settingsRef.current.audio)
+        }
+        const comboMilestone = crossedComboMilestone(previousCombo, scoreRef.current.combo)
+        if (comboMilestone !== null) {
+          playComboMilestoneCue(comboMilestone, settingsRef.current.audio)
         }
         if (justCrossedPersonalBest(previousScore, scoreRef.current.score, previousBestAtRunStartRef.current)) {
           playPersonalBestCue(settingsRef.current.audio)
@@ -3869,6 +3875,44 @@ function playDoorOpenCue(cue: DoorCueStyle, enabled: boolean) {
   const stopTime = startTime + cue.durationMs / 1000
   gain.gain.setValueAtTime(0, startTime)
   gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.012, cue.durationMs / 1000 / 5))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+// Combo milestone callout. Fires when the kill streak crosses 5 / 10
+// / 20. Uses a sawtooth (rougher than the score milestone triangle)
+// with a quick double-tap rise so the cue reads as "you are on a
+// streak" rather than "you crossed a score line." Each tier is
+// pitched a step higher and held a touch longer.
+function playComboMilestoneCue(milestone: ComboMilestone, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const tier = milestone === 5 ? 0 : milestone === 10 ? 1 : 2
+  const startHz = 440 + tier * 100
+  const peakHz = startHz * 1.4
+  const durationMs = 260 + tier * 70
+  const gainPeak = 0.05 + tier * 0.012
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = 'sawtooth'
+  const startTime = context.currentTime
+  const stopTime = startTime + durationMs / 1000
+  oscillator.frequency.setValueAtTime(startHz, startTime)
+  oscillator.frequency.exponentialRampToValueAtTime(peakHz, startTime + 0.05)
+  oscillator.frequency.exponentialRampToValueAtTime(peakHz * 0.92, startTime + 0.12)
+  oscillator.frequency.exponentialRampToValueAtTime(peakHz, stopTime)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(gainPeak, startTime + 0.02)
   gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
   oscillator.connect(gain)
   gain.connect(context.destination)

@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Combo milestone cues
+
+- Branch: `feat/feel-combo-milestone-cues`
+- PR: #106
+- Changed: a player on a kill streak now hears the streak climb. New pure helper `src/game/comboMilestone.ts` exposes `COMBO_MILESTONES = [5, 10, 20]` and `crossedComboMilestone(prev, current)` mirroring the score milestone helper. A timeout reset (prev high, current 1) returns null so a fresh rebuild does not refire crossed thresholds until the streak passes them again. New `playComboMilestoneCue` in `src/components/FlatlineGame.tsx` uses a rougher sawtooth waveform (vs the triangle milestone cue) with a quick double-tap rise so the streak cue is audibly distinct from the score milestone cue. Wired alongside the score milestone check using a new `previousCombo` snapshot. REQ-040 coverage refs updated.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (47 files / 424 tests pass; 6 new tests cover null cases (no cross, post-cross, timeout reset), exact-landing, rebuild-after-reset, and the canonical tier list).
+- Assumptions: Recommended default uses combo (kill streak) rather than `bestCombo` (per-run peak) so the cue tracks the live streak, not a peak that already happened. Recommended default does NOT refire on combo decrease so a streak that times out cleanly stays silent until the rebuild crosses a threshold for the first time.
+- GDD coverage: REQ-040 (audio) gains a build-log entry in `docs/gdd/40-audio.md` and adds the new helper / test to its refs.
+- Followups: none new.
+
 ## 2026-05-08, Personal-best cue
 
 - Branch: `feat/feel-personal-best-cue`
