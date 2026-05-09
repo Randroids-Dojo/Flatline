@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Replace virtualJoystick with @randroids-dojo/vibekit
+
+- Branch: `feat/joystick-vibekit`
+- PR: TBD
+- Changed: closes the priority-2 dot `Flatline-replace-src-game-6d44cc68`. Adds `@randroids-dojo/vibekit` as a github-pinned dep (`github:Randroids-Dojo/VibeKit#0b2b104`) and rewrites `src/game/virtualJoystick.ts` as a thin re-export of vibekit's joystick module, with `joystickMovedBeyond` kept as a Flatline-local helper. `next.config.ts` adds `transpilePackages: ['@randroids-dojo/vibekit']` so Next.js compiles the kit's TS source. Callers in `src/components/FlatlineGame.tsx` and `src/game/virtualJoystick.test.ts` switch from `joystickRadius` / `joystickDeadzone` to vibekit's `JOYSTICK_RADIUS` / `JOYSTICK_DEADZONE`. Deadzone converges on 0.25 (vibekit's value, up from Flatline's 0.22) so VibeRacer and Flatline now share the same touch threshold. Dot file moved to `.dots/archive/`.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), `npm run lint` (2 pre-existing warnings, unrelated), `npm run build` (clean).
+- Assumptions: Recommended default uses `github:Randroids-Dojo/VibeKit#<sha>` instead of the dot's literal `file:../VibeKit` because Vercel's build container does not have the sibling directory. Recommended default keeps the local `joystickMovedBeyond` helper instead of upstreaming it to vibekit; if other vibekit consumers need it later, that is its own slice. Recommended default goes with deadzone 0.25 per the user's choice, not Flatline's existing 0.22.
+- GDD coverage: no requirement rows changed. The mobile virtual joystick is a Flatline-internal mechanic, not a GDD-tracked requirement.
+- Followups: none.
+
 ## 2026-05-08, Capture open dot tasks and add motion-coverage followup
 
 - Branch: `chore/capture-open-dots`
