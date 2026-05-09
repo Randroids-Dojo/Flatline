@@ -103,7 +103,7 @@ export async function hitRateLimit(kv: LeaderboardKv, rule: RateLimitRule): Prom
   const count = await incrementWithExpiry(kv as unknown as Redis, rule.key, rule.windowSec)
 
   if (count === null) {
-    return true
+    throw new Error(`hitRateLimit: KV unavailable for key ${rule.key}`)
   }
 
   return count <= rule.limit
