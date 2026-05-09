@@ -2698,6 +2698,35 @@ function createRoom() {
   pickupHalo.renderOrder = 1
   group.add(pickupHalo)
 
+  // REQ-019: four corner pickup-zone markers. The room spec calls
+  // for "4 corner pickup zones" alongside the central altar's risk /
+  // reward zone. The actual altar carries the supply pickup
+  // (REQ-033/034); the corner zones are reserved spots so the player
+  // reads the room's symmetry on entry. Static teal rings on the
+  // floor inside the four corners, matching the altar's accent
+  // palette but darker and non-pulsing so the central zone stays the
+  // visual focus.
+  const cornerZoneMaterial = new THREE.MeshBasicMaterial({
+    color: '#3aa39b',
+    transparent: true,
+    opacity: 0.45,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  })
+  const cornerZonePositions: ReadonlyArray<readonly [number, number]> = [
+    [-6, -6],
+    [6, -6],
+    [-6, 6],
+    [6, 6]
+  ]
+  for (const [cx, cz] of cornerZonePositions) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.0, 36), cornerZoneMaterial)
+    ring.position.set(cx, 0.04, cz)
+    ring.rotation.x = -Math.PI / 2
+    ring.renderOrder = 1
+    group.add(ring)
+  }
+
   const clockLandmark = landmarkForWall('north')!
   const clock = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.045, 12, 60), accentMaterial)
   clock.position.set(clockLandmark.position.x, clockLandmark.position.y, clockLandmark.position.z)
