@@ -170,7 +170,7 @@
       "id": "REQ-019",
       "requirement": "Arena shape: rectangular room, central pillars, 4 enemy doors, 4 corner pickup zones, center risk zone.",
       "gddRef": "docs/gdd/19-arena-shape.md",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": ["src/components/FlatlineGame.tsx"],
       "testRefs": ["tests/smoke.spec.ts"],
       "followupRefs": []

@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Corner pickup-zone markers (closes REQ-019)
+
+- Branch: `feat/req-019-corner-pickup-zones`
+- PR: #141
+- Changed: closes the seven-item arena-shape spec by adding the missing four corner pickup-zone markers. Six of seven items already shipped (rectangular room, pillars, 4 enemy doors, central altar with risk / reward pickup, raised altar, wall landmarks). New: four static `THREE.RingGeometry` markers at `(+/-6, 0.04, +/-6)` with a darker teal accent (`#3aa39b`, opacity 0.45) inside `createRoom()` in `src/components/FlatlineGame.tsx`. The corners are reservation markers (the room reads symmetrical on entry) without a pickup spawner attached, since per-zone spawn rules belong to REQ-033 / REQ-034 / REQ-035 territory which today route everything through the central altar.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean across touched files), `git diff --check`, `npm run typecheck`, `npm run test` (494 / 494, no new tests because the geometry change is read by the smoke pass).
+- Assumptions: Recommended default ships visual reservation markers at the four corners and explicitly does not attach a pickup spawner because: (a) the altar pickup model is the single source of supplies today and works, (b) corner spawning would conflict with the spawn rules baked into the supply / rage / score-token rotation in `FlatlineGame.tsx`, and (c) splitting pickups across zones is a per-zone-pickups slice in its own right, not a shape audit. Recommended default uses the darker teal `#3aa39b` accent (vs the central halo's `#7ff0e0`) and a static opacity 0.45 so the altar halo stays the visual focus.
+- GDD coverage: `REQ-019` flipped `partial` to `done`. Build log entry appended to `docs/gdd/19-arena-shape.md`.
+- Followups: none new.
+
 ## 2026-05-09, Weapon presentation audit flip (closes REQ-026)
 
 - Branch: `chore/req-026-weapon-presentation-audit`
