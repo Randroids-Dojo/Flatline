@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Per-enemy walk / windup / release atlas frames (closes art slice 5, REQ-013, REQ-014)
+
+- Branch: `feat/art-5-enemy-anim-frames`
+- PR: #135
+- Changed: closes art-pipeline slice 5 and the partial REQ-013 / REQ-014 gap. All four enemy atlases bump from 10 rows per angle to 18: rows 0..3 idle, 4..7 walk (NEW, looping), 8..9 attackWindup (NEW, non-loop), 10..11 attack (NEW, non-loop), 12..13 hurt, 14..17 death. Atlas image dims grow from 1536x1920 to 1536x3456 per type. New clip names exposed via `AnimationName` in `src/game/spriteAtlas.ts`: `walk`, `attackWindup`, `attack`. `animationForEnemyState` in `src/components/FlatlineGame.tsx` now maps `chase` -> `walk`, `attackWindup` -> `attackWindup`, `attackRelease` -> `attack`, `hurt` -> `hurt`, `dead` -> `death`. `applyEnemyFrame` falls back to `idle` if the requested clip is missing so a partial atlas does not crash the renderer. Generators: `scripts/generate-grunt-atlas.mjs` adds walk leg-stride, windup arm-cock + danger eye, release reach + glove. `scripts/generate-enemy-variant-atlases.mjs` introduces a shared `rowForState(state, frame)` helper and per-enemy walk / windup / release deformation: skitter shell-bob + leg-skitter cycle + windup eye-flash + release shell-spring; brute boot stride + windup arm-cock with danger glove + release hammer-fist swing with motion-streak; spitter leg-splay walk + windup sac-swell + extended eye-stalk + release wide mouth slit + sac-contraction. Durations table extended per variant (skitter walk 80 / windup 130 / release 70, brute walk 130 / windup 310 / release 120, spitter walk 110 / windup 360 / release 100).
+- Verification: `node scripts/generate-grunt-atlas.mjs`, `node scripts/generate-enemy-variant-atlases.mjs`, dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), `npx playwright test tests/smoke.spec.ts --project=chromium` (3 chromium passing, 3 mobile-only skipped).
+- Assumptions: Recommended default keeps 8 distinct authored angles per state (rather than the 5-angle mirroring shortcut allowed by Q-002) so the existing atlas-engine math in `src/game/billboard.ts` stays untouched. Recommended default exposes the attack-release clip as `attack` (not `attackRelease`) so the atlas vocabulary mirrors common engine conventions; the state machine in `src/game/enemies.ts` continues to use `attackRelease` and the renderer maps between them. Recommended default uses simple frame-count splits for windup / release durations rather than reading from `enemyConfigs[*].attackWindupMs`; tying clip durations to gameplay timings is a separate slice if the visuals need to track the state-machine clock exactly.
+- GDD coverage: `REQ-013` and `REQ-014` flipped `partial` to `done`. Build log entries appended to `docs/gdd/13-character-art-angles.md` and `docs/gdd/14-frame-budget.md`. `implementationRefs` extended with `scripts/generate-grunt-atlas.mjs`, `scripts/generate-enemy-variant-atlases.mjs`, and the spitter atlas paths.
+- Followups: none new.
+
 ## 2026-05-09, Place cover billboards in the arena (closes F-020)
 
 - Branch: `feat/wire-cover-billboards-f020`

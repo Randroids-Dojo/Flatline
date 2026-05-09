@@ -4,7 +4,7 @@ import { finishAsset } from './finish-asset.mjs'
 
 const cell = 192
 const columns = 8
-const rows = 10
+const rows = 18
 const width = cell * columns
 const height = cell * rows
 const angles = ['front', 'frontRight', 'right', 'backRight', 'back', 'backLeft', 'left', 'frontLeft']
@@ -25,17 +25,17 @@ const variants = [
   {
     type: 'skitter',
     draw: drawSkitter,
-    durations: { idle: 105, hurt: 75, death: 95 }
+    durations: { idle: 105, walk: 80, windup: 130, release: 70, hurt: 75, death: 95 }
   },
   {
     type: 'brute',
     draw: drawBrute,
-    durations: { idle: 145, hurt: 110, death: 135 }
+    durations: { idle: 145, walk: 130, windup: 310, release: 120, hurt: 110, death: 135 }
   },
   {
     type: 'spitter',
     draw: drawSpitter,
-    durations: { idle: 130, hurt: 95, death: 120 }
+    durations: { idle: 130, walk: 110, windup: 360, release: 100, hurt: 95, death: 120 }
   }
 ]
 
@@ -49,9 +49,28 @@ function generateAtlases() {
 
     const draw = createDrawingContext(pixels)
 
+    // Row layout per angle column:
+    //   rows 0..3   idle    (4 frames)
+    //   rows 4..7   walk    (4 frames)
+    //   rows 8..9   windup  (2 frames)
+    //   rows 10..11 release (2 frames)
+    //   rows 12..13 hurt    (2 frames)
+    //   rows 14..17 death   (4 frames)
     for (let angleIndex = 0; angleIndex < angles.length; angleIndex += 1) {
       for (let frame = 0; frame < 4; frame += 1) {
         variant.draw(draw, angleIndex, frame, 'idle')
+      }
+
+      for (let frame = 0; frame < 4; frame += 1) {
+        variant.draw(draw, angleIndex, frame, 'walk')
+      }
+
+      for (let frame = 0; frame < 2; frame += 1) {
+        variant.draw(draw, angleIndex, frame, 'attackWindup')
+      }
+
+      for (let frame = 0; frame < 2; frame += 1) {
+        variant.draw(draw, angleIndex, frame, 'attackRelease')
       }
 
       for (let frame = 0; frame < 2; frame += 1) {
@@ -72,22 +91,44 @@ function generateAtlases() {
   }
 }
 
+function rowForState(state, frame) {
+  if (state === 'idle') return frame
+  if (state === 'walk') return 4 + frame
+  if (state === 'attackWindup') return 8 + frame
+  if (state === 'attackRelease') return 10 + frame
+  if (state === 'hurt') return 12 + frame
+  if (state === 'death') return 14 + frame
+  throw new Error(`Unknown enemy atlas state: ${state}`)
+}
+
 function drawSkitter(draw, angleIndex, frame, state) {
   const originX = angleIndex * cell
-  const row = state === 'idle' ? frame : state === 'hurt' ? 4 + frame : 6 + frame
+  const row = rowForState(state, frame)
   const originY = row * cell
   const cx = originX + cell / 2
   const cy = originY + cell / 2
   const facing = (angleIndex / angles.length) * Math.PI * 2
   const side = Math.abs(Math.sin(facing))
   const back = Math.cos(facing) < -0.45
-  const bob = state === 'idle' ? Math.sin(frame * Math.PI * 0.5) * 5 : 0
+  const walk = state === 'walk'
+  const windup = state === 'attackWindup'
+  const release = state === 'attackRelease'
+  const idleBob = state === 'idle' ? Math.sin(frame * Math.PI * 0.5) * 5 : 0
+  // Walk: alternating bob + side-skitter sway across 4 frames.
+  const walkBob = walk ? Math.abs(Math.sin(frame * Math.PI * 0.5)) * 4 - 1 : 0
+  // Windup crouch: shell drops on frame 0, drops further on frame 1.
+  const windupBob = windup ? (frame === 0 ? 6 : 10) : 0
+  // Release spring: shell launches up + forward.
+  const releaseBob = release ? (frame === 0 ? -8 : -2) : 0
+  const bob = idleBob + walkBob + windupBob + releaseBob
   const hurtLean = state === 'hurt' ? (frame === 0 ? -9 : 9) : 0
+  const walkLean = walk ? Math.sin(frame * Math.PI * 0.5) * 5 : 0
+  const releaseLean = release ? (frame === 0 ? 8 : 4) : 0
   const dead = state === 'death'
   const hurt = state === 'hurt'
   const bodyY = cy + 7 + bob
   const shellWidth = dead ? 55 : 45 - side * 11
-  const shellHeight = dead ? 20 : 28
+  const shellHeight = dead ? 20 : windup ? 32 : 28
 
   draw.fillEllipse(cx, cy + 55, dead ? 58 : 42, dead ? 9 : 7, colors.shadow)
 
@@ -102,6 +143,19 @@ function drawSkitter(draw, angleIndex, frame, state) {
     return
   }
 
+  // Per-leg gait offset: walk frames stagger inner/outer legs in a
+  // 4-step skitter cycle. Release flings legs back; windup pulls them in.
+  const legOffsets = walk
+    ? [
+        Math.sin(frame * Math.PI * 0.5) * 8,
+        Math.sin(frame * Math.PI * 0.5 + Math.PI / 3) * 6,
+        Math.sin(frame * Math.PI * 0.5 + (Math.PI * 2) / 3) * 5,
+        Math.sin(frame * Math.PI * 0.5 + Math.PI) * 8,
+        Math.sin(frame * Math.PI * 0.5 + (Math.PI * 4) / 3) * 6,
+        Math.sin(frame * Math.PI * 0.5 + (Math.PI * 5) / 3) * 5
+      ]
+    : [0, 0, 0, 0, 0, 0]
+
   const legs = [
     [-45, 14, -72, 28],
     [-34, 4, -66, -5],
@@ -111,46 +165,78 @@ function drawSkitter(draw, angleIndex, frame, state) {
     [18, -9, 48, -31]
   ]
 
-  for (const [x1, y1, x2, y2] of legs) {
+  for (let li = 0; li < legs.length; li += 1) {
+    const [x1, y1, x2, y2] = legs[li]
     const sideLean = side * Math.sign(x1) * 8
-    draw.strokeLine(cx + x1 + hurtLean, bodyY + y1, cx + x2 + sideLean, bodyY + y2 + bob * 0.4, 3.2, colors.outline)
-    draw.strokeLine(cx + x1 + hurtLean, bodyY + y1, cx + x2 + sideLean, bodyY + y2 + bob * 0.4, 1.7, colors.tealDark)
+    const tip = legOffsets[li]
+    // Windup tucks legs in; release extends them outward + forward.
+    const tuck = windup ? -10 : release ? 14 : 0
+    const tipX = cx + x2 + sideLean + tip + Math.sign(x1) * tuck * 0.4
+    const tipY = bodyY + y2 + bob * 0.4 + tip * 0.3 + (release ? -4 : 0)
+    draw.strokeLine(cx + x1 + hurtLean + walkLean + releaseLean, bodyY + y1, tipX, tipY, 3.2, colors.outline)
+    draw.strokeLine(cx + x1 + hurtLean + walkLean + releaseLean, bodyY + y1, tipX, tipY, 1.7, colors.tealDark)
   }
 
+  const shellLean = hurtLean + walkLean + releaseLean
   const shell = [
-    [cx - shellWidth + hurtLean, bodyY + 8],
-    [cx - shellWidth * 0.6 + hurtLean, bodyY - shellHeight],
-    [cx + shellWidth * 0.65 + hurtLean, bodyY - shellHeight + side * 6],
-    [cx + shellWidth + hurtLean, bodyY + 8],
+    [cx - shellWidth + shellLean, bodyY + 8],
+    [cx - shellWidth * 0.6 + shellLean, bodyY - shellHeight],
+    [cx + shellWidth * 0.65 + shellLean, bodyY - shellHeight + side * 6],
+    [cx + shellWidth + shellLean, bodyY + 8],
     [cx + shellWidth * 0.55, bodyY + shellHeight],
     [cx - shellWidth * 0.55, bodyY + shellHeight]
   ]
   draw.fillPolygon(expandPoints(shell, cx, bodyY, 1.14), colors.outline)
   draw.fillPolygon(shell, hurt ? colors.danger : colors.ink)
-  draw.fillEllipse(cx + hurtLean, bodyY + 3, shellWidth * 0.62, shellHeight * 0.56, hurt ? colors.bruteRed : colors.dark)
+  draw.fillEllipse(cx + shellLean, bodyY + 3, shellWidth * 0.62, shellHeight * 0.56, hurt ? colors.bruteRed : colors.dark)
 
   if (back && !hurt) {
     draw.strokeLine(cx - 25, bodyY - 4, cx + 25, bodyY - 8, 3, colors.outline)
     return
   }
 
+  // Windup eye-flash: oversize teal eyes on frame 1 telegraph the leap.
   const eyeSpread = 18 - side * 11
-  draw.fillEllipse(cx - eyeSpread + hurtLean, bodyY - 10, hurt ? 8 : 6, hurt ? 5 : 6, hurt ? colors.danger : colors.teal)
-  draw.fillEllipse(cx + eyeSpread + hurtLean, bodyY - 9 + side * 2, hurt ? 8 : 6, hurt ? 5 : 6, hurt ? colors.danger : colors.teal)
-  draw.strokeLine(cx - 16 + hurtLean, bodyY + 11, cx + 16 + hurtLean, bodyY + 10, 2.3, colors.outline)
+  const baseEyeColor = hurt ? colors.danger : colors.teal
+  const windupEyeBoost = windup ? (frame === 0 ? 1 : 2) : 0
+  const eyeRx = (hurt ? 8 : 6) + windupEyeBoost
+  const eyeRy = (hurt ? 5 : 6) + windupEyeBoost
+  draw.fillEllipse(cx - eyeSpread + shellLean, bodyY - 10, eyeRx, eyeRy, baseEyeColor)
+  draw.fillEllipse(cx + eyeSpread + shellLean, bodyY - 9 + side * 2, eyeRx, eyeRy, baseEyeColor)
+  draw.strokeLine(cx - 16 + shellLean, bodyY + 11, cx + 16 + shellLean, bodyY + 10, 2.3, colors.outline)
 }
 
 function drawBrute(draw, angleIndex, frame, state) {
   const originX = angleIndex * cell
-  const row = state === 'idle' ? frame : state === 'hurt' ? 4 + frame : 6 + frame
+  const row = rowForState(state, frame)
   const originY = row * cell
   const cx = originX + cell / 2
   const cy = originY + cell / 2
   const facing = (angleIndex / angles.length) * Math.PI * 2
   const side = Math.abs(Math.sin(facing))
   const back = Math.cos(facing) < -0.45
-  const bob = state === 'idle' ? Math.sin(frame * Math.PI * 0.5) * 3 : 0
-  const lean = state === 'hurt' ? (frame === 0 ? -8 : 8) : Math.sin(frame + facing) * 2
+  const walk = state === 'walk'
+  const windup = state === 'attackWindup'
+  const release = state === 'attackRelease'
+  const idleBob = state === 'idle' ? Math.sin(frame * Math.PI * 0.5) * 3 : 0
+  // Heavy step: the brute's walk uses a deeper cycle, slower cadence.
+  const walkBob = walk ? Math.abs(Math.sin(frame * Math.PI * 0.5)) * 5 - 1 : 0
+  const windupBob = windup ? (frame === 0 ? 2 : 4) : 0
+  const releaseBob = release ? (frame === 0 ? -3 : 1) : 0
+  const bob = idleBob + walkBob + windupBob + releaseBob
+  let lean
+  if (state === 'hurt') {
+    lean = frame === 0 ? -8 : 8
+  } else if (windup) {
+    lean = frame === 0 ? -6 : -10
+  } else if (release) {
+    lean = frame === 0 ? 11 : 6
+  } else if (walk) {
+    // Shoulder sway: the brute leans into the planted foot.
+    lean = Math.sin(frame * Math.PI * 0.5) * 5
+  } else {
+    lean = Math.sin(frame + facing) * 2
+  }
   const dead = state === 'death'
   const hurt = state === 'hurt'
 
@@ -189,11 +275,43 @@ function drawBrute(draw, angleIndex, frame, state) {
     [cx - halfWidth * 0.88, hipY]
   ]
 
+  // Walk: paint visible boots offset by stride so the planted vs.
+  // trailing foot reads even from front. 4-step cycle.
+  if (walk) {
+    const stride = Math.sin(frame * Math.PI * 0.5) * 12
+    draw.fillEllipse(cx - 18 - stride, hipY + 22, 12, 5, colors.outline)
+    draw.fillEllipse(cx - 18 - stride, hipY + 22, 9, 3, colors.ink)
+    draw.fillEllipse(cx + 18 + stride, hipY + 22, 12, 5, colors.outline)
+    draw.fillEllipse(cx + 18 + stride, hipY + 22, 9, 3, colors.ink)
+  }
+
   draw.fillPolygon(expandPoints(body, cx, cy, 1.13), colors.outline)
   draw.fillPolygon(body, hurt ? colors.bruteRed : colors.ink)
-  draw.fillPolygon(expandPoints(body, cx, cy, 0.8), hurt ? [45, 22, 20, 255] : colors.gray)
+  draw.fillPolygon(expandPoints(body, cx, cy, 0.8), hurt ? [45, 22, 20, 255] : windup ? [70, 24, 22, 255] : colors.gray)
   draw.strokeLine(cx - halfWidth * 0.72, shoulderY + 4, cx - halfWidth * 0.48, hipY - 4, 5, colors.outline)
   draw.strokeLine(cx + halfWidth * 0.72, shoulderY + 4, cx + halfWidth * 0.48, hipY - 4, 5, colors.outline)
+
+  // Windup: arms cocked back, hammer-fist pulled rear of body. Frame 0
+  // is mid-pull; frame 1 is peak telegraph. Danger-red glove tip.
+  if (windup) {
+    const pull = frame === 0 ? 22 : 36
+    draw.strokeLine(cx + halfWidth * 0.5, shoulderY + 6, cx + halfWidth * 0.5 - pull, shoulderY - 8, 7, colors.outline)
+    draw.fillEllipse(cx + halfWidth * 0.5 - pull, shoulderY - 8, 11, 10, colors.outline)
+    draw.fillEllipse(cx + halfWidth * 0.5 - pull, shoulderY - 8, 8, 7, colors.danger)
+  }
+
+  // Release: hammer-fist swung forward. Frame 0 is full extension;
+  // frame 1 settles back. Faint blur-streak behind the fist on frame 0.
+  if (release) {
+    const reach = frame === 0 ? 38 : 22
+    draw.strokeLine(cx + halfWidth * 0.5, shoulderY + 6, cx + halfWidth * 0.5 + reach, shoulderY + 12, 7, colors.outline)
+    draw.fillEllipse(cx + halfWidth * 0.5 + reach, shoulderY + 12, 12, 11, colors.outline)
+    draw.fillEllipse(cx + halfWidth * 0.5 + reach, shoulderY + 12, 9, 8, colors.bruteRed)
+    if (frame === 0) {
+      draw.strokeLine(cx + halfWidth * 0.5 - 10, shoulderY + 12, cx + halfWidth * 0.5 + reach * 0.5, shoulderY + 12, 2, colors.gray)
+      draw.strokeLine(cx + halfWidth * 0.5 - 4, shoulderY + 16, cx + halfWidth * 0.5 + reach * 0.6, shoulderY + 16, 1.5, colors.tealDark)
+    }
+  }
 
   if (back && !hurt) {
     draw.strokeLine(cx - 31, cy - 34 + bob, cx + 31, cy - 38 + bob, 4, colors.outline)
@@ -202,9 +320,11 @@ function drawBrute(draw, angleIndex, frame, state) {
   }
 
   const eyeSpread = 20 - side * 10
-  const eyeColor = hurt ? colors.danger : colors.teal
-  draw.fillEllipse(cx - eyeSpread + lean, cy - 32 + bob, hurt ? 8 : 6, hurt ? 5 : 6, eyeColor)
-  draw.fillEllipse(cx + eyeSpread + lean, cy - 31 + bob + side * 2, hurt ? 8 : 6, hurt ? 5 : 6, eyeColor)
+  const eyeColor = hurt || windup ? colors.danger : colors.teal
+  const eyeRx = hurt || windup ? 8 : 6
+  const eyeRy = hurt || windup ? 5 : 6
+  draw.fillEllipse(cx - eyeSpread + lean, cy - 32 + bob, eyeRx, eyeRy, eyeColor)
+  draw.fillEllipse(cx + eyeSpread + lean, cy - 31 + bob + side * 2, eyeRx, eyeRy, eyeColor)
   draw.strokeLine(cx - 28 + lean, cy - 7 + bob, cx + 28 + lean, cy - 10 + bob, 3.4, colors.outline)
   draw.strokeLine(cx - 30 + lean, cy + 7 + bob, cx + 30 + lean, cy + 5 + bob, 2.4, colors.tealDark)
 }
@@ -217,15 +337,24 @@ function drawBrute(draw, angleIndex, frame, state) {
 // here is just frame-to-frame size jitter on the sac.
 function drawSpitter(draw, angleIndex, frame, state) {
   const originX = angleIndex * cell
-  const row = state === 'idle' ? frame : state === 'hurt' ? 4 + frame : 6 + frame
+  const row = rowForState(state, frame)
   const originY = row * cell
   const cx = originX + cell / 2
   const cy = originY + cell / 2
   const facing = (angleIndex / angles.length) * Math.PI * 2
   const side = Math.abs(Math.sin(facing))
   const back = Math.cos(facing) < -0.45
-  const sway = state === 'idle' ? Math.sin(frame * Math.PI * 0.5) * 4 : 0
-  const sacPulse = state === 'idle' ? Math.sin(frame * Math.PI * 0.5 + Math.PI / 3) * 2 : 0
+  const walk = state === 'walk'
+  const windup = state === 'attackWindup'
+  const release = state === 'attackRelease'
+  const idleSway = state === 'idle' ? Math.sin(frame * Math.PI * 0.5) * 4 : 0
+  const walkSway = walk ? Math.sin(frame * Math.PI * 0.5) * 6 : 0
+  const sway = idleSway + walkSway
+  // Sac pulse: idle wobble + windup swell + release contraction.
+  const idleSacPulse = state === 'idle' ? Math.sin(frame * Math.PI * 0.5 + Math.PI / 3) * 2 : 0
+  const windupSacPulse = windup ? (frame === 0 ? 4 : 6) : 0
+  const releaseSacPulse = release ? (frame === 0 ? -3 : -1) : 0
+  const sacPulse = idleSacPulse + windupSacPulse + releaseSacPulse
   const hurtLean = state === 'hurt' ? (frame === 0 ? -10 : 10) : 0
   const dead = state === 'death'
   const hurt = state === 'hurt'
@@ -247,12 +376,16 @@ function drawSpitter(draw, angleIndex, frame, state) {
     return
   }
 
-  // Two stalk legs, splayed slightly outward.
-  const legSpread = 18 + side * 4
-  draw.strokeLine(cx - legSpread + hurtLean, cy - 4, cx - legSpread - 8, cy + 60, 4, colors.outline)
-  draw.strokeLine(cx - legSpread + hurtLean, cy - 4, cx - legSpread - 8, cy + 60, 2, colors.gray)
-  draw.strokeLine(cx + legSpread + hurtLean, cy - 4, cx + legSpread + 8, cy + 60, 4, colors.outline)
-  draw.strokeLine(cx + legSpread + hurtLean, cy - 4, cx + legSpread + 8, cy + 60, 2, colors.gray)
+  // Two stalk legs. Walk: alternating splay/converge across 4 frames so
+  // the bandy-legged stride reads through the silhouette.
+  const baseSpread = 18 + side * 4
+  const walkLegPhase = walk ? Math.sin(frame * Math.PI * 0.5) * 6 : 0
+  const legSpread = baseSpread + walkLegPhase
+  const legBase = walk ? cy + 60 + Math.cos(frame * Math.PI * 0.5) * 3 : cy + 60
+  draw.strokeLine(cx - legSpread + hurtLean, cy - 4, cx - legSpread - 8 - walkLegPhase, legBase, 4, colors.outline)
+  draw.strokeLine(cx - legSpread + hurtLean, cy - 4, cx - legSpread - 8 - walkLegPhase, legBase, 2, colors.gray)
+  draw.strokeLine(cx + legSpread + hurtLean, cy - 4, cx + legSpread + 8 + walkLegPhase, legBase, 4, colors.outline)
+  draw.strokeLine(cx + legSpread + hurtLean, cy - 4, cx + legSpread + 8 + walkLegPhase, legBase, 2, colors.gray)
 
   // Tall narrow torso (teardrop shape).
   const torsoTop = cy - 48 + sway
@@ -285,14 +418,25 @@ function drawSpitter(draw, angleIndex, frame, state) {
     return
   }
 
-  // Single eye on a stalk above the head.
+  // Single eye on a stalk above the head. Windup extends the stalk
+  // upward + forward to track the player's face; release pulls back
+  // toward the body as the projectile launches.
+  const stalkExtend = windup ? (frame === 0 ? 6 : 12) : release ? -3 : 0
   const eyeX = cx + hurtLean - side * 4
-  const eyeY = torsoTop - 8
+  const eyeY = torsoTop - 8 - stalkExtend
   draw.strokeLine(cx + hurtLean, torsoTop, eyeX, eyeY + 2, 3, colors.outline)
   draw.fillEllipse(eyeX, eyeY, hurt ? 9 : 7, hurt ? 6 : 7, colors.outline)
-  draw.fillEllipse(eyeX, eyeY, hurt ? 6 : 4, hurt ? 4 : 4, hurt ? colors.danger : colors.ink)
-  // Tiny mouth slit.
-  draw.strokeLine(cx - 9 + hurtLean, cy - 18 + sway, cx + 9 + hurtLean, cy - 18 + sway, 1.5, colors.ink)
+  draw.fillEllipse(eyeX, eyeY, hurt ? 6 : 4, hurt ? 4 : 4, hurt ? colors.danger : windup ? colors.danger : colors.ink)
+  // Mouth slit. Release frame 0: opens wide for the projectile spawn.
+  if (release) {
+    const open = frame === 0 ? 6 : 3
+    draw.fillEllipse(cx + hurtLean, cy - 18 + sway, 12, open, colors.ink)
+    if (frame === 0) {
+      draw.fillEllipse(cx + hurtLean, cy - 18 + sway, 6, 3, colors.teal)
+    }
+  } else {
+    draw.strokeLine(cx - 9 + hurtLean, cy - 18 + sway, cx + 9 + hurtLean, cy - 18 + sway, 1.5, colors.ink)
+  }
 }
 
 function createDrawingContext(pixels) {
@@ -394,10 +538,37 @@ function createAtlas(type, durations) {
 
   for (const [angleIndex, angle] of angles.entries()) {
     atlas.clips.push({
+      name: 'walk',
+      angle,
+      loop: true,
+      frames: [4, 5, 6, 7].map((row) => frame(angleIndex, row, durations.walk))
+    })
+  }
+
+  for (const [angleIndex, angle] of angles.entries()) {
+    atlas.clips.push({
+      name: 'attackWindup',
+      angle,
+      loop: false,
+      frames: [8, 9].map((row) => frame(angleIndex, row, durations.windup))
+    })
+  }
+
+  for (const [angleIndex, angle] of angles.entries()) {
+    atlas.clips.push({
+      name: 'attack',
+      angle,
+      loop: false,
+      frames: [10, 11].map((row) => frame(angleIndex, row, durations.release))
+    })
+  }
+
+  for (const [angleIndex, angle] of angles.entries()) {
+    atlas.clips.push({
       name: 'hurt',
       angle,
       loop: false,
-      frames: [4, 5].map((row) => frame(angleIndex, row, durations.hurt))
+      frames: [12, 13].map((row) => frame(angleIndex, row, durations.hurt))
     })
   }
 
@@ -406,7 +577,7 @@ function createAtlas(type, durations) {
       name: 'death',
       angle,
       loop: false,
-      frames: [6, 7, 8, 9].map((row) => frame(angleIndex, row, durations.death))
+      frames: [14, 15, 16, 17].map((row) => frame(angleIndex, row, durations.death))
     })
   }
 

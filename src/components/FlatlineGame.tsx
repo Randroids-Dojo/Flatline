@@ -3996,8 +3996,20 @@ function animationForEnemyState(state: EnemyModel['state']): AnimationName {
     return 'death'
   }
 
-  if (state === 'hurt' || state === 'attackWindup' || state === 'attackRelease') {
+  if (state === 'hurt') {
     return 'hurt'
+  }
+
+  if (state === 'attackWindup') {
+    return 'attackWindup'
+  }
+
+  if (state === 'attackRelease') {
+    return 'attack'
+  }
+
+  if (state === 'chase') {
+    return 'walk'
   }
 
   return 'idle'
@@ -4484,7 +4496,10 @@ function applyEnemyFrame(
     return
   }
 
-  const clip = selectAnimationClip(atlas, animationName, angle)
+  // Fall back to idle if the requested clip is missing so a partial atlas
+  // does not crash the renderer.
+  const clip = atlas.clips.find((candidate) => candidate.name === animationName && candidate.angle === angle)
+    ?? selectAnimationClip(atlas, 'idle', angle)
   const frame = selectSpriteFrame(clip, timeMs)
   const transform = frameToUvTransform(frame, atlas.imageWidth, atlas.imageHeight)
   slot.texture.repeat.set(transform.repeatX, transform.repeatY)
