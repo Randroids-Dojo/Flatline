@@ -160,7 +160,7 @@ const movementConfig = {
 }
 const weaponIdsForSelect = [...weaponIds]
 const enemyTypesForSelect: EnemyType[] = ['grunt', 'skitter', 'brute', 'spitter']
-const enemyAtlasTypes: EnemyType[] = ['grunt', 'skitter', 'brute']
+const enemyAtlasTypes: EnemyType[] = ['grunt', 'skitter', 'brute', 'spitter']
 
 const MAX_ENEMIES = 3
 
