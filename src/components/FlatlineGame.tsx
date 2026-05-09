@@ -79,7 +79,7 @@ import { justHitLastAmmo } from '@/game/ammoWarning'
 import { isEnemyOnCrosshair } from '@/game/crosshairLock'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
-import { encounterWaveSignal, peakStartedBetween } from '@/game/encounterWave'
+import { encounterWaveSignal, lullStartedBetween, peakStartedBetween } from '@/game/encounterWave'
 import {
   MUSIC_BASS_HZ,
   MUSIC_PEAK_GAIN,
@@ -1174,6 +1174,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           ) {
             playWaveHornCue(settingsRef.current.audio)
             setStatus('Wave peak. Hold ground or reposition.')
+          }
+          if (
+            prevWaveRunMsRef.current >= 0 &&
+            lullStartedBetween(prevWaveRunMsRef.current, directorRef.current.runMs)
+          ) {
+            playWaveLullCue(settingsRef.current.audio)
+            setStatus('Wave eased. Recover and reposition.')
           }
           prevWaveRunMsRef.current = directorRef.current.runMs
 
@@ -3460,6 +3467,38 @@ function playWaveHornCue(enabled: boolean) {
   oscillator.frequency.setValueAtTime(90, startTime)
   gain.gain.setValueAtTime(0, startTime)
   gain.gain.linearRampToValueAtTime(0.05, startTime + 0.02)
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+// Wave lull (recovery) cue. Complement to playWaveHornCue. The horn
+// is a low sawtooth at 90 Hz that says "the peak is here." This cue
+// is a soft sine descending from 220 Hz to 130 Hz over 360 ms,
+// reading as an exhale: "the peak is over, breathe." Distinct timbre
+// (sine vs sawtooth) and longer envelope so the player does not
+// confuse the recovery cue with another horn.
+function playWaveLullCue(enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = 'sine'
+  const startTime = context.currentTime
+  const durationMs = 360
+  const stopTime = startTime + durationMs / 1000
+  oscillator.frequency.setValueAtTime(220, startTime)
+  oscillator.frequency.exponentialRampToValueAtTime(130, stopTime)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(0.038, startTime + 0.04)
   gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
   oscillator.connect(gain)
   gain.connect(context.destination)
