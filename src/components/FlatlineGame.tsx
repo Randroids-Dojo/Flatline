@@ -2277,7 +2277,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                 <p>Score {summary.score}</p>
                 <p>Kills {summary.kills}</p>
                 <p>Time {formatTime(summary.survivalMs)}</p>
-                <p>Accuracy {Math.round(summary.accuracy * 100)}%</p>
+                <p>Accuracy {formatAccuracyPercent(summary.accuracy)}</p>
                 <p>Best combo {summary.bestCombo}</p>
                 <p>Close-range kills {summary.closeRangeKills}</p>
                 <p>Weapons used {summary.weaponsUsed}</p>

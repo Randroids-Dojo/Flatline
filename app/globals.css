@@ -832,12 +832,19 @@ button {
 
 .shared-leaderboard,
 .submit-panel {
-  max-width: 360px;
   margin: 0 auto 18px;
   padding: 10px;
   border: 1px solid rgba(244, 241, 232, 0.18);
   border-radius: 6px;
   background: rgba(10, 10, 10, 0.62);
+}
+
+.shared-leaderboard {
+  max-width: 420px;
+}
+
+.submit-panel {
+  max-width: 360px;
 }
 
 .shared-leaderboard p {
