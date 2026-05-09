@@ -31,3 +31,24 @@ export function damageDirectionRadians(
 
   return Math.atan2(rightProjection, forwardProjection)
 }
+
+// Severity tier for the damage direction HUD indicator. The HUD
+// pulls warmer / brighter as severity climbs so the player can
+// triage which threats hit hard. Tiers map to the current enemy
+// damage table:
+//   low    : <= 8   (skitter 6, spitter 8, hazard ticks)
+//   medium : 9..14  (grunt 10)
+//   high   : >= 15  (brute 18, future heavy hits)
+// Non-positive or non-finite damage falls back to 'low' so the
+// renderer never sees an unhandled tier.
+export type DamageIndicatorSeverity = 'low' | 'medium' | 'high'
+
+export function damageIndicatorSeverity(damage: number): DamageIndicatorSeverity {
+  if (!Number.isFinite(damage) || damage <= 8) {
+    return 'low'
+  }
+  if (damage <= 14) {
+    return 'medium'
+  }
+  return 'high'
+}

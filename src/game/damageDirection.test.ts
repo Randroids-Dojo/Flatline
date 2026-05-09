@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { damageDirectionRadians } from './damageDirection'
+import { damageDirectionRadians, damageIndicatorSeverity } from './damageDirection'
 
 const player = { x: 0, y: 1.7, z: 0 }
 
@@ -42,5 +42,32 @@ describe('damageDirectionRadians', () => {
   it('returns 0 when the source and player share the same xz position', () => {
     const angle = damageDirectionRadians(Math.PI / 3, { x: 0, y: 1, z: 0 }, player)
     expect(angle).toBe(0)
+  })
+})
+
+describe('damageIndicatorSeverity', () => {
+  it('returns low for skitter / spitter / hazard-tick range damage', () => {
+    expect(damageIndicatorSeverity(6)).toBe('low')
+    expect(damageIndicatorSeverity(8)).toBe('low')
+    expect(damageIndicatorSeverity(1)).toBe('low')
+  })
+
+  it('returns medium for grunt-range damage', () => {
+    expect(damageIndicatorSeverity(9)).toBe('medium')
+    expect(damageIndicatorSeverity(10)).toBe('medium')
+    expect(damageIndicatorSeverity(14)).toBe('medium')
+  })
+
+  it('returns high for brute-range and above', () => {
+    expect(damageIndicatorSeverity(15)).toBe('high')
+    expect(damageIndicatorSeverity(18)).toBe('high')
+    expect(damageIndicatorSeverity(50)).toBe('high')
+  })
+
+  it('falls back to low for non-positive or non-finite damage', () => {
+    expect(damageIndicatorSeverity(0)).toBe('low')
+    expect(damageIndicatorSeverity(-5)).toBe('low')
+    expect(damageIndicatorSeverity(Number.NaN)).toBe('low')
+    expect(damageIndicatorSeverity(Number.POSITIVE_INFINITY)).toBe('low')
   })
 })

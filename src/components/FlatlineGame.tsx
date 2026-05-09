@@ -15,7 +15,7 @@ import {
   landmarkForWall
 } from '@/game/arenaLandmarks'
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
-import { damageDirectionRadians } from '@/game/damageDirection'
+import { damageDirectionRadians, damageIndicatorSeverity, type DamageIndicatorSeverity } from '@/game/damageDirection'
 import { doorOpenCue, type DoorCueStyle } from '@/game/doorCue'
 import { DOOR_TOTAL_MS, doorPhaseVisualAtElapsedMs } from '@/game/doorState'
 import {
@@ -380,7 +380,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [combo, setCombo] = useState(0)
   const [runMs, setRunMs] = useState(0)
   const [damagePulse, setDamagePulse] = useState(0)
-  const [damageIndicator, setDamageIndicator] = useState<{ key: number; angleRadians: number } | null>(null)
+  const [damageIndicator, setDamageIndicator] = useState<{ key: number; angleRadians: number; severity: DamageIndicatorSeverity } | null>(null)
   const [muzzleFlash, setMuzzleFlash] = useState<{ key: number; weapon: WeaponId } | null>(null)
   const [healthPickupReady, setHealthPickupReady] = useState(true)
   const [selectedWeapon, setSelectedWeapon] = useState<WeaponId>('peashooter')
@@ -1430,7 +1430,11 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               const attacker = enemiesRef.current.find((candidate) => candidate.id === event.enemyId)
               if (attacker) {
                 const angle = damageDirectionRadians(yawRef.current, attacker.position, positionRef.current)
-                setDamageIndicator({ key: performance.now(), angleRadians: angle })
+                setDamageIndicator({
+                  key: performance.now(),
+                  angleRadians: angle,
+                  severity: damageIndicatorSeverity(event.damage)
+                })
               }
             } else if (event.type === 'enemyAttackMissed') {
               setStatus('Enemy missed.')
@@ -2366,6 +2370,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           key={damageIndicator.key}
           className="damage-indicator"
           data-testid="damage-indicator"
+          data-severity={damageIndicator.severity}
           aria-hidden="true"
           style={{ transform: `translate(-50%, -50%) rotate(${damageIndicator.angleRadians}rad)` }}
         />

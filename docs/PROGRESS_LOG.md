@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Damage indicator severity tiers
+
+- Branch: `feat/feel-damage-indicator-severity`
+- PR: #114
+- Changed: the HUD damage direction indicator now reads hit magnitude. A brute melee (18) lands as a deeper, wider red arc than a hazard tick (6) from the same direction, so the player can triage threat priority at a glance. New pure helper `damageIndicatorSeverity(damage)` in `src/game/damageDirection.ts` maps to 'low' / 'medium' / 'high' against the current enemy damage table. The `enemyAttackHit` handler in `src/components/FlatlineGame.tsx` writes severity into the indicator state, the JSX surfaces it as `data-severity`, and `app/globals.css` adds `.damage-indicator[data-severity='medium' / 'high']` overrides that warm the conic-gradient palette and widen the arc.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (49 files / 457 tests pass; 4 new tests cover low / medium / high boundaries plus non-finite / non-positive fallback).
+- Assumptions: Recommended default places the boundaries at <= 8 (low) and <= 14 (medium) so today's enemy table maps cleanly: skitter 6 / spitter 8 / hazard tick = low, grunt 10 = medium, brute 18 = high. Recommended default treats Infinity / NaN as low rather than high so a defensive non-finite never paints a punishing-looking signal that did not really happen.
+- GDD coverage: REQ-056 (post-MVP feel pass) gains a build-log entry in `docs/gdd/56-post-mvp-feel-pass.md`.
+- Followups: none new.
+
 ## 2026-05-08, Combo timer bar in the HUD pill
 
 - Branch: `feat/feel-combo-timer-bar`

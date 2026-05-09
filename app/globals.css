@@ -330,6 +330,24 @@ button {
   height: min(96vmin, 720px);
   border-radius: 50%;
   pointer-events: none;
+  /* Default (low severity) palette: cool red-orange. */
+  background: conic-gradient(
+    from -45deg,
+    rgba(240, 140, 79, 0) 0deg,
+    rgba(240, 140, 79, 0.28) 22deg,
+    rgba(240, 140, 79, 0.7) 45deg,
+    rgba(240, 140, 79, 0.28) 68deg,
+    rgba(240, 140, 79, 0) 90deg,
+    rgba(240, 140, 79, 0) 360deg
+  );
+  -webkit-mask-image: radial-gradient(circle at center, transparent 38%, black 50%, transparent 64%);
+  mask-image: radial-gradient(circle at center, transparent 38%, black 50%, transparent 64%);
+  transform-origin: center center;
+  animation: damage-indicator 720ms ease-out forwards;
+}
+
+/* Medium severity (grunt-range hit). Warmer red, slightly stronger. */
+.damage-indicator[data-severity='medium'] {
   background: conic-gradient(
     from -45deg,
     rgba(240, 90, 79, 0) 0deg,
@@ -339,10 +357,20 @@ button {
     rgba(240, 90, 79, 0) 90deg,
     rgba(240, 90, 79, 0) 360deg
   );
-  -webkit-mask-image: radial-gradient(circle at center, transparent 38%, black 50%, transparent 64%);
-  mask-image: radial-gradient(circle at center, transparent 38%, black 50%, transparent 64%);
-  transform-origin: center center;
-  animation: damage-indicator 720ms ease-out forwards;
+}
+
+/* High severity (brute melee, future heavy hits). Deep red, widest
+   arc with stronger center, so a punishing hit reads at a glance. */
+.damage-indicator[data-severity='high'] {
+  background: conic-gradient(
+    from -55deg,
+    rgba(220, 50, 40, 0) 0deg,
+    rgba(220, 50, 40, 0.4) 24deg,
+    rgba(220, 50, 40, 0.95) 55deg,
+    rgba(220, 50, 40, 0.4) 86deg,
+    rgba(220, 50, 40, 0) 110deg,
+    rgba(220, 50, 40, 0) 360deg
+  );
 }
 
 @keyframes damage-indicator {
