@@ -76,6 +76,7 @@ import { crossedScoreMilestone, type ScoreMilestone } from '@/game/scoreMileston
 import { crossedComboMilestone, type ComboMilestone } from '@/game/comboMilestone'
 import { justCrossedPersonalBest } from '@/game/personalBest'
 import { justHitLastAmmo } from '@/game/ammoWarning'
+import { isEnemyOnCrosshair } from '@/game/crosshairLock'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
 import { encounterWaveSignal, peakStartedBetween } from '@/game/encounterWave'
@@ -388,6 +389,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [weaponFireKey, setWeaponFireKey] = useState(0)
   const [weaponReady, setWeaponReady] = useState(true)
   const [dashReady, setDashReady] = useState(true)
+  const [crosshairLocked, setCrosshairLocked] = useState(false)
   const [rageActive, setRageActive] = useState(false)
   const [rageTint, setRageTint] = useState(0)
   const [scoreTokenActiveState, setScoreTokenActiveState] = useState(false)
@@ -1654,6 +1656,21 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       tickShotBolts(runtime, shotBolts, shotImpacts, delta * 1000)
       tickShotImpacts(runtime, shotImpacts, delta * 1000)
       tickEnemyDeathPops(runtime, enemyDeathPopsRef.current, delta * 1000)
+
+      // Feel pass: scan alive enemies for one inside the soft crosshair
+      // cone. The state setter is gated against the previous value so
+      // React only re-renders when the lock state actually flips.
+      let lockedThisFrame = false
+      for (const candidate of enemiesRef.current) {
+        if (candidate.state === 'dead') {
+          continue
+        }
+        if (isEnemyOnCrosshair(positionRef.current, yawRef.current, candidate.position)) {
+          lockedThisFrame = true
+          break
+        }
+      }
+      setCrosshairLocked((current) => (current === lockedThisFrame ? current : lockedThisFrame))
       const activeCombo = directorRef.current.runMs <= scoreRef.current.comboExpiresAtMs ? scoreRef.current.combo : 0
       if (comboJustBroke(prevActiveComboRef.current, activeCombo)) {
         playComboBreakCue(comboBreakCue(), settingsRef.current.audio)
@@ -2301,7 +2318,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           </div>
         </section>
       ) : null}
-      <div className="crosshair" data-testid="crosshair" />
+      <div className="crosshair" data-testid="crosshair" data-locked={crosshairLocked ? 'true' : 'false'} />
       {running ? (
         <div
           className="hud-grain"

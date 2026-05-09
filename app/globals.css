@@ -221,6 +221,16 @@ button {
   height: 2px;
 }
 
+/* Crosshair on-target lock cue. Warms the bars and intensifies the
+   glow when an alive enemy sits within the soft angular cone of
+   the camera forward axis. Subtle so it never paints over the aim
+   point; just enough to read as "you are aimed at someone." */
+.crosshair[data-locked='true']::before,
+.crosshair[data-locked='true']::after {
+  background: #ffd166;
+  box-shadow: 0 0 10px rgba(255, 209, 102, 0.85);
+}
+
 .damage-flash {
   position: absolute;
   inset: 0;
