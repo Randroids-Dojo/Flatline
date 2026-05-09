@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Migrate flatline.settings.v1 localStorage call to vibekit
+
+- Branch: `feat/storage-vibekit`
+- PR: #119
+- Changed: closes the priority-2 dot `Flatline-migrate-localstorage-stores-24a4d15e` with reduced scope. New `src/lib/storage.ts` is a thin re-export of vibekit's `readStorage` / `writeStorage` typed against zod v4 (vibekit's nested zod is v3, Flatline's top-level zod is v4; the wrapper centralizes the type-only bridge so call sites stay clean). `FlatlineGame.tsx` migrates the inline `flatline.settings.v1` localStorage read / write / remove plumbing to `readStorage(settingsStorageKey, SettingsSchema)` / `writeStorage(settingsStorageKey, nextSettings)`. The Settings shape gains a zod schema so a malformed save does not crash the load path. `src/lib/dailyStreak.ts` and `src/lib/leaderboard.ts` are intentionally LEFT on their existing direct-storage helpers; the broader lib migration is deferred. `flatline.initials.v1` also stays on direct `localStorage` because its on-disk format is a raw 3-letter string and re-encoding it through `JSON.parse` would silently wipe saved initials on first load post-deploy. Dot file moved to `.dots/archive/`.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test`, `npm run build`.
+- Assumptions: Recommended default introduces `src/lib/storage.ts` rather than casting at every call site, because the v3 / v4 zod gap touches every consumer. Recommended default leaves `dailyStreak.ts` / `leaderboard.ts` and `flatline.initials.v1` on direct localStorage; the lib helpers' Storage-injected signatures are working and tested today, and the initials key has on-disk format incompatibilities that would cost user data to migrate.
+- GDD coverage: no requirement rows changed.
+- Followups: none.
+
 ## 2026-05-09, Migrate kv.ts and rate-limit to @randroids-dojo/vibekit/server
 
 - Branch: `feat/kv-vibekit-server`

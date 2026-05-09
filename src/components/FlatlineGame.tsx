@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { z } from 'zod'
+import { readStorage, writeStorage } from '@/lib/storage'
 import {
   CURTAIN_DOOR_HALF_GAP_M,
   CURTAIN_HEIGHT_M,
@@ -271,6 +273,15 @@ type Settings = {
   fov: number
   audio: boolean
 }
+
+const settingsStorageKey = 'flatline.settings.v1'
+const initialsStorageKey = 'flatline.initials.v1'
+
+const SettingsSchema = z.object({
+  sensitivity: z.number(),
+  fov: z.number(),
+  audio: z.boolean()
+})
 
 type SharedLeaderboardStatus = 'loading' | 'ready' | 'unavailable' | 'error'
 type SubmitStatus = 'idle' | 'submitting' | 'submitted' | 'unavailable' | 'error'
@@ -821,10 +832,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const updateSettings = useCallback((nextSettings: typeof settings) => {
     settingsRef.current = nextSettings
     setSettings(nextSettings)
-
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('flatline.settings.v1', JSON.stringify(nextSettings))
-    }
+    writeStorage(settingsStorageKey, nextSettings)
   }, [])
 
   const updatePracticeSettings = useCallback((nextSettings: PracticeSettings) => {
@@ -876,7 +884,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
 
     setInitials(cleanInitials)
-    window.localStorage.setItem('flatline.initials.v1', cleanInitials)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(initialsStorageKey, cleanInitials)
+    }
     setSubmitStatus('submitting')
 
     try {
@@ -3847,7 +3857,7 @@ function loadInitials(): string {
     return 'YOU'
   }
 
-  return normalizeClientInitials(window.localStorage.getItem('flatline.initials.v1') ?? 'YOU') || 'YOU'
+  return normalizeClientInitials(window.localStorage.getItem(initialsStorageKey) ?? 'YOU') || 'YOU'
 }
 
 function normalizeClientInitials(value: string): string {
@@ -3871,22 +3881,7 @@ function submitButtonLabel(status: SubmitStatus): string {
 }
 
 function loadInitialSettings(): Settings {
-  if (typeof window === 'undefined') {
-    return { sensitivity: 1, fov: 75, audio: true }
-  }
-
-  const savedSettings = window.localStorage.getItem('flatline.settings.v1')
-
-  if (!savedSettings) {
-    return { sensitivity: 1, fov: 75, audio: true }
-  }
-
-  try {
-    return JSON.parse(savedSettings) as Settings
-  } catch {
-    window.localStorage.removeItem('flatline.settings.v1')
-    return { sensitivity: 1, fov: 75, audio: true }
-  }
+  return readStorage(settingsStorageKey, SettingsSchema) ?? { sensitivity: 1, fov: 75, audio: true }
 }
 
 function createPracticeSettings(): PracticeSettings {
