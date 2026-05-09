@@ -94,7 +94,7 @@ import { crossedComboMilestone, type ComboMilestone } from '@/game/comboMileston
 import { justCrossedPersonalBest } from '@/game/personalBest'
 import { isAmmoCritical, justHitLastAmmo } from '@/game/ammoWarning'
 import { isEnemyOnCrosshair } from '@/game/crosshairLock'
-import { lightingIntensityScale } from '@/game/lightingPhase'
+import { combinedLightingIntensityScale } from '@/game/lightingPhase'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
 import { encounterWaveSignal, lullStartedBetween, peakStartedBetween } from '@/game/encounterWave'
@@ -1278,8 +1278,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           prevHazardRunMsRef.current = hazardRunMs
           runtime.overhead.intensity =
             (55 + roomPressureIntensity(roomStateMsRef.current) * 35) *
-            lightingIntensityScale(
+            combinedLightingIntensityScale(
               targetPressureForRunMs(directorRef.current.runMs),
+              playerHealthRef.current,
               roomStateMsRef.current
             )
           runtime.movingCover.position.x = Math.sin(roomStateMsRef.current / 1800) * 2.2

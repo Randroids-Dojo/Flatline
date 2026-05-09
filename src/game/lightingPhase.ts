@@ -18,11 +18,16 @@
  * pattern, occasionally hitting the trough so the room "stutters"
  * rather than wavering.
  */
-export type LightingPhase = 'normal' | 'flicker'
+export type LightingPhase = 'normal' | 'flicker' | 'near-death'
 
 export const FLICKER_PRESSURE_THRESHOLD = 0.7
 export const FLICKER_TROUGH_SCALE = 0.5
 export const FLICKER_PEAK_SCALE = 1.05
+
+export const NEAR_DEATH_HEALTH_THRESHOLD = 25
+export const NEAR_DEATH_PULSE_HZ = 1.33
+export const NEAR_DEATH_TROUGH_SCALE = 0.55
+export const NEAR_DEATH_PEAK_SCALE = 1.25
 
 export function lightingPhaseForPressure(pressure: number): LightingPhase {
   if (pressure >= FLICKER_PRESSURE_THRESHOLD) {
@@ -30,6 +35,25 @@ export function lightingPhaseForPressure(pressure: number): LightingPhase {
   }
 
   return 'normal'
+}
+
+/**
+ * Pick the active lighting phase from both signals. Near-death (low
+ * player health) takes precedence over the wave-driven flicker so a
+ * near-death player feels the heartbeat regardless of pressure.
+ */
+export function lightingPhase(pressure: number, playerHealth: number): LightingPhase {
+  if (playerHealth <= NEAR_DEATH_HEALTH_THRESHOLD && playerHealth > 0) {
+    return 'near-death'
+  }
+
+  return lightingPhaseForPressure(pressure)
+}
+
+export function nearDeathIntensityScale(elapsedMs: number): number {
+  const phase = (elapsedMs / 1000) * NEAR_DEATH_PULSE_HZ * 2 * Math.PI
+  const norm = (Math.sin(phase) + 1) / 2
+  return NEAR_DEATH_TROUGH_SCALE + norm * (NEAR_DEATH_PEAK_SCALE - NEAR_DEATH_TROUGH_SCALE)
 }
 
 export function flickerIntensityScale(elapsedMs: number): number {
@@ -55,4 +79,28 @@ export function lightingIntensityScale(pressure: number, elapsedMs: number): num
   }
 
   return flickerIntensityScale(elapsedMs)
+}
+
+/**
+ * Combined per-frame scale that picks the right modulation from
+ * both the pressure-tied flicker and the health-tied near-death
+ * pulse. Near-death wins on overlap because the player's situation
+ * is more urgent than the room's.
+ */
+export function combinedLightingIntensityScale(
+  pressure: number,
+  playerHealth: number,
+  elapsedMs: number
+): number {
+  const phase = lightingPhase(pressure, playerHealth)
+
+  if (phase === 'near-death') {
+    return nearDeathIntensityScale(elapsedMs)
+  }
+
+  if (phase === 'flicker') {
+    return flickerIntensityScale(elapsedMs)
+  }
+
+  return 1
 }
