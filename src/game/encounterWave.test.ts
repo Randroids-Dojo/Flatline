@@ -6,6 +6,7 @@ import {
   WAVE_SURGE_MS,
   WAVE_TOTAL_MS,
   encounterWaveSignal,
+  lullStartedBetween,
   peakStartedBetween
 } from './encounterWave'
 
@@ -105,5 +106,30 @@ describe('peakStartedBetween', () => {
   it('returns false on rewound time (currentRunMs < prevRunMs)', () => {
     const peakOffset = WAVE_LULL_MS + WAVE_SURGE_MS
     expect(peakStartedBetween(peakOffset + 100, peakOffset - 100)).toBe(false)
+  })
+})
+
+describe('lullStartedBetween', () => {
+  it('fires on the cycle boundary (peak end / lull start)', () => {
+    expect(lullStartedBetween(WAVE_TOTAL_MS - 100, WAVE_TOTAL_MS + 50)).toBe(true)
+  })
+
+  it('does not fire mid-cycle even at the peak start boundary', () => {
+    const peakOffset = WAVE_LULL_MS + WAVE_SURGE_MS
+    expect(lullStartedBetween(peakOffset - 50, peakOffset + 50)).toBe(false)
+  })
+
+  it('does not fire when the run stays inside the same cycle', () => {
+    expect(lullStartedBetween(1000, 5000)).toBe(false)
+    expect(lullStartedBetween(WAVE_TOTAL_MS + 1000, WAVE_TOTAL_MS + 5000)).toBe(false)
+  })
+
+  it('handles a tick that spans an entire cycle (very long frame)', () => {
+    expect(lullStartedBetween(100, WAVE_TOTAL_MS + 200)).toBe(true)
+  })
+
+  it('returns false on rewound or negative time', () => {
+    expect(lullStartedBetween(-100, 100)).toBe(false)
+    expect(lullStartedBetween(WAVE_TOTAL_MS + 100, WAVE_TOTAL_MS - 100)).toBe(false)
   })
 })

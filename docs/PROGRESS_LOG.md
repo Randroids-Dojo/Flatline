@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Wave lull cue (peak end recovery signal)
+
+- Branch: `feat/feel-wave-lull-cue`
+- PR: #112
+- Changed: complement to the existing wave horn cue. The horn fires when the wave hits peak (at the surge-to-peak boundary inside each 50 s cycle); the new lull cue fires when the cycle wraps back to lull (peak end), so the player gets an audible "you survived the peak, recovery phase begins" exhale. New helper `lullStartedBetween(prevRunMs, currentRunMs)` in `src/game/encounterWave.ts`. New `playWaveLullCue` in `src/components/FlatlineGame.tsx` plays a soft sine descending from 220 Hz to 130 Hz over 360 ms at gain 0.038. Distinct timbre (sine vs sawtooth horn) and longer envelope so the cue is unmistakable. Wired alongside the existing `peakStartedBetween` check; sets a "Wave eased" status line.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (49 files / 448 tests pass; 5 new tests cover cycle-boundary fire, mid-cycle quiet, peak-start no-fire, very-long-frame still fires, and rewound-time silence).
+- Assumptions: Recommended default fires on the cycle wrap rather than on the peak-to-lull transition mid-cycle, because waves cycle continuously and the wrap is the cleanest "fresh lull begins" signal. Recommended default uses sine timbre to read as breath / exhale rather than another horn-like signal.
+- GDD coverage: REQ-040 (audio) gains a build-log entry in `docs/gdd/40-audio.md`. No coverage status changes.
+- Followups: none new.
+
 ## 2026-05-08, Crosshair on-target lock cue
 
 - Branch: `feat/feel-crosshair-on-target`

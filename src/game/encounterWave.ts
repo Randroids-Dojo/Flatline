@@ -50,3 +50,19 @@ export function peakStartedBetween(prevRunMs: number, currentRunMs: number): boo
 
   return prevInCycle < peakOffset && currentInCycle >= peakOffset
 }
+
+// Returns true on the tick the wave returns to lull (peak ends).
+// Matches the pattern of peakStartedBetween so the consumer fires a
+// complementary "you survived the peak" cue. The transition lives at
+// `runMs % WAVE_TOTAL_MS === 0` (cycle wrap), so this fires when the
+// integer cycle index advances.
+export function lullStartedBetween(prevRunMs: number, currentRunMs: number): boolean {
+  if (prevRunMs < 0 || currentRunMs < prevRunMs) {
+    return false
+  }
+
+  const prevCycle = Math.floor(prevRunMs / WAVE_TOTAL_MS)
+  const currentCycle = Math.floor(currentRunMs / WAVE_TOTAL_MS)
+
+  return currentCycle > prevCycle
+}
