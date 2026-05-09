@@ -6,3 +6,4 @@ tsconfig.tsbuildinfo
 npm-debug.log*
 .env
 .env.local
+.claude/scheduled_tasks.lock
