@@ -212,6 +212,18 @@ type ShotImpact = {
   endScale: number
 }
 
+// Feel pass: ring that pops at an enemy's feet on death. Bigger and
+// warmer than ShotImpact, faces straight up so the burst is visible
+// from any camera angle. Lifecycle and limit logic mirror the
+// ShotImpact pattern for consistency.
+type EnemyDeathPop = {
+  mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
+  ageMs: number
+  durationMs: number
+  startScale: number
+  endScale: number
+}
+
 type InkProjectile = {
   group: THREE.Group
   core: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
@@ -276,6 +288,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const animationRef = useRef<number | null>(null)
   const shotBoltsRef = useRef<ShotBolt[]>([])
   const shotImpactsRef = useRef<ShotImpact[]>([])
+  const enemyDeathPopsRef = useRef<EnemyDeathPop[]>([])
+  // Snapshot of enemy ids that were already dead at the start of the
+  // last animate frame. The post-update phase scans for enemies that
+  // are dead now but were not in this snapshot to spawn the death-pop
+  // ring exactly once per kill.
+  const previouslyDeadEnemyIdsRef = useRef<Set<string>>(new Set())
   const inkProjectilesRef = useRef<InkProjectile[]>([])
   const spitterProjectilesRef = useRef<SpitterProjectileRuntime[]>([])
   const spitterProjectileSeqRef = useRef<number>(0)
@@ -681,6 +699,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     doorSignalTimersRef.current = {}
     clearShotBolts(runtimeRef.current, shotBoltsRef.current)
     clearShotImpacts(runtimeRef.current, shotImpactsRef.current)
+    clearEnemyDeathPops(runtimeRef.current, enemyDeathPopsRef.current)
+    previouslyDeadEnemyIdsRef.current = new Set()
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
     clearSpitterProjectiles(runtimeRef.current, spitterProjectilesRef.current)
     runningRef.current = true
@@ -1489,6 +1509,25 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             finishRun()
           }
 
+          // Feel pass: scan for enemies that transitioned to 'dead' this
+          // frame and spawn one death-pop ring per kill, regardless of
+          // which damage path closed them out (player shot, crossfire,
+          // pursuit attack, spitter splash). Prev-state snapshot uses
+          // unique enemy ids so the detection survives id reuse never
+          // happening across a run; the snapshot is reset on startRun.
+          const previouslyDead = previouslyDeadEnemyIdsRef.current
+          const stillDead = new Set<string>()
+          for (const candidate of enemiesRef.current) {
+            if (candidate.state !== 'dead') {
+              continue
+            }
+            stillDead.add(candidate.id)
+            if (!previouslyDead.has(candidate.id)) {
+              spawnEnemyDeathPop(runtime, enemyDeathPopsRef.current, candidate.position)
+            }
+          }
+          previouslyDeadEnemyIdsRef.current = stillDead
+
           const activePressure = enemiesRef.current.reduce((acc, candidate) => {
             return candidate.state === 'dead' ? acc : acc + enemyConfigs[candidate.type].pressureCost
           }, 0)
@@ -1593,6 +1632,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       applyPickupReadability(runtime, time, healthPickupReadyRef.current)
       tickShotBolts(runtime, shotBolts, shotImpacts, delta * 1000)
       tickShotImpacts(runtime, shotImpacts, delta * 1000)
+      tickEnemyDeathPops(runtime, enemyDeathPopsRef.current, delta * 1000)
       const activeCombo = directorRef.current.runMs <= scoreRef.current.comboExpiresAtMs ? scoreRef.current.combo : 0
       if (comboJustBroke(prevActiveComboRef.current, activeCombo)) {
         playComboBreakCue(comboBreakCue(), settingsRef.current.audio)
@@ -1704,6 +1744,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
       clearShotBolts(runtimeRef.current, shotBolts)
       clearShotImpacts(runtimeRef.current, shotImpacts)
+      clearEnemyDeathPops(runtimeRef.current, enemyDeathPopsRef.current)
       clearInkProjectiles(runtimeRef.current, inkProjectiles)
       clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
       stopMusicLayer(musicLayerRef.current)
@@ -2839,6 +2880,87 @@ function clearShotImpacts(runtime: RuntimeRefs | null, impacts: ShotImpact[]) {
     runtime?.shotGroup.remove(impact.mesh)
     impact.mesh.geometry.dispose()
     impact.mesh.material.dispose()
+  }
+}
+
+// Feel pass: spawn a wide warm ring at the position of a freshly
+// killed enemy. The ring lays flat (rotated 90 deg around X) so a
+// horizontal pop is visible from any camera angle even at low
+// ground angles. Slightly larger and warmer than ShotImpact to
+// distinguish "this enemy died" from "this shot landed."
+function spawnEnemyDeathPop(
+  runtime: RuntimeRefs,
+  pops: EnemyDeathPop[],
+  position: { x: number; y: number; z: number }
+) {
+  const mesh = new THREE.Mesh(
+    new THREE.RingGeometry(0.06, 0.22, 28),
+    new THREE.MeshBasicMaterial({
+      color: '#ffc06a',
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    })
+  )
+  mesh.position.set(position.x, Math.max(0.05, position.y - 0.5), position.z)
+  // Lay the ring flat so it reads as a ground-level burst.
+  mesh.rotation.x = -Math.PI / 2
+  mesh.renderOrder = 5
+  runtime.shotGroup.add(mesh)
+  enemyDeathPopsLimit(runtime, pops)
+  pops.push({
+    mesh,
+    ageMs: 0,
+    durationMs: 360,
+    startScale: 0.7,
+    endScale: 3.4
+  })
+}
+
+function tickEnemyDeathPops(runtime: RuntimeRefs, pops: EnemyDeathPop[], deltaMs: number) {
+  for (let index = pops.length - 1; index >= 0; index -= 1) {
+    const pop = pops[index]
+    pop.ageMs += deltaMs
+    const t = Math.min(1, pop.ageMs / pop.durationMs)
+    const scale = pop.startScale + (pop.endScale - pop.startScale) * t
+    pop.mesh.scale.setScalar(scale)
+    pop.mesh.material.opacity = Math.max(0, 0.9 * (1 - t))
+
+    if (pop.ageMs >= pop.durationMs) {
+      runtime.shotGroup.remove(pop.mesh)
+      pop.mesh.geometry.dispose()
+      pop.mesh.material.dispose()
+      pops.splice(index, 1)
+    }
+  }
+}
+
+function enemyDeathPopsLimit(runtime: RuntimeRefs, pops: EnemyDeathPop[]) {
+  while (pops.length >= 8) {
+    const pop = pops.shift()
+
+    if (!pop) {
+      return
+    }
+
+    runtime.shotGroup.remove(pop.mesh)
+    pop.mesh.geometry.dispose()
+    pop.mesh.material.dispose()
+  }
+}
+
+function clearEnemyDeathPops(runtime: RuntimeRefs | null, pops: EnemyDeathPop[]) {
+  while (pops.length > 0) {
+    const pop = pops.pop()
+
+    if (!pop) {
+      return
+    }
+
+    runtime?.shotGroup.remove(pop.mesh)
+    pop.mesh.geometry.dispose()
+    pop.mesh.material.dispose()
   }
 }
 
