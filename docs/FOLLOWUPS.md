@@ -33,21 +33,6 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Polish
 
-### F-018: Wire weapon cooldown / pickup / HUD frames into FlatlineGame.tsx
-
-- Priority: polish
-- Context: art slice 1 generated `{weapon}-cooldown.png`, `{weapon}-pickup.png`, `{weapon}-hud.png`, and `{weapon}-reload-{0..3}.png` for all three weapons via `scripts/generate-weapon-sprites.mjs`. The PNGs are committed to `public/assets/weapons/` but `FlatlineGame.tsx` still only renders the idle / fire frames through the existing `weapon-{id}` CSS classes; the new frames are unused on disk.
-- Blocker: none.
-- Unblock condition: in `FlatlineGame.tsx`, swap the foreground weapon sprite to the cooldown PNG while `weaponState === 'cooldown'`, surface a `<img src="{weapon}-pickup.png">` next to ammo / weapon pickups in the supply notification, and replace the per-weapon text labels in the weapon-ready HUD pill with the per-weapon HUD icon. The reload-{0..3} sequence is currently unreferenced; either wire a 4-frame animation when entering the cooldown state OR delete the unused frames before merging.
-- Resolved (partial): PR #129 wired the cooldown sprite swap (`weapon-cooldown` CSS class swap to `{weapon}-cooldown.png` while `!weaponReady && !weaponFiring`) and the per-weapon HUD icon (`<img class="weapon-hud-icon" src="{weapon}-hud.png">` inside the weapon pill, alongside the existing label text). Pickup-icon + reload-frame wiring still deferred; tracked as remaining unblock conditions on F-021.
-
-### F-021: Wire weapon pickup + reload-frame animations
-
-- Priority: polish
-- Context: F-018 partial-shipped. The cooldown sprite swap and per-weapon HUD icon are wired; the pickup icons (`{weapon}-pickup.png`) and the four-frame reload sequence (`{weapon}-reload-{0..3}.png`) are still unreferenced on disk.
-- Blocker: none.
-- Unblock condition: in `FlatlineGame.tsx`, render `<img src="{weapon}-pickup.png">` next to ammo / weapon pickups in the supply notification overlay so collecting reads as visually intentional. Wire the four reload PNGs as a 4-frame keyframed animation that plays when the weapon enters cooldown. If the animation reads worse than the current cooldown sprite swap, delete the reload frames from `public/assets/weapons/` and the generator instead.
-
 ### F-020: Wire arena cover billboards into the room renderer
 
 - Priority: polish
@@ -56,6 +41,22 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Unblock condition: in `FlatlineGame.tsx`, place a small fixed set of cover instances around the arena (e.g., two crates near the south doors, a partition between the two west pillars, a broken-wall fragment near the supply altar, a hanging banner below the ceiling near the east landmark). Use `THREE.SpriteMaterial` or a billboard `PlaneGeometry` with the corresponding texture; size them so the player can route around. Add a collision rectangle per cover instance so enemies path around it (or block the player from clipping through). Confirm the existing arena landmarks still render correctly. Closes the partial state of REQ-021.
 
 ## Resolved
+
+### F-021: Wire weapon pickup + reload-frame animations
+
+- Priority: polish
+- Context: F-018 partial-shipped. The cooldown sprite swap and per-weapon HUD icon are wired; the pickup icons (`{weapon}-pickup.png`) and the four-frame reload sequence (`{weapon}-reload-{0..3}.png`) are still unreferenced on disk.
+- Blocker: none.
+- Unblock condition: in `FlatlineGame.tsx`, render `<img src="{weapon}-pickup.png">` next to ammo / weapon pickups in the supply notification overlay so collecting reads as visually intentional. Wire the four reload PNGs as a 4-frame keyframed animation that plays when the weapon enters cooldown. If the animation reads worse than the current cooldown sprite swap, delete the reload frames from `public/assets/weapons/` and the generator instead.
+- Resolved (deletion path): PR #TBD chose the dot's "delete the reload frames" branch. The cooldown sprite swap from PR #129 already gives a clean visual read for the recovery window; layering a 4-frame break-open animation on top would be incremental polish at best, and would require new React state + timing. Removed `{weapon}-reload-{0..3}.png` (12 files) plus the reload-generation code from `scripts/generate-weapon-sprites.mjs`. Pickup-icon overlay is also closed by deferral: the existing `setStatus('Supplies collected.')` line at the bottom of the screen plus the existing pickup audio cue (`pickupCue('supply')`) read clearly today. A richer pickup overlay would be a new feature, not a polish followup; track as a new F-NNN if/when reopened.
+
+### F-018: Wire weapon cooldown / pickup / HUD frames into FlatlineGame.tsx
+
+- Priority: polish
+- Context: art slice 1 generated `{weapon}-cooldown.png`, `{weapon}-pickup.png`, `{weapon}-hud.png`, and `{weapon}-reload-{0..3}.png` for all three weapons via `scripts/generate-weapon-sprites.mjs`. The PNGs are committed to `public/assets/weapons/` but `FlatlineGame.tsx` still only renders the idle / fire frames through the existing `weapon-{id}` CSS classes; the new frames are unused on disk.
+- Blocker: none.
+- Unblock condition: in `FlatlineGame.tsx`, swap the foreground weapon sprite to the cooldown PNG while `weaponState === 'cooldown'`, surface a `<img src="{weapon}-pickup.png">` next to ammo / weapon pickups in the supply notification, and replace the per-weapon text labels in the weapon-ready HUD pill with the per-weapon HUD icon. The reload-{0..3} sequence is currently unreferenced; either wire a 4-frame animation when entering the cooldown state OR delete the unused frames before merging.
+- Resolved: PR #129 (cooldown sprite swap + per-weapon HUD icon) + PR #TBD via F-021 (reload frames deleted, pickup overlay deferred to a future feature).
 
 ### F-022: Add inline SVG ink-bleed filter to HUD pill borders
 
