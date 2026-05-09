@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Finisher-ready tint
+
+- Branch: `feat/feel-low-hp-finisher-tint`
+- PR: #104
+- Changed: a wounded enemy now reads as warm amber when one more hit kills it. New pure helper `isFinisherReady(currentHealth, maxHealth)` in `src/game/enemies.ts` returns true only when the enemy is at 1 HP AND has a max HP greater than 1, so the tint fires for softened-up grunts / brutes / spitters but never for skitters (always one-shot, so the cue would carry no information). The enemy billboard render branch in `src/components/FlatlineGame.tsx` adds a `finisherReadyColor` (`#ffaa55`) half-strength lerp at the lowest priority of the tint chain (after hurt, stagger, spitter charge, skitter dash) so transient cues still win each frame but an idle wounded enemy is unmistakably the next target.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (45 files / 412 tests pass; 1 new test covers grunt / brute / spitter / skitter at 1 HP, full health, dead, and over-healed).
+- Assumptions: Recommended default uses an exact `health === 1` check rather than a percentage threshold because enemy max HP is small (1 to 6). A 25 percent threshold would not quantize meaningfully and the "one more hit kills" signal is more useful than "this enemy looks low." Recommended default places the tint at the bottom of the priority chain because finisher state can persist for many frames while the higher-priority cues are short and informational.
+- GDD coverage: REQ-015 picks up a build-log entry in `docs/gdd/15-enemy-entity-model.md`. No coverage status changes.
+- Followups: none new.
+
 ## 2026-05-08, Score milestone callouts
 
 - Branch: `feat/feel-score-milestone-cues`

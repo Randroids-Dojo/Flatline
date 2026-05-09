@@ -13,6 +13,7 @@ import {
   enemyConfigs,
   enemyTypeForSpawn,
   gruntConfig,
+  isFinisherReady,
   tickEnemy
 } from './enemies'
 
@@ -501,6 +502,26 @@ describe('enemy AI', () => {
     // Pursuit timer cleared at the end of the draining tick.
     expect(tickResult.enemy.crossfirePursuitMs).toBe(0)
     expect(tickResult.enemy.crossfirePursuitTargetId).toBeNull()
+  })
+
+  it('flags the finisher tint only for softened-up multi-HP enemies', () => {
+    // Grunt (maxHealth 3): finisher only at 1 HP.
+    expect(isFinisherReady(3, enemyConfigs.grunt.maxHealth)).toBe(false)
+    expect(isFinisherReady(2, enemyConfigs.grunt.maxHealth)).toBe(false)
+    expect(isFinisherReady(1, enemyConfigs.grunt.maxHealth)).toBe(true)
+    // Brute (maxHealth 6): only at 1 HP, not at 2+ even though wounded.
+    expect(isFinisherReady(2, enemyConfigs.brute.maxHealth)).toBe(false)
+    expect(isFinisherReady(1, enemyConfigs.brute.maxHealth)).toBe(true)
+    // Spitter (maxHealth 2): one damage event puts them at 1 HP.
+    expect(isFinisherReady(2, enemyConfigs.spitter.maxHealth)).toBe(false)
+    expect(isFinisherReady(1, enemyConfigs.spitter.maxHealth)).toBe(true)
+    // Skitter (maxHealth 1): always at 1 HP if alive, but maxHealth filter
+    // excludes them because every skitter is already a one-hit kill so the
+    // tint would carry no information.
+    expect(isFinisherReady(1, enemyConfigs.skitter.maxHealth)).toBe(false)
+    // Edge: dead enemies (0 HP) and over-healed values do not fire the tint.
+    expect(isFinisherReady(0, enemyConfigs.grunt.maxHealth)).toBe(false)
+    expect(isFinisherReady(5, enemyConfigs.grunt.maxHealth)).toBe(false)
   })
 
   it('reports crossfire stagger intensity as a normalized 0..1 ramp', () => {
