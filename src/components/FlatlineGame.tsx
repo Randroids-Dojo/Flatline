@@ -35,6 +35,13 @@ import { enemyDeathCue, type EnemyDeathCueStyle } from '@/game/enemyDeathCue'
 import { enemyHurtCue, type EnemyHurtCueStyle } from '@/game/enemyHurtCue'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { runEndCue, type RunEndCueStyle } from '@/game/runEndCue'
+import {
+  SCORE_TOKEN_BONUS,
+  SCORE_TOKEN_TTL_MS,
+  scoreTokenBobY,
+  scoreTokenPickupIds,
+  shouldDropScoreToken
+} from '@/game/scoreTokenDrop'
 import { weaponFireCue, type WeaponFireCueStyle } from '@/game/weaponFireCue'
 import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
@@ -238,6 +245,13 @@ type EnemyDeathPop = {
   endScale: number
 }
 
+type ScoreTokenDropEntry = {
+  id: string
+  position: { x: number; y: number; z: number }
+  ageMs: number
+  mesh: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>
+}
+
 type InkProjectile = {
   group: THREE.Group
   core: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
@@ -317,6 +331,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const shotBoltsRef = useRef<ShotBolt[]>([])
   const shotImpactsRef = useRef<ShotImpact[]>([])
   const enemyDeathPopsRef = useRef<EnemyDeathPop[]>([])
+  const scoreTokenDropsRef = useRef<ScoreTokenDropEntry[]>([])
+  const scoreTokenDropSeqRef = useRef<number>(0)
   // Snapshot of enemy ids that were already dead at the start of the
   // last animate frame. The post-update phase scans for enemies that
   // are dead now but were not in this snapshot to spawn the death-pop
@@ -744,6 +760,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     clearShotBolts(runtimeRef.current, shotBoltsRef.current)
     clearShotImpacts(runtimeRef.current, shotImpactsRef.current)
     clearEnemyDeathPops(runtimeRef.current, enemyDeathPopsRef.current)
+    clearScoreTokenDrops(runtimeRef.current, scoreTokenDropsRef.current)
+    scoreTokenDropsRef.current = []
+    scoreTokenDropSeqRef.current = 0
     previouslyDeadEnemyIdsRef.current = new Set()
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
     clearSpitterProjectiles(runtimeRef.current, spitterProjectilesRef.current)
@@ -1640,6 +1659,15 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             if (!previouslyDead.has(candidate.id)) {
               spawnEnemyDeathPop(runtime, enemyDeathPopsRef.current, candidate.position)
               playEnemyDeathCue(enemyDeathCue(candidate.type), settingsRef.current.audio)
+              if (shouldDropScoreToken(candidate.type, Math.random())) {
+                scoreTokenDropSeqRef.current += 1
+                spawnScoreTokenDrop(
+                  runtime,
+                  scoreTokenDropsRef.current,
+                  `score-token-${scoreTokenDropSeqRef.current}`,
+                  candidate.position
+                )
+              }
             }
           }
           previouslyDeadEnemyIdsRef.current = stillDead
@@ -1758,6 +1786,34 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       tickShotBolts(runtime, shotBolts, shotImpacts, delta * 1000)
       tickShotImpacts(runtime, shotImpacts, delta * 1000)
       tickEnemyDeathPops(runtime, enemyDeathPopsRef.current, delta * 1000)
+      tickScoreTokenDrops(runtime, scoreTokenDropsRef.current, delta * 1000)
+
+      const tokenPickups = scoreTokenPickupIds(scoreTokenDropsRef.current, positionRef.current)
+      if (tokenPickups.length > 0) {
+        const pickedSet = new Set(tokenPickups)
+        const remaining: ScoreTokenDropEntry[] = []
+        let bonus = 0
+
+        for (const entry of scoreTokenDropsRef.current) {
+          if (pickedSet.has(entry.id)) {
+            runtime.shotGroup.remove(entry.mesh)
+            entry.mesh.geometry.dispose()
+            entry.mesh.material.dispose()
+            bonus += SCORE_TOKEN_BONUS
+          } else {
+            remaining.push(entry)
+          }
+        }
+
+        scoreTokenDropsRef.current = remaining
+
+        if (bonus > 0) {
+          scoreRef.current = { ...scoreRef.current, score: scoreRef.current.score + bonus }
+          setScore(scoreRef.current.score)
+          playPickupCue(pickupCue('supply'), settingsRef.current.audio)
+        }
+      }
+
 
       // Feel pass: scan alive enemies for one inside the soft crosshair
       // cone. The state setter is gated against the previous value so
@@ -1889,6 +1945,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       clearShotBolts(runtimeRef.current, shotBolts)
       clearShotImpacts(runtimeRef.current, shotImpacts)
       clearEnemyDeathPops(runtimeRef.current, enemyDeathPopsRef.current)
+      clearScoreTokenDrops(runtimeRef.current, scoreTokenDropsRef.current)
+      scoreTokenDropsRef.current = []
       clearInkProjectiles(runtimeRef.current, inkProjectiles)
       clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
       stopMusicLayer(musicLayerRef.current)
@@ -3200,6 +3258,64 @@ function enemyDeathPopsLimit(runtime: RuntimeRefs, pops: EnemyDeathPop[]) {
     runtime.shotGroup.remove(pop.mesh)
     pop.mesh.geometry.dispose()
     pop.mesh.material.dispose()
+  }
+}
+
+function spawnScoreTokenDrop(
+  runtime: RuntimeRefs,
+  drops: ScoreTokenDropEntry[],
+  id: string,
+  position: { x: number; y: number; z: number }
+) {
+  const mesh = new THREE.Mesh(
+    new THREE.TorusGeometry(0.18, 0.045, 12, 24),
+    new THREE.MeshBasicMaterial({
+      color: '#7ff0e0',
+      transparent: true,
+      opacity: 0.95,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide
+    })
+  )
+  mesh.position.set(position.x, scoreTokenBobY(0), position.z)
+  mesh.rotation.x = -Math.PI / 2
+  mesh.renderOrder = 6
+  runtime.shotGroup.add(mesh)
+  drops.push({ id, position: { x: position.x, y: position.y, z: position.z }, ageMs: 0, mesh })
+}
+
+function tickScoreTokenDrops(runtime: RuntimeRefs, drops: ScoreTokenDropEntry[], deltaMs: number) {
+  for (let index = drops.length - 1; index >= 0; index -= 1) {
+    const drop = drops[index]
+    drop.ageMs += deltaMs
+
+    if (drop.ageMs >= SCORE_TOKEN_TTL_MS) {
+      runtime.shotGroup.remove(drop.mesh)
+      drop.mesh.geometry.dispose()
+      drop.mesh.material.dispose()
+      drops.splice(index, 1)
+      continue
+    }
+
+    drop.mesh.position.y = scoreTokenBobY(drop.ageMs)
+    drop.mesh.rotation.z += deltaMs * 0.004
+    const fade = Math.max(0, 1 - drop.ageMs / SCORE_TOKEN_TTL_MS)
+    drop.mesh.material.opacity = 0.55 + 0.4 * fade
+  }
+}
+
+function clearScoreTokenDrops(runtime: RuntimeRefs | null, drops: ScoreTokenDropEntry[]) {
+  while (drops.length > 0) {
+    const drop = drops.pop()
+
+    if (!drop) {
+      return
+    }
+
+    runtime?.shotGroup.remove(drop.mesh)
+    drop.mesh.geometry.dispose()
+    drop.mesh.material.dispose()
   }
 }
 
