@@ -33,7 +33,12 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Polish
 
-(none yet)
+### F-017: Playwright motion coverage for new HUD animations
+
+- Priority: polish
+- Context: PRs #109 (score floater combo tier), #111 (crosshair on-target), #113 (combo timer bar), #114 (damage indicator severity), and #115 (critical-ammo pulse) each shipped a new HUD animation or visual state. CodeRabbit's review on PR #115 flagged that none of them have Playwright motion coverage per Rule 10. Each was deferred individually; the followup batches them so the test infrastructure investment compounds.
+- Blocker: none.
+- Unblock condition: add a Playwright spec that drives a practice-arena run, exercises each animated HUD path (combo build to streak / rolling / rampage tiers, crosshair lock and unlock, combo timer drain, damage taken at low / medium / high severity, ammo spent down to 1), and asserts changing DOM rect / opacity / data-attribute flips for each. Use `expect.poll` for time-windowed checks and assert at least one `prefers-reduced-motion` path skips animation.
 
 ## Resolved
 

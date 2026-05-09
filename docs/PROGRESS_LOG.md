@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Capture open dot tasks and add motion-coverage followup
+
+- Branch: `chore/capture-open-dots`
+- PR: #116
+- Changed: track 4 open dot tasks the user added during the feel-pass session so they survive on `main` as the active backlog. The dots cover cross-project work with the sibling `../VibeKit` repo: replace `src/game/virtualJoystick.ts` with the kit (priority 2), migrate `src/lib/kv.ts` server helpers to the kit (priority 2), migrate localStorage stores to the kit's typed read / write helpers (priority 2), and audit `src/lib/dailyStreak.ts` for kit contribution (priority 4). Earlier slices (#106, #110, #113, #115) accidentally treated similar dots as automation noise and removed them from PR commits; this slice corrects that pattern. Also adds `F-017: Playwright motion coverage for new HUD animations` to `docs/FOLLOWUPS.md` (under Polish) batching the deferred Rule-10 motion tests for PRs #109 / #111 / #113 / #114 / #115 so the Playwright test infrastructure investment lands once.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`. No code changes; `npm run typecheck` and `npm run test` are unchanged from the previous green run.
+- Assumptions: Recommended default commits the dots as-is rather than re-keying or restructuring them, because the dot CLI is the canonical owner of `.dots/*.md` and it created these files. Recommended default groups the deferred motion tests under one F-017 rather than five separate F-NNN entries because the underlying gap is the same Playwright spec investment.
+- GDD coverage: no section changes. F-017 created in `docs/FOLLOWUPS.md`.
+- Followups: created F-017.
+
 ## 2026-05-08, Critical-ammo pulse on the Ammo HUD pill
 
 - Branch: `feat/feel-ammo-pill-critical`
