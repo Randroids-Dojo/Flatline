@@ -221,6 +221,11 @@ function setPixel(pixels, x, y, color) {
 }
 
 function fillEllipse(pixels, cx, cy, rx, ry, color) {
+  // Defensive: a zero radius would divide by zero in the inside-test
+  // below. Every call site here passes positive literals, but keeping
+  // the guard so the helper stays safe to copy into other generators.
+  if (rx <= 0 || ry <= 0) return
+
   for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y += 1) {
     for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x += 1) {
       const dx = (x - cx) / rx
