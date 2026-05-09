@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Enemy death pop ring
+
+- Branch: `feat/feel-enemy-death-pop`
+- PR: #107
+- Changed: every kill now visibly punctuates with a warm ring expanding from the dead enemy's feet, distinct from the existing per-shot impact rings (which fire on bolt arrival, not on kill confirmation). New `EnemyDeathPop` type and `spawnEnemyDeathPop` / `tickEnemyDeathPops` / `enemyDeathPopsLimit` / `clearEnemyDeathPops` helpers in `src/components/FlatlineGame.tsx` mirror the existing ShotImpact lifecycle: ring lays flat (rotated 90 deg around X), starts at scale 0.7 and expands to 3.4 over 360 ms while opacity fades from 0.9 to 0. The detection step in the per-frame animate loop snapshots the set of dead enemy ids each frame and spawns a pop for every id that is dead now but was not dead last frame. This routes through every kill path uniformly without code duplication: player shot, melee arc crossfire, pursuit enemyAttackEnemy hit, spitter projectile crossfire. Reset on startRun and unmount; capped at 8 concurrent pops.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (47 files / 424 tests pass; no new tests because the new helpers are Three.js sinks that mirror the existing ShotImpact pattern, which itself is also covered only by the smoke test).
+- Assumptions: Recommended default places the ring on the ground (rotated flat) rather than facing the camera because the ground-level burst reads as "this enemy fell" while a camera-facing ring would compete with the per-shot impact ring visually. Recommended default uses an id-based snapshot rather than wiring the spawn into each of the four kill paths separately because new kill paths in the future inherit the visual automatically. Recommended default caps concurrent pops at 8 (lower than the 12 cap on shot impacts) because death is rarer than shot landing, and stale rings cluttering the scene would dilute the "this enemy fell" read.
+- GDD coverage: REQ-015 picks up a build-log entry in `docs/gdd/15-enemy-entity-model.md`. No coverage status changes.
+- Followups: none new.
+
 ## 2026-05-08, Combo milestone cues
 
 - Branch: `feat/feel-combo-milestone-cues`
