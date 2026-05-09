@@ -1,6 +1,6 @@
 import { billboardAngles, type BillboardAngle } from './billboard'
 
-export type AnimationName = 'idle' | 'hurt' | 'death'
+export type AnimationName = 'idle' | 'walk' | 'attackWindup' | 'attack' | 'hurt' | 'death'
 
 export type SpriteFrame = {
   x: number

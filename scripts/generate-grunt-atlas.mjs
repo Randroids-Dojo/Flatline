@@ -4,7 +4,7 @@ import { finishAsset } from './finish-asset.mjs'
 
 const cell = 192
 const columns = 8
-const rows = 10
+const rows = 18
 const width = cell * columns
 const height = cell * rows
 const angles = ['front', 'frontRight', 'right', 'backRight', 'back', 'backLeft', 'left', 'frontLeft']
@@ -113,8 +113,25 @@ function drawMouth(cx, cy, widthScale, smile, color) {
 
 function bodyPoints(cx, cy, facing, frame, state) {
   const squash = state === 'death' ? 0.35 : 1
-  const bob = state === 'idle' ? Math.sin(frame * Math.PI * 0.5) * 4 : 0
-  const lean = state === 'hurt' ? (frame === 0 ? -7 : 7) : Math.sin(frame * 1.7 + facing) * 3
+  const idleBob = state === 'idle' ? Math.sin(frame * Math.PI * 0.5) * 4 : 0
+  const walkBob = state === 'walk' ? Math.abs(Math.sin(frame * Math.PI * 0.5)) * 5 - 2 : 0
+  const windupCrouch = state === 'attackWindup' ? (frame === 0 ? 3 : 6) : 0
+  const releaseStretch = state === 'attackRelease' ? (frame === 0 ? -4 : -1) : 0
+  const bob = idleBob + walkBob + windupCrouch + releaseStretch
+  let lean = 0
+
+  if (state === 'hurt') {
+    lean = frame === 0 ? -7 : 7
+  } else if (state === 'attackWindup') {
+    lean = frame === 0 ? -4 : -8
+  } else if (state === 'attackRelease') {
+    lean = frame === 0 ? 9 : 5
+  } else if (state === 'walk') {
+    lean = Math.sin(frame * Math.PI * 0.5) * 4
+  } else {
+    lean = Math.sin(frame * 1.7 + facing) * 3
+  }
+
   const side = Math.abs(Math.sin(facing))
   const back = Math.cos(facing) < -0.45
   const halfWidth = 34 - side * 8
@@ -156,12 +173,52 @@ function drawGrunt(col, row, angleIndex, frame, state) {
   const back = Math.cos(facing) < -0.45
   const hurt = state === 'hurt'
   const dead = state === 'death'
+  const walk = state === 'walk'
+  const windup = state === 'attackWindup'
+  const release = state === 'attackRelease'
   const body = bodyPoints(cx, cy, facing, frame, state)
 
   fillEllipse(cx, cy + 59, dead ? 54 : 38, dead ? 11 : 9, shadow)
+
+  // Walk: stagger leg + foot strokes behind the body so the gait reads
+  // through the silhouette. 4-frame cycle: left fwd, both down, right fwd,
+  // both down. Bob is already baked into bodyPoints via state === 'walk'.
+  if (walk) {
+    const stride = Math.sin(frame * Math.PI * 0.5) * 14
+    const lift = Math.cos(frame * Math.PI * 0.5) * 6
+    strokeLine(cx - 14, cy + 42, cx - 14 - stride, cy + 64 + lift, 3.5, outline)
+    strokeLine(cx + 14, cy + 42, cx + 14 + stride, cy + 64 - lift, 3.5, outline)
+  }
+
   fillPolygon(expandPoints(body, cx, cy, 1.16), outline)
   fillPolygon(body, hurt ? [48, 30, 30, 255] : ink)
   fillPolygon(expandPoints(body, cx, cy, 0.78), dead ? gray : [27, 27, 26, 255])
+
+  // Windup: arms cocked back, body leans toward the viewer (lean is set
+  // negative in bodyPoints so the silhouette reads as winding into the
+  // strike). Add visible arm strokes pulled rearward + a danger tint
+  // glint to telegraph the incoming swing.
+  if (windup) {
+    const pull = frame === 0 ? 18 : 28
+    strokeLine(cx - 22, cy - 18, cx - 22 - pull, cy - 6, 4, outline)
+    strokeLine(cx + 22, cy - 18, cx + 22 - pull * 0.7, cy - 4, 4, outline)
+    fillEllipse(cx - 22 - pull, cy - 6, 4, 4, danger)
+    fillEllipse(cx + 22 - pull * 0.7, cy - 4, 4, 4, danger)
+  }
+
+  // Release: arms swing forward at full extension on frame 0, settling
+  // back on frame 1. Lean is positive so the body has lurched into the
+  // strike. The forward arm gets a small motion-streak behind it.
+  if (release) {
+    const reach = frame === 0 ? 30 : 18
+    strokeLine(cx - 18, cy - 14, cx - 18 + reach, cy - 4, 4, outline)
+    strokeLine(cx + 18, cy - 14, cx + 18 + reach, cy - 8, 4, outline)
+    fillEllipse(cx - 18 + reach, cy - 4, 5, 5, hurt ? danger : teal)
+    fillEllipse(cx + 18 + reach, cy - 8, 5, 5, hurt ? danger : teal)
+    if (frame === 0) {
+      strokeLine(cx - 6, cy - 6, cx - 18 + reach * 0.6, cy - 6, 1.6, gray)
+    }
+  }
 
   if (!dead) {
     const haloY = cy - 72 + Math.sin(frame + angleIndex) * 3
@@ -184,27 +241,49 @@ function drawGrunt(col, row, angleIndex, frame, state) {
 
   const eyeSpread = 17 - side * 8
   const eyeY = cy - 29 + (hurt ? -2 : 0)
-  const eyeColor = hurt ? danger : teal
-  fillEllipse(cx - eyeSpread, eyeY, hurt ? 7 : 6, hurt ? 5 : 6, eyeColor)
-  fillEllipse(cx + eyeSpread, eyeY + side * 2, hurt ? 7 : 6, hurt ? 5 : 6, eyeColor)
-  drawMouth(cx, cy - 2, 1 - side * 0.35, hurt ? -5 : 9, outline)
+  const eyeColor = hurt || windup ? danger : teal
+  const eyeSize = windup ? 7 : hurt ? 7 : 6
+  const eyeHeight = windup ? 7 : hurt ? 5 : 6
+  fillEllipse(cx - eyeSpread, eyeY, eyeSize, eyeHeight, eyeColor)
+  fillEllipse(cx + eyeSpread, eyeY + side * 2, eyeSize, eyeHeight, eyeColor)
+  const smile = release ? -8 : windup ? -3 : hurt ? -5 : 9
+  drawMouth(cx, cy - 2, 1 - side * 0.35, smile, outline)
 }
 
 function expandPoints(points, cx, cy, scale) {
   return points.map(([x, y]) => [cx + (x - cx) * scale, cy + (y - cy) * scale])
 }
 
+// Row layout per angle column:
+//   rows 0..3   idle    (4 frames)
+//   rows 4..7   walk    (4 frames)
+//   rows 8..9   windup  (2 frames)
+//   rows 10..11 release (2 frames)
+//   rows 12..13 hurt    (2 frames)
+//   rows 14..17 death   (4 frames)
 for (let angleIndex = 0; angleIndex < angles.length; angleIndex += 1) {
   for (let frame = 0; frame < 4; frame += 1) {
     drawGrunt(angleIndex, frame, angleIndex, frame, 'idle')
   }
 
+  for (let frame = 0; frame < 4; frame += 1) {
+    drawGrunt(angleIndex, 4 + frame, angleIndex, frame, 'walk')
+  }
+
   for (let frame = 0; frame < 2; frame += 1) {
-    drawGrunt(angleIndex, 4 + frame, angleIndex, frame, 'hurt')
+    drawGrunt(angleIndex, 8 + frame, angleIndex, frame, 'attackWindup')
+  }
+
+  for (let frame = 0; frame < 2; frame += 1) {
+    drawGrunt(angleIndex, 10 + frame, angleIndex, frame, 'attackRelease')
+  }
+
+  for (let frame = 0; frame < 2; frame += 1) {
+    drawGrunt(angleIndex, 12 + frame, angleIndex, frame, 'hurt')
   }
 
   for (let frame = 0; frame < 4; frame += 1) {
-    drawGrunt(angleIndex, 6 + frame, angleIndex, frame, 'death')
+    drawGrunt(angleIndex, 14 + frame, angleIndex, frame, 'death')
   }
 }
 
@@ -226,10 +305,37 @@ for (const [angleIndex, angle] of angles.entries()) {
 
 for (const [angleIndex, angle] of angles.entries()) {
   atlas.clips.push({
+    name: 'walk',
+    angle,
+    loop: true,
+    frames: [4, 5, 6, 7].map((row) => frame(angleIndex, row, 110))
+  })
+}
+
+for (const [angleIndex, angle] of angles.entries()) {
+  atlas.clips.push({
+    name: 'attackWindup',
+    angle,
+    loop: false,
+    frames: [8, 9].map((row) => frame(angleIndex, row, 210))
+  })
+}
+
+for (const [angleIndex, angle] of angles.entries()) {
+  atlas.clips.push({
+    name: 'attack',
+    angle,
+    loop: false,
+    frames: [10, 11].map((row) => frame(angleIndex, row, 90))
+  })
+}
+
+for (const [angleIndex, angle] of angles.entries()) {
+  atlas.clips.push({
     name: 'hurt',
     angle,
     loop: false,
-    frames: [4, 5].map((row) => frame(angleIndex, row, 85))
+    frames: [12, 13].map((row) => frame(angleIndex, row, 85))
   })
 }
 
@@ -238,7 +344,7 @@ for (const [angleIndex, angle] of angles.entries()) {
     name: 'death',
     angle,
     loop: false,
-    frames: [6, 7, 8, 9].map((row) => frame(angleIndex, row, 110))
+    frames: [14, 15, 16, 17].map((row) => frame(angleIndex, row, 110))
   })
 }
 
