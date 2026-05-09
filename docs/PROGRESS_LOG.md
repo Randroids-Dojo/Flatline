@@ -21,7 +21,7 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 ## 2026-05-09, Ammo pickup audit flip (closes REQ-034)
 
 - Branch: `chore/req-034-ammo-audit`
-- PR: #TBD
+- PR: #138
 - Changed: docs-only audit pass on `docs/gdd/34-pickup-ammo.md`. Verified each spec line against existing code in `src/game/weapons.ts` and `src/components/FlatlineGame.tsx`. Shells (Boomstick, `maxAmmo: 6`), ink cells (Inkblaster, `maxAmmo: 4`), and peashooter-stays-infinite (`maxAmmo: null`) are all in place. Both ammo types refill at the central altar via `collectWeaponAmmo(state, 2, 1)` because both weapons exist (the spec's gating condition). "Later: special ammo" is post-MVP and stays out of scope. No code changes; status flips `partial` to `done`.
 - Verification: `git diff --check`, dash check on touched docs.
 - Assumptions: Recommended default treats the audit as the slice deliverable for an audit-only requirement. The spec lists what ammo types exist, not how many tiers of each pickup; today's altar refill model satisfies the named requirement, so a code-touching slice would be scope creep into REQ-019 (corner pickup zones) or REQ-035 (dropped tokens).
