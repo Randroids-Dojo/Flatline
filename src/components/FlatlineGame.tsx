@@ -2591,6 +2591,41 @@ function createRoom() {
     group.add(pillar)
   }
 
+  // Cover billboards (REQ-021). Closes F-020. Visual cover only,
+  // matching the pillar precedent above (no collision wired). The PNGs
+  // come from `scripts/generate-cover-billboards.mjs` (art slice 6) and
+  // give the arena distinct silhouettes the player can route around
+  // without losing the open-arena feel.
+  const coverLoader = new THREE.TextureLoader()
+  const coverInstances: Array<{ texture: string; widthM: number; heightM: number; x: number; y: number; z: number }> = [
+    // Two crates flanking the south doors (z = +9 wall).
+    { texture: '/assets/cover/crate.png', widthM: 1.2, heightM: 1.2, x: -2.1, y: 0.6, z: 7.6 },
+    { texture: '/assets/cover/crate.png', widthM: 1.2, heightM: 1.2, x: 2.1, y: 0.6, z: 7.6 },
+    // Partition between the west pillar pair, broken-wall fragment by
+    // the east pillar pair. Both rotate to face into the arena.
+    { texture: '/assets/cover/partition.png', widthM: 0.9, heightM: 2.0, x: -3.5, y: 1.0, z: 0.15 },
+    { texture: '/assets/cover/broken-wall.png', widthM: 1.6, heightM: 1.4, x: 3.5, y: 0.7, z: 0.15 },
+    // Hanging banner near the ceiling on the north side (z = -9 wall).
+    { texture: '/assets/cover/hanging-banner.png', widthM: 1.4, heightM: 1.9, x: 0, y: 2.4, z: -4.0 }
+  ]
+
+  for (const instance of coverInstances) {
+    const texture = coverLoader.load(instance.texture)
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.magFilter = THREE.NearestFilter
+    texture.minFilter = THREE.NearestFilter
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    })
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(instance.widthM, instance.heightM), material)
+    mesh.position.set(instance.x, instance.y, instance.z)
+    mesh.renderOrder = 1
+    group.add(mesh)
+  }
+
   const altar = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.6, 0.45, 24), pickupMaterial)
   altar.position.set(0, 0.22, 0)
   altar.receiveShadow = true
