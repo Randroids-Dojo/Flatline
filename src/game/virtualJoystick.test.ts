@@ -3,8 +3,8 @@ import {
   beginJoystick,
   createJoystick,
   endJoystick,
+  JOYSTICK_RADIUS,
   joystickMovedBeyond,
-  joystickRadius,
   moveJoystick,
   readJoystick
 } from './virtualJoystick'
@@ -20,7 +20,7 @@ describe('virtual joystick', () => {
   it('reads normalized movement inside the radius', () => {
     const joystick = createJoystick()
     beginJoystick(joystick, 7, 100, 100)
-    moveJoystick(joystick, 100 + joystickRadius / 2, 100 - joystickRadius / 4)
+    moveJoystick(joystick, 100 + JOYSTICK_RADIUS / 2, 100 - JOYSTICK_RADIUS / 4)
 
     expect(readJoystick(joystick)).toEqual({ x: 0.5, y: -0.25 })
   })

@@ -111,9 +111,9 @@ import {
   beginJoystick,
   createJoystick,
   endJoystick,
-  joystickDeadzone,
+  JOYSTICK_DEADZONE,
+  JOYSTICK_RADIUS,
   joystickMovedBeyond,
-  joystickRadius,
   moveJoystick,
   readJoystick,
   type JoystickState
@@ -1943,17 +1943,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
     function applyMoveJoystick() {
       const move = readJoystick(joysticks.move)
-      keys.left = move.x < -joystickDeadzone
-      keys.right = move.x > joystickDeadzone
-      keys.forward = move.y < -joystickDeadzone
-      keys.backward = move.y > joystickDeadzone
+      keys.left = move.x < -JOYSTICK_DEADZONE
+      keys.right = move.x > JOYSTICK_DEADZONE
+      keys.forward = move.y < -JOYSTICK_DEADZONE
+      keys.backward = move.y > JOYSTICK_DEADZONE
     }
 
     function applyLookJoystick() {
       const look = readJoystick(joysticks.look)
       touchLookVectorRef.current = {
-        x: Math.abs(look.x) > joystickDeadzone ? look.x : 0,
-        y: Math.abs(look.y) > joystickDeadzone ? look.y : 0
+        x: Math.abs(look.x) > JOYSTICK_DEADZONE ? look.x : 0,
+        y: Math.abs(look.y) > JOYSTICK_DEADZONE ? look.y : 0
       }
     }
 
@@ -2445,7 +2445,7 @@ function JoystickVisual({
   const dx = joystick.currentX - joystick.originX
   const dy = joystick.currentY - joystick.originY
   const length = Math.hypot(dx, dy)
-  const scale = length > joystickRadius ? joystickRadius / length : 1
+  const scale = length > JOYSTICK_RADIUS ? JOYSTICK_RADIUS / length : 1
   const knobX = joystick.originX + dx * scale
   const knobY = joystick.originY + dy * scale
 
@@ -2454,10 +2454,10 @@ function JoystickVisual({
       <div
         className={`touch-stick touch-stick-${className}`}
         style={{
-          left: `${joystick.originX - joystickRadius}px`,
-          top: `${joystick.originY - joystickRadius}px`,
-          width: `${joystickRadius * 2}px`,
-          height: `${joystickRadius * 2}px`
+          left: `${joystick.originX - JOYSTICK_RADIUS}px`,
+          top: `${joystick.originY - JOYSTICK_RADIUS}px`,
+          width: `${JOYSTICK_RADIUS * 2}px`,
+          height: `${JOYSTICK_RADIUS * 2}px`
         }}
       >
         <span>{label}</span>
