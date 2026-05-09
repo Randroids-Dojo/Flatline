@@ -296,9 +296,9 @@
       "id": "REQ-033",
       "requirement": "Pickup Health: small (10) common and large (35) rare in dangerous locations.",
       "gddRef": "docs/gdd/33-pickup-health.md",
-      "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx"],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/healthPickupTier.ts"],
+      "testRefs": ["src/game/healthPickupTier.test.ts"],
       "followupRefs": []
     },
     {
