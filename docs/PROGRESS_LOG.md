@@ -131,7 +131,7 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 ## 2026-05-09, chore(deps): flip @randroids-dojo/vibekit pin from commit SHA to v0.1.0 tag
 
 - Branch: `chore/deps/vibekit-commit-to-v0.1.0`
-- PR: pending
+- PR: #139
 - Changed: `package.json` flipped `@randroids-dojo/vibekit` from `github:Randroids-Dojo/VibeKit#0b2b104acb9fbc173f613049f95ebaeb678af4c6` (commit-pinned, pre-tag) to `github:Randroids-Dojo/VibeKit#v0.1.0` (tag-pinned). Lockfile refreshed; resolved SHA moves from `0b2b104` to `3f5193a` (the v0.1.0 tag commit, which adds CHANGELOG.md and is otherwise content-equivalent at the source level). `docs/DEPENDENCY_LEDGER.md` already records `Currently pinned: v0.1.0` so no ledger edit was needed.
 - Verification: dash check, `npm run typecheck`, `npm test` (494 / 494), `npm run build`. No source files changed.
 - Assumptions: the v0.1.0 tag is now the canonical pin format for this and every other consumer. Future bumps follow the spiral Dependency Upgrade Gate: detect-new returns the new tag, branch as `chore/deps/vibekit-<from>-to-<to>`, read CHANGELOG, bump, type-check, test, build, smoke, PR.
