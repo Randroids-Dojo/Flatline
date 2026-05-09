@@ -33,14 +33,22 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Polish
 
+### F-023: Cover + pillar collision rectangles
+
+- Priority: polish
+- Context: REQ-021 spec says "enemies should path around cover, not get stuck on it." Pillars and the new cover billboards (F-020) are visual only today. Player and enemies walk through both freely. The partial REQ-021 status reflects this gap.
+- Blocker: none.
+- Unblock condition: add a `coverColliders` rectangle list shared by pillars (cylinders at `[±3.5, ±1.8]` and `[±3.5, 2.1]`) and the four cover billboard positions. Update player movement and enemy AI to check against these rects (clamp position to nearest valid edge OR raycast). Confirm enemies do not get stuck against cover; test the spitter projectile path against cover for line-of-sight blocking. Closes REQ-021's partial state.
+
+## Resolved
+
 ### F-020: Wire arena cover billboards into the room renderer
 
 - Priority: polish
 - Context: art slice 6 generated `crate.png`, `partition.png`, `broken-wall.png`, `hanging-banner.png` under `public/assets/cover/`. The PNGs are committed but the arena renderer in `FlatlineGame.tsx` still only places pillars; the new cover billboards are unused on disk.
 - Blocker: none.
 - Unblock condition: in `FlatlineGame.tsx`, place a small fixed set of cover instances around the arena (e.g., two crates near the south doors, a partition between the two west pillars, a broken-wall fragment near the supply altar, a hanging banner below the ceiling near the east landmark). Use `THREE.SpriteMaterial` or a billboard `PlaneGeometry` with the corresponding texture; size them so the player can route around. Add a collision rectangle per cover instance so enemies path around it (or block the player from clipping through). Confirm the existing arena landmarks still render correctly. Closes the partial state of REQ-021.
-
-## Resolved
+- Resolved: PR #TBD. The five cover billboards (two crates near the south doors, a partition by the west pillar pair, a broken-wall fragment by the east pillar pair, a hanging banner near the north wall) ship as `THREE.Mesh` + `PlaneGeometry` in `createRoom()`. Each loads its PNG via `THREE.TextureLoader().load`, with `colorSpace: SRGBColorSpace`, `NearestFilter` for the rubber-hose silhouette, `transparent: true`, `side: DoubleSide`, `depthWrite: false`. Visual cover only; the collision-rectangle piece of the original dot is split out as `F-023` because pillars themselves are visual-only today and adding collision wants its own slice.
 
 ### F-021: Wire weapon pickup + reload-frame animations
 
