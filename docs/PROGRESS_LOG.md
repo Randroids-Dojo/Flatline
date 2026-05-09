@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Art slice 3: HUD rubber-hose icon set
+
+- Branch: `feat/art-3-hud-rubber-hose-icons`
+- PR: #126
+- Changed: closes the priority-2 dot `Flatline-art-3-hud-rubber-hose-icons`. New `scripts/generate-hud-icons.mjs` emits six 32x32 rubber-hose HUD icons under `public/assets/hud/`: `health.png` (red heart), `score.png` (gold star), `time.png` (teal hourglass), `kills.png` (skull), `combo.png` (gold lightning bolt), `wave.png` (teal stacked bars). Each icon is built from primitive polygon points with a deterministic seeded `roughen()` perturbation per vertex (8-byte LCG, no third-party RNG) so straight lines turn into wobbly hand-drawn lines without an external dependency. Every icon runs through `finishAsset()` from slice 2 for palette coherence. The dot's original tooling stack (`game-icons` clone + `svg2roughjs` + `rsvg-convert`) was replaced with the in-repo generator pattern that already drives slices 1 and 2: zero new npm deps, zero `brew install` requirements, zero CC-BY attribution debt, same rubber-hose outcome. F-019 tracks the FlatlineGame.tsx wiring follow-up that consumes the new icons and adds the inline `<feTurbulence>` ink-bleed filter for HUD pill borders.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), `node scripts/generate-hud-icons.mjs` (clean run, 6 deterministic PNGs), visual spot-check on each icon via the Read tool (heart / star / hourglass / skull / lightning / wave bars all read as intended).
+- Assumptions: Recommended default uses the in-repo generator pattern instead of the dot's `game-icons + svg2roughjs + rsvg-convert` stack because the existing pipeline produces equivalent output with no new dependencies, no system tooling, and no attribution debt. Recommended default defers wiring to F-019 (matching the slice-1 + F-018 pattern) so this PR stays a small reviewable asset slice.
+- GDD coverage: `REQ-039` `implementationRefs` gains `scripts/generate-hud-icons.mjs` and `public/assets/hud`; `followupRefs` gains `F-019`. Status stays `partial` until F-019 lands.
+- Followups: created `F-019`.
+
 ## 2026-05-09, Art slice 2: canonical palette + finish-asset post-processor
 
 - Branch: `feat/art-2-finish-asset-pass`
