@@ -423,8 +423,8 @@
       "requirement": "Arena mutations: lighting, door, hazard, cover phases that change with pressure.",
       "gddRef": "docs/gdd/47-arena-mutations.md",
       "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/spawnDirector.ts", "src/game/doorState.ts", "src/game/doorCue.ts"],
-      "testRefs": ["src/game/doorState.test.ts", "src/game/doorCue.test.ts"],
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/spawnDirector.ts", "src/game/doorState.ts", "src/game/doorCue.ts", "src/game/lightingPhase.ts"],
+      "testRefs": ["src/game/doorState.test.ts", "src/game/doorCue.test.ts", "src/game/lightingPhase.test.ts"],
       "followupRefs": []
     },
     {
