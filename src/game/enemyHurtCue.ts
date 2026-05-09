@@ -28,40 +28,40 @@ import type { EnemyType } from './enemies'
  * `gain` stays well below the player damage cue (0.05) and below
  * the death cue's gain so a hit does not feel as final as a kill.
  */
-export type EnemyHurtCueStyle = {
+export type EnemyHurtCueStyle = Readonly<{
   frequency: number
   waveform: OscillatorType
   durationMs: number
   gain: number
-}
+}>
 
-const skitterStyle: EnemyHurtCueStyle = {
+const skitterStyle: EnemyHurtCueStyle = Object.freeze({
   frequency: 620,
   waveform: 'triangle',
   durationMs: 60,
   gain: 0.018
-}
+})
 
-const gruntStyle: EnemyHurtCueStyle = {
+const gruntStyle: EnemyHurtCueStyle = Object.freeze({
   frequency: 380,
   waveform: 'square',
   durationMs: 80,
   gain: 0.022
-}
+})
 
-const bruteStyle: EnemyHurtCueStyle = {
+const bruteStyle: EnemyHurtCueStyle = Object.freeze({
   frequency: 220,
   waveform: 'sawtooth',
   durationMs: 110,
   gain: 0.03
-}
+})
 
-const spitterStyle: EnemyHurtCueStyle = {
+const spitterStyle: EnemyHurtCueStyle = Object.freeze({
   frequency: 480,
   waveform: 'triangle',
   durationMs: 90,
   gain: 0.024
-}
+})
 
 export function enemyHurtCue(type: EnemyType): EnemyHurtCueStyle {
   switch (type) {

@@ -4,6 +4,18 @@ import { enemyHurtCue } from './enemyHurtCue'
 
 describe('enemyHurtCue', () => {
   const types = ['skitter', 'grunt', 'brute', 'spitter'] as const
+  const expected = {
+    skitter: { frequency: 620, waveform: 'triangle', durationMs: 60, gain: 0.018 },
+    grunt: { frequency: 380, waveform: 'square', durationMs: 80, gain: 0.022 },
+    brute: { frequency: 220, waveform: 'sawtooth', durationMs: 110, gain: 0.03 },
+    spitter: { frequency: 480, waveform: 'triangle', durationMs: 90, gain: 0.024 }
+  } as const
+
+  it('matches the exact per-type hurt-cue tuning', () => {
+    for (const type of types) {
+      expect(enemyHurtCue(type)).toEqual(expected[type])
+    }
+  })
 
   it('returns positive frequency, duration, and gain for every enemy type', () => {
     for (const type of types) {
