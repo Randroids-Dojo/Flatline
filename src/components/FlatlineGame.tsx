@@ -2217,13 +2217,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             ) : null}
             {summary ? (
               <div className="summary" data-testid="run-summary">
-                <p>Score {summary.score}</p>
                 {summary.previousBestScore !== null && summary.score > summary.previousBestScore ? (
                   <p className="summary-new-best" data-testid="summary-new-best">
                     <strong>NEW BEST!</strong>{' '}
                     +{summary.score - summary.previousBestScore} over previous {summary.previousBestScore}
                   </p>
                 ) : null}
+                <p>Score {summary.score}</p>
                 <p>Kills {summary.kills}</p>
                 <p>Time {formatTime(summary.survivalMs)}</p>
                 <p>Accuracy {Math.round(summary.accuracy * 100)}%</p>
