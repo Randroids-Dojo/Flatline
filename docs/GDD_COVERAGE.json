@@ -323,9 +323,9 @@
       "id": "REQ-036",
       "requirement": "Pickup readability: bounce, glow, rim light, loop sound, consistent zones.",
       "gddRef": "docs/gdd/36-pickup-readability.md",
-      "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/pickupReadability.ts"],
-      "testRefs": ["src/game/pickupReadability.test.ts"],
+      "status": "done",
+      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/pickupReadability.ts", "src/game/pickupLoopCue.ts"],
+      "testRefs": ["src/game/pickupReadability.test.ts", "src/game/pickupLoopCue.test.ts"],
       "followupRefs": []
     },
     {

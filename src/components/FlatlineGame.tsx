@@ -66,6 +66,7 @@ import { ARENA_COVER_RECTS, clampOutsideRects } from '@/game/coverCollision'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
 import { pickupCue, type PickupCueStyle } from '@/game/pickupCue'
+import { pickupLoopGain, pickupLoopStyle } from '@/game/pickupLoopCue'
 import {
   pickupBounceY,
   pickupGlowIntensity,
@@ -358,6 +359,11 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     bass: OscillatorNode
     throb: OscillatorNode
     throbGain: GainNode
+  } | null>(null)
+  const pickupLoopLayerRef = useRef<{
+    context: AudioContext
+    masterGain: GainNode
+    osc: OscillatorNode
   } | null>(null)
   const tookDamageSinceLastKillRef = useRef<boolean>(false)
   const hitstopStateRef = useRef<{ style: HitstopStyle; startMs: number } | null>(null)
@@ -763,6 +769,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     musicLayerRef.current = settingsRef.current.audio ? startMusicLayer() : null
     stopRagePulseLayer(ragePulseLayerRef.current)
     ragePulseLayerRef.current = null
+    stopPickupLoopLayer(pickupLoopLayerRef.current)
+    pickupLoopLayerRef.current = settingsRef.current.audio ? startPickupLoopLayer() : null
   }, [isPractice])
 
   const finishRun = useCallback(() => {
@@ -821,6 +829,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     musicLayerRef.current = null
     stopRagePulseLayer(ragePulseLayerRef.current)
     ragePulseLayerRef.current = null
+    stopPickupLoopLayer(pickupLoopLayerRef.current)
+    pickupLoopLayerRef.current = null
   }, [arenaMode, dailyDate, isPractice])
 
   const resumeRun = useCallback(() => {
@@ -1691,6 +1701,15 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       runtime.muzzleLight.intensity = Math.max(0, runtime.muzzleLight.intensity - delta * 22)
       applyDoorSignals(runtime, doorSignalTimersRef.current, delta * 1000)
       applyPickupReadability(runtime, time, healthPickupReadyRef.current)
+
+      const pickupLoopLayer = pickupLoopLayerRef.current
+      if (pickupLoopLayer !== null) {
+        const target = settingsRef.current.audio
+          ? pickupLoopGain(pickupLoopStyle(), time, healthPickupReadyRef.current)
+          : 0
+        pickupLoopLayer.masterGain.gain.setTargetAtTime(target, pickupLoopLayer.context.currentTime, 0.18)
+      }
+
       tickShotBolts(runtime, shotBolts, shotImpacts, delta * 1000)
       tickShotImpacts(runtime, shotImpacts, delta * 1000)
       tickEnemyDeathPops(runtime, enemyDeathPopsRef.current, delta * 1000)
@@ -1831,6 +1850,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       musicLayerRef.current = null
       stopRagePulseLayer(ragePulseLayerRef.current)
       ragePulseLayerRef.current = null
+      stopPickupLoopLayer(pickupLoopLayerRef.current)
+      pickupLoopLayerRef.current = null
       if (runtimeRef.current) {
         disposeEnemySlots(runtimeRef.current.enemySlots)
       }
@@ -3455,6 +3476,50 @@ function stopMusicLayer(layer: {
 
   try {
     layer.throb.stop()
+  } catch {
+    // already stopped
+  }
+
+  void layer.context.close().catch(() => {
+    // noop
+  })
+}
+
+function startPickupLoopLayer(): {
+  context: AudioContext
+  masterGain: GainNode
+  osc: OscillatorNode
+} | null {
+  if (typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return null
+  }
+
+  const style = pickupLoopStyle()
+  const context = new window.AudioContext()
+  const masterGain = context.createGain()
+  masterGain.gain.value = 0
+  masterGain.connect(context.destination)
+
+  const osc = context.createOscillator()
+  osc.type = 'sine'
+  osc.frequency.value = style.frequencyHz
+  osc.connect(masterGain)
+  osc.start()
+
+  return { context, masterGain, osc }
+}
+
+function stopPickupLoopLayer(layer: {
+  context: AudioContext
+  masterGain: GainNode
+  osc: OscillatorNode
+} | null) {
+  if (layer === null) {
+    return
+  }
+
+  try {
+    layer.osc.stop()
   } catch {
     // already stopped
   }

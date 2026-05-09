@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Pickup loop sound (closes REQ-036)
+
+- Branch: `feat/pickup-loop-cue`
+- PR: #136
+- Changed: closes the last unaudited cue in `docs/gdd/36-pickup-readability.md` (loop sound) and flips `REQ-036` from `partial` to `done`. New pure helper `src/game/pickupLoopCue.ts` exposes `pickupLoopStyle()` (110 Hz sine carrier, 0.6 Hz breath, breath depth 0.55, base gain 0.012, cooldown gain 0) and `pickupLoopGain(style, elapsedMs, ready)` returning a target gain that sits at 0 during cooldown and breathes around `baseGain` while supplies are ready. Base gain stays below the loudest enemy windup cue (0.038) so combat audio still leads. `src/components/FlatlineGame.tsx` adds a long-lived `pickupLoopLayerRef` (AudioContext + OscillatorNode + master GainNode), started in `startRun` when audio is on, stopped in `startRun` (re-armed), `finishRun`, and the unmount cleanup. The animate loop ramps `masterGain.gain.setTargetAtTime(target, ..., 0.18)` next to `applyPickupReadability` so the audio breath stays phase-locked to the visual breath.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean across touched files), `git diff --check`, `npm run typecheck`, `npm run test` (484 / 484, +9 new for the pure helper).
+- Assumptions: Recommended default uses a single AudioContext owned by the layer (matching the `musicLayerRef` and `ragePulseLayerRef` patterns), not a shared context. The cost is a few extra contexts; the win is the start/stop lifecycle stays trivial and the existing music + rage layers do not need refactoring as a side effect of this slice. Recommended default keeps the breath frequency well below 1 Hz so the loop reads as a calm "supplies open" presence rather than a warning pulse, and the breath depth below 1 so the hum stays continuously audible (zero-crossings would feel like a dropout).
+- GDD coverage: `REQ-036` flipped `partial` to `done`. Build log entry appended to `docs/gdd/36-pickup-readability.md`. `implementationRefs` and `testRefs` extended with `src/game/pickupLoopCue.ts` and `src/game/pickupLoopCue.test.ts`.
+- Followups: none new.
+
 ## 2026-05-09, Per-enemy walk / windup / release atlas frames (closes art slice 5, REQ-013, REQ-014)
 
 - Branch: `feat/art-5-enemy-anim-frames`
