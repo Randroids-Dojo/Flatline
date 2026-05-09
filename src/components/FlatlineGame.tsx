@@ -3317,6 +3317,14 @@ function tickAndResolveSpitterProjectiles(
     const pulse = 1 + Math.sin(projectile.state.ageMs / 64) * 0.18
     projectile.halo.scale.setScalar(pulse)
 
+    // F-023 / REQ-021: a projectile that hit cover this tick is gone;
+    // skip player and enemy hit checks so cover cannot leak damage.
+    if (projectile.state.blockedByCover) {
+      disposeSpitterProjectile(runtime, projectile)
+      projectiles.splice(index, 1)
+      continue
+    }
+
     if (spitterProjectileHitsPlayer(projectile.state, playerPosition, playerRadius)) {
       onPlayerHit(projectile.state.damage)
       disposeSpitterProjectile(runtime, projectile)

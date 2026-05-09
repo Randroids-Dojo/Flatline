@@ -529,15 +529,13 @@ export function tickEnemy(
 
   // F-023 / REQ-021: clamp the enemy out of the arena cover and pillar
   // rectangles after movement so chasing AI does not drive itself into
-  // a pillar. Radius 0.4 matches the player radius; enemy radius scales
-  // with `enemyConfig.scale` but a single shared collision radius keeps
-  // the slice tight, and pathing-around behavior reads correctly with
-  // 0.4 because the cover rects are larger than the visible silhouette
-  // by enough margin for any enemy size.
+  // a pillar. The collision radius scales with `config.scale` so a
+  // brute (scale > 1) clamps further out than a skitter (scale < 1).
+  // The base 0.4 matches the player radius for unit-scale enemies.
   const clampedEnemy = clampOutsideRects(
     nextEnemy.position.x,
     nextEnemy.position.z,
-    0.4,
+    0.4 * config.scale,
     ARENA_COVER_RECTS
   )
   nextEnemy.position = {

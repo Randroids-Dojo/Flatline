@@ -48,12 +48,20 @@ export function tickSpitterProjectile(projectile: SpitterProjectile, deltaMs: nu
   const nextZ = startZ + projectile.direction.z * projectile.speed * dt
 
   // F-023 / REQ-021: line-segment test against the cover rects from
-  // the pre-step to post-step position. If a rect blocks the segment,
-  // snap the projectile to the entry point and mark it for removal.
+  // the pre-step to post-step position. The cover rects are inflated
+  // by the projectile radius so a graze that visually clips a corner
+  // still reads as blocked. If a rect blocks the segment, snap the
+  // projectile to the entry point and mark it for removal.
+  const inflatedRects = ARENA_COVER_RECTS.map((rect) => ({
+    x: rect.x,
+    z: rect.z,
+    halfW: rect.halfW + SPITTER_PROJECTILE_RADIUS_M,
+    halfL: rect.halfL + SPITTER_PROJECTILE_RADIUS_M
+  }))
   const hit = segmentBlockedByRects(
     { x: startX, z: startZ },
     { x: nextX, z: nextZ },
-    ARENA_COVER_RECTS
+    inflatedRects
   )
 
   if (hit !== null) {
