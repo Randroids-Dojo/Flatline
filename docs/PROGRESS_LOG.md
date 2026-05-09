@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Art slice 4: dedicated spitter sprite atlas (closes REQ-031)
+
+- Branch: `feat/art-4-spitter-atlas`
+- PR: #127
+- Changed: closes the priority-2 dot `Flatline-art-4-spitter-atlas` and the last partial of `REQ-031`. Adds a `drawSpitter` variant to `scripts/generate-enemy-variant-atlases.mjs` painting a tall lanky body in canonical olive (`colors.gray`) with two thin stalk legs, a teal projectile sac on the belly that pulses across the 4 idle frames, and a danger-red eye on a short stalk. Hurt frames lean back and tint to `bruteRed`; death collapses to a puddle with a sac splat. 8 angles x (4 idle + 2 hurt + 4 death) = 80 frames, packed at 192x192 per cell into `public/assets/enemies/spitter/spitter.png` plus `spitter.atlas.json`. `enemyAtlasTypes` in `FlatlineGame.tsx` now includes `'spitter'` so the atlas loads at run start; `src/game/spriteAtlas.test.ts` validates the atlas alongside grunt / skitter / brute. The runtime windup tint from `src/game/spitterCharge.ts` continues to apply on top of the new sprite (`#a8e07a` -> `#f0ffd0` ramp over 720 ms). `REQ-031` flips `partial` to `done`.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), `node scripts/generate-enemy-variant-atlases.mjs` (clean run, all three variants regenerate deterministically), visual spot-check on `public/assets/enemies/spitter/spitter.png`.
+- Assumptions: Recommended default uses canonical-palette olive (`colors.gray`) for the body rather than introducing a new vegetal-green palette entry; the existing 12-color palette already absorbs the spitter silhouette well, and adding a 13th would require re-running every generator. Recommended default keeps the runtime windup tint route (lerp toward `#f0ffd0` driven by `spitterChargeIntensity`) instead of rendering attack-windup frames into the atlas, because the atlas pipeline does not have a windup row and adding one would diverge spitter from skitter / brute.
+- GDD coverage: `REQ-031` flipped `partial` to `done`. Build log entry appended to `docs/gdd/31-enemy-spitter.md`.
+- Followups: none.
+
 ## 2026-05-09, Art slice 3: HUD rubber-hose icon set
 
 - Branch: `feat/art-3-hud-rubber-hose-icons`

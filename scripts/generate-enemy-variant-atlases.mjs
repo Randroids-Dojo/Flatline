@@ -31,6 +31,11 @@ const variants = [
     type: 'brute',
     draw: drawBrute,
     durations: { idle: 145, hurt: 110, death: 135 }
+  },
+  {
+    type: 'spitter',
+    draw: drawSpitter,
+    durations: { idle: 130, hurt: 95, death: 120 }
   }
 ]
 
@@ -202,6 +207,92 @@ function drawBrute(draw, angleIndex, frame, state) {
   draw.fillEllipse(cx + eyeSpread + lean, cy - 31 + bob + side * 2, hurt ? 8 : 6, hurt ? 5 : 6, eyeColor)
   draw.strokeLine(cx - 28 + lean, cy - 7 + bob, cx + 28 + lean, cy - 10 + bob, 3.4, colors.outline)
   draw.strokeLine(cx - 30 + lean, cy + 7 + bob, cx + 30 + lean, cy + 5 + bob, 2.4, colors.tealDark)
+}
+
+// The spitter is the ranged enemy. Tall lanky silhouette so it reads
+// distinct from the brute (stocky) and skitter (low + spider-like). The
+// belly carries a teal "projectile sac" that pulses on idle and bursts
+// out on attack-windup; the windup tint comes from `spitterCharge.ts`
+// at runtime, this atlas only covers idle / hurt / death so the pulse
+// here is just frame-to-frame size jitter on the sac.
+function drawSpitter(draw, angleIndex, frame, state) {
+  const originX = angleIndex * cell
+  const row = state === 'idle' ? frame : state === 'hurt' ? 4 + frame : 6 + frame
+  const originY = row * cell
+  const cx = originX + cell / 2
+  const cy = originY + cell / 2
+  const facing = (angleIndex / angles.length) * Math.PI * 2
+  const side = Math.abs(Math.sin(facing))
+  const back = Math.cos(facing) < -0.45
+  const sway = state === 'idle' ? Math.sin(frame * Math.PI * 0.5) * 4 : 0
+  const sacPulse = state === 'idle' ? Math.sin(frame * Math.PI * 0.5 + Math.PI / 3) * 2 : 0
+  const hurtLean = state === 'hurt' ? (frame === 0 ? -10 : 10) : 0
+  const dead = state === 'death'
+  const hurt = state === 'hurt'
+
+  // Olive-grayed body color; the canonical palette's `gray` reads as a
+  // muted vegetal tone against the teal sac and the cream outline.
+  const bodyTint = hurt ? colors.bruteRed : colors.gray
+
+  draw.fillEllipse(cx, cy + 64, dead ? 56 : 38, dead ? 9 : 7, colors.shadow)
+
+  if (dead) {
+    // Spitter collapses into a puddle with the sac splat.
+    draw.fillEllipse(cx, cy + 50, 64, 14, colors.outline)
+    draw.fillEllipse(cx, cy + 50, 56, 10, colors.gray)
+    draw.fillEllipse(cx - 22, cy + 48, 14, 6, colors.tealDark)
+    draw.fillEllipse(cx + 26, cy + 50, 12, 5, colors.tealDark)
+    draw.strokeLine(cx - 30, cy + 50, cx - 60, cy + 30, 3, colors.outline)
+    draw.strokeLine(cx + 30, cy + 50, cx + 60, cy + 32, 3, colors.outline)
+    return
+  }
+
+  // Two stalk legs, splayed slightly outward.
+  const legSpread = 18 + side * 4
+  draw.strokeLine(cx - legSpread + hurtLean, cy - 4, cx - legSpread - 8, cy + 60, 4, colors.outline)
+  draw.strokeLine(cx - legSpread + hurtLean, cy - 4, cx - legSpread - 8, cy + 60, 2, colors.gray)
+  draw.strokeLine(cx + legSpread + hurtLean, cy - 4, cx + legSpread + 8, cy + 60, 4, colors.outline)
+  draw.strokeLine(cx + legSpread + hurtLean, cy - 4, cx + legSpread + 8, cy + 60, 2, colors.gray)
+
+  // Tall narrow torso (teardrop shape).
+  const torsoTop = cy - 48 + sway
+  const torsoBottom = cy + 24
+  const torso = [
+    [cx - 22 + hurtLean, torsoBottom],
+    [cx - 26 + hurtLean, cy - 4 + sway],
+    [cx - 18 + hurtLean, torsoTop + 6],
+    [cx - 8 + hurtLean, torsoTop],
+    [cx + 8 + hurtLean, torsoTop],
+    [cx + 18 + hurtLean, torsoTop + 6],
+    [cx + 26 + hurtLean, cy - 4 + sway],
+    [cx + 22 + hurtLean, torsoBottom]
+  ]
+  draw.fillPolygon(expandPoints(torso, cx, cy, 1.13), colors.outline)
+  draw.fillPolygon(torso, bodyTint)
+
+  // Belly sac: a teal pulsing pouch where projectiles charge.
+  const sacRx = (back ? 12 : 18) + sacPulse
+  const sacRy = 14 + sacPulse * 0.5
+  const sacY = cy + 6 + sway
+  draw.fillEllipse(cx + hurtLean, sacY, sacRx + 2, sacRy + 2, colors.outline)
+  draw.fillEllipse(cx + hurtLean, sacY, sacRx, sacRy, colors.tealDark)
+  draw.fillEllipse(cx - 4 + hurtLean, sacY - 2, sacRx * 0.4, sacRy * 0.4, colors.teal)
+
+  if (back && !hurt) {
+    // Backside view: spine ridge + sac shows as a dim shadow only.
+    draw.strokeLine(cx - 6, torsoTop + 8, cx - 6, cy + 10 + sway, 2, colors.tealDark)
+    draw.strokeLine(cx + 6, torsoTop + 8, cx + 6, cy + 10 + sway, 2, colors.tealDark)
+    return
+  }
+
+  // Single eye on a stalk above the head.
+  const eyeX = cx + hurtLean - side * 4
+  const eyeY = torsoTop - 8
+  draw.strokeLine(cx + hurtLean, torsoTop, eyeX, eyeY + 2, 3, colors.outline)
+  draw.fillEllipse(eyeX, eyeY, hurt ? 9 : 7, hurt ? 6 : 7, colors.outline)
+  draw.fillEllipse(eyeX, eyeY, hurt ? 6 : 4, hurt ? 4 : 4, hurt ? colors.danger : colors.ink)
+  // Tiny mouth slit.
+  draw.strokeLine(cx - 9 + hurtLean, cy - 18 + sway, cx + 9 + hurtLean, cy - 18 + sway, 1.5, colors.ink)
 }
 
 function createDrawingContext(pixels) {
