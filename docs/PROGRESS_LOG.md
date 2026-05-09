@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, HUD pill ink-bleed filter (closes F-022, F-019, REQ-039)
+
+- Branch: `feat/hud-ink-bleed-f022`
+- PR: TBD
+- Changed: closes `F-022` and the remaining ink-bleed-border piece of `F-019`. The HUD root in `FlatlineGame.tsx` now mounts a hidden `<svg width="0" height="0">` carrying a named `hud-ink-bleed` filter (`<feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/>` + `<feDisplacementMap in="SourceGraphic" scale="2"/>`). New `.hud-pill::before` pseudo-element in `app/globals.css` paints a 1px cream outline aligned to the pill rect via `inset: -1px` and routes only that outline through the filter, so the pill text + icons stay crisp. `@media (prefers-reduced-motion: reduce)` clears the filter; `pointer-events: none` keeps the overlay click-through. `.hud-pill` gains `position: relative` so the absolute pseudo-element anchors correctly. With this slice the rubber-hose icons (PR #130), wobble + film-grain + ink-splatter overlays (PR #59), damage-direction indicator (PR #49), and the new ink-bleed border are all in place; every cartoon-title-card checkbox + every required HUD element is now visible. `REQ-039` flips `partial` to `done`. F-019 and F-022 move to `## Resolved`.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), Playwright smoke + HUD-motion (7 chromium passing, 3 mobile-only skipped). The motion spec's `.crosshair[data-locked='true']::before` background-color probe still works because the new `.hud-pill::before` is scoped to `.hud-pill`.
+- Assumptions: Recommended default scopes the filter to `.hud-pill::before` (a 1px outline overlay) instead of the entire pill. Filtering the whole pill would distort text + icons, which the dot's "filter the borders" wording explicitly avoids; the pseudo-element approach lands the same visual feel without legibility cost. Recommended default keeps `numOctaves="2"` and `scale="2"` as starting tuning; if the visual reads too jittery on Vercel preview, a follow-up can drop to `scale="1"`. Recommended default does not introduce a Safari-specific workaround upfront; the GDD spec lists Safari as a manual smoke item, the workaround can land in a follow-up if testing surfaces a bug.
+- GDD coverage: `REQ-039` flipped `partial` to `done`. Build log entries appended to `docs/gdd/39-hud.md` for both this slice and PR #130's icon wiring (the prior entry was only added to PROGRESS_LOG, not the section file). `testRefs` gains `tests/hud-motion.spec.ts`; `followupRefs` gains `F-022`.
+- Followups: closed `F-019`, closed `F-022`. Both moved to `## Resolved`.
+
 ## 2026-05-09, Wire HUD rubber-hose icons (partial close on F-019)
 
 - Branch: `feat/wire-hud-icons-f019`

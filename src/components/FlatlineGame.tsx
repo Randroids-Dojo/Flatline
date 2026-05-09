@@ -2177,6 +2177,26 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             ['--hud-wobble-period' as string]: `${hudPillWobblePeriodMs()}ms`
           }}
         >
+          {/*
+            Cartoon-title-card ink-bleed filter for HUD pill borders. The
+            ::before pseudo-element on .hud-pill paints a 1px outline on
+            top of the pill and routes that outline through this filter
+            via filter: url(#hud-ink-bleed). Keeping the filter scoped to
+            the pseudo-element keeps the pill's text + icons crisp.
+          */}
+          <svg
+            width="0"
+            height="0"
+            aria-hidden="true"
+            style={{ position: 'absolute', overflow: 'hidden' }}
+          >
+            <defs>
+              <filter id="hud-ink-bleed">
+                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" />
+                <feDisplacementMap in="SourceGraphic" scale="2" />
+              </filter>
+            </defs>
+          </svg>
           <div className="hud-pill">
             Health
             <img className="hud-icon" src="/assets/hud/health.png" alt="" aria-hidden="true" />
