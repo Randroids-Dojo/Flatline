@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Run end audio sting (REQ-040 progress)
+
+- Branch: `feat/run-end-cue`
+- PR: #146
+- Changed: closes the "Run end" required-SFX line. Today `finishRun` muted the music and rage layers and showed "Flatlined." silently; the moment now lands as a deliberate three-tone descending sawtooth sting (320 -> 200 -> 110 Hz across 840 ms, gains 0.05 / 0.045 / 0.04) so the death reads as an end, not a glitch. New pure helper `src/game/runEndCue.ts` exposes `runEndCue()` returning a frozen `RunEndCueStyle` and `runEndCueTotalDurationMs(style)`. New local helper `playRunEndCue` in `src/components/FlatlineGame.tsx` chains the three Web Audio oscillators back-to-back, advancing `context.currentTime` between tones and closing the context after the last tone settles. Skipped on practice runs (which end with a soft "Practice run ended.").
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean), `git diff --check`, `npm run typecheck`, `npm run test` (536 / 536, +10 new for the pure helper).
+- Assumptions: Recommended default uses three tones rather than two so the sting reads as an arpeggio fall rather than a buzzer cut, matching classic shooter death stings. Recommended default keeps each tone quieter than the last so the sting decays away into the silence after the music layer stops; equal-loudness would feel triumphant rather than final. Recommended default skips the cue on practice runs because practice has no death narrative; the existing "Practice run ended." status is the right beat there.
+- GDD coverage: `REQ-040` stays `partial`. Build log entry appended to `docs/gdd/40-audio.md`. `implementationRefs` and `testRefs` extended.
+- Followups: none new.
+
 ## 2026-05-09, Per-type enemy hurt audio cue (REQ-040 progress)
 
 - Branch: `feat/enemy-hurt-cue`
