@@ -34,6 +34,7 @@ import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFl
 import { enemyDeathCue, type EnemyDeathCueStyle } from '@/game/enemyDeathCue'
 import { enemyHurtCue, type EnemyHurtCueStyle } from '@/game/enemyHurtCue'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
+import { runEndCue, type RunEndCueStyle } from '@/game/runEndCue'
 import { weaponFireCue, type WeaponFireCueStyle } from '@/game/weaponFireCue'
 import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
@@ -838,6 +839,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     ragePulseLayerRef.current = null
     stopPickupLoopLayer(pickupLoopLayerRef.current)
     pickupLoopLayerRef.current = null
+
+    if (!isPractice) {
+      playRunEndCue(runEndCue(), settingsRef.current.audio)
+    }
   }, [arenaMode, dailyDate, isPractice])
 
   const resumeRun = useCallback(() => {
@@ -4240,6 +4245,38 @@ function playWindupCue(cue: EnemyWindupCueStyle, enabled: boolean) {
   oscillator.addEventListener('ended', () => {
     context.close()
   })
+}
+
+function playRunEndCue(cue: RunEndCueStyle, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  let cursor = context.currentTime
+
+  for (const tone of cue.tones) {
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.type = cue.waveform
+    oscillator.frequency.value = tone.frequency
+    const startTime = cursor
+    const stopTime = startTime + tone.durationMs / 1000
+    gain.gain.setValueAtTime(0, startTime)
+    gain.gain.linearRampToValueAtTime(tone.gain, startTime + Math.min(0.02, tone.durationMs / 1000 / 4))
+    gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+    oscillator.connect(gain)
+    gain.connect(context.destination)
+    oscillator.start(startTime)
+    oscillator.stop(stopTime)
+    cursor = stopTime
+  }
+
+  const totalSeconds = cursor - context.currentTime
+
+  window.setTimeout(() => {
+    void context.close().catch(() => {})
+  }, totalSeconds * 1000 + 60)
 }
 
 function playEnemyHurtCue(cue: EnemyHurtCueStyle, enabled: boolean) {
