@@ -1704,7 +1704,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
       const pickupLoopLayer = pickupLoopLayerRef.current
       if (pickupLoopLayer !== null) {
-        const target = pickupLoopGain(pickupLoopStyle(), time, healthPickupReadyRef.current)
+        const target = settingsRef.current.audio
+          ? pickupLoopGain(pickupLoopStyle(), time, healthPickupReadyRef.current)
+          : 0
         pickupLoopLayer.masterGain.gain.setTargetAtTime(target, pickupLoopLayer.context.currentTime, 0.18)
       }
 
