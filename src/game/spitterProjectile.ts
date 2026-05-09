@@ -4,6 +4,13 @@ import type { Vec3 } from './types'
 export const SPITTER_PROJECTILE_RADIUS_M = 0.18
 export const SPITTER_PROJECTILE_TTL_MS = 3000
 
+const INFLATED_COVER_RECTS = ARENA_COVER_RECTS.map((rect) => ({
+  x: rect.x,
+  z: rect.z,
+  halfW: rect.halfW + SPITTER_PROJECTILE_RADIUS_M,
+  halfL: rect.halfL + SPITTER_PROJECTILE_RADIUS_M
+}))
+
 export type SpitterProjectile = {
   id: string
   position: Vec3
@@ -52,16 +59,10 @@ export function tickSpitterProjectile(projectile: SpitterProjectile, deltaMs: nu
   // by the projectile radius so a graze that visually clips a corner
   // still reads as blocked. If a rect blocks the segment, snap the
   // projectile to the entry point and mark it for removal.
-  const inflatedRects = ARENA_COVER_RECTS.map((rect) => ({
-    x: rect.x,
-    z: rect.z,
-    halfW: rect.halfW + SPITTER_PROJECTILE_RADIUS_M,
-    halfL: rect.halfL + SPITTER_PROJECTILE_RADIUS_M
-  }))
   const hit = segmentBlockedByRects(
     { x: startX, z: startZ },
     { x: nextX, z: nextZ },
-    inflatedRects
+    INFLATED_COVER_RECTS
   )
 
   if (hit !== null) {
