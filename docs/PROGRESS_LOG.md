@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Crosshair on-target lock cue
+
+- Branch: `feat/feel-crosshair-on-target`
+- PR: #111
+- Changed: the crosshair now subtly warms to gold when an alive enemy sits inside a soft 4 degree half-angle cone aligned with the camera forward axis. Soft "you are on target" read; no aim assist, no rule change. New pure helper `src/game/crosshairLock.ts` exposes `isEnemyOnCrosshair(playerPosition, yawRadians, enemyPosition, angleTolerance, maxRange)` doing the dot-product comparison in the xz plane against a forward vector derived from yaw (matching the convention `forwardFromYawPitch` uses). The animate loop scans alive enemies once per frame, sets a new `crosshairLocked` React state through a value-change guard so React only re-renders on flip, and the JSX writes `data-locked` onto the crosshair. `app/globals.css` paints the bars gold with a brighter glow under `.crosshair[data-locked='true']`.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (49 files / 443 tests pass; 8 new tests cover front / behind / 90 deg / inside-tolerance / outside-tolerance / max-range / camera-rotated / same-position cases).
+- Assumptions: Recommended default uses 4 degree half-angle so the cue is clearly "aimed at" rather than "vaguely toward." Recommended default caps the range at 16 m so far enemies that happen to align with the crosshair but are not really shootable yet do not falsely trigger the lock. Recommended default ignores pitch (xz only) so a head-tilted aim does not constantly flicker the lock as the camera moves vertically.
+- GDD coverage: REQ-056 (post-MVP feel pass) gains a build-log entry in `docs/gdd/56-post-mvp-feel-pass.md`.
+- Followups: none new.
+
 ## 2026-05-08, Run-summary personal-best delta
 
 - Branch: `feat/feel-run-summary-stats`
