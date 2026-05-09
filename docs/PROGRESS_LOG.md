@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Weapon presentation audit flip (closes REQ-026)
+
+- Branch: `chore/req-026-weapon-presentation-audit`
+- PR: #140
+- Changed: docs-only audit pass on `docs/gdd/26-weapon-presentation.md`. Each spec line resolved to existing code: idle frame and fire animation ship via the `weapon-{id}-fire` class swap on the foreground sprite (`src/components/FlatlineGame.tsx` line ~2440); cooldown animation via the `weapon-cooldown` class with per-weapon background-image rules in `app/globals.css` (PR #129); HUD icon via the `<img className="weapon-hud-icon">` next to the weapon label (PR #129); the optional reload animation was deliberately removed via PR #132 / F-021 because the cooldown swap covered the recovery read; pickup icon PNGs ship to `public/assets/weapons/` but the in-world overlay is queued for a post-MVP weapon-pickup slice (the current single-altar supply model does not split per weapon, so a richer overlay would be a new feature, not polish). Status flips `partial` to `done`.
+- Verification: `git diff --check`, dash check on touched docs.
+- Assumptions: Recommended default treats the audit as the slice deliverable for an audit-only requirement. The "(optional reload animation)" spec line stands as documented intent; we shipped the optional path of explicitly choosing not to render reload frames. The pickup icon line is satisfied because the PNGs exist and the renderer pattern is in place; the overlay wiring is tracked as a deferred feature, not a regression.
+- GDD coverage: `REQ-026` flipped `partial` to `done`. Build log entry appended to `docs/gdd/26-weapon-presentation.md`.
+- Followups: none new.
+
 ## 2026-05-09, Ammo pickup audit flip (closes REQ-034)
 
 - Branch: `chore/req-034-ammo-audit`

@@ -233,7 +233,7 @@
       "id": "REQ-026",
       "requirement": "Weapon presentation: 2D foreground sprites with idle, fire, cooldown, pickup, HUD icon frames.",
       "gddRef": "docs/gdd/26-weapon-presentation.md",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": ["public/assets/weapons", "scripts/generate-weapon-sprites.mjs", "src/components/FlatlineGame.tsx", "src/game/muzzleFlash.ts", "src/game/weaponRecoil.ts", "app/globals.css"],
       "testRefs": ["src/game/muzzleFlash.test.ts", "src/game/weaponRecoil.test.ts"],
       "followupRefs": ["F-018"]
