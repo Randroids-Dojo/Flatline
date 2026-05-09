@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Art slice 2: canonical palette + finish-asset post-processor
+
+- Branch: `feat/art-2-finish-asset-pass`
+- PR: TBD
+- Changed: closes the priority-2 dot `Flatline-art-2-finish-asset-pass`. Adds `scripts/art-palette.mjs` (12-entry canonical palette: ink, three grayscale stops, outline cream, teal + teal dark, danger + danger dark, peashooter olive, boomstick brown, muzzle gold; one source of truth per the strategy doc). Adds `scripts/finish-asset.mjs` exporting `finishAsset(rgba)` which walks every opaque pixel and snaps RGB to the nearest palette entry (alpha preserved). Wires the finisher into all three generators (`generate-weapon-sprites.mjs`, `generate-grunt-atlas.mjs`, `generate-enemy-variant-atlases.mjs`) immediately before `writePng`. Re-runs every generator so the committed PNGs in `public/assets/weapons/` and `public/assets/enemies/` are quantized to the canonical palette. The pickup / HUD outputs from slice 1 already used canonical fill colors, so they show no diff; the larger weapon and enemy frames pick up subtle drift fixes (outline cream, muzzle gold, eye colors all snap to canonical hex values).
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), `node scripts/generate-{weapon-sprites,grunt-atlas,enemy-variant-atlases}.mjs` (clean runs), visual spot-check on `peashooter-idle.png` and `enemies/grunt/grunt.png` confirming no color-snap artifacts.
+- Assumptions: Recommended default keeps the palette in `scripts/art-palette.mjs` (Node-side ESM) rather than duplicating it as a `src/art/palette.ts`; nothing in the runtime currently imports the values, and YAGNI says wait for the consumer. Recommended default does NOT add the optional 1-px ink outline pass mentioned in the dot because the existing generators already handle outlines explicitly; doubling them would thicken silhouettes without intent.
+- GDD coverage: no requirement rows changed (this is a coherence pass; foundation for slices 3-6).
+- Followups: none.
+
 ## 2026-05-09, Art slice 1: weapon cooldown / pickup / HUD / reload frames
 
 - Branch: `feat/art-1-weapon-frames`

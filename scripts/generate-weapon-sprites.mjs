@@ -1,5 +1,6 @@
 import { deflateSync } from 'node:zlib'
 import { mkdirSync, writeFileSync } from 'node:fs'
+import { finishAsset } from './finish-asset.mjs'
 
 const outputDir = 'public/assets/weapons'
 const weapons = [
@@ -51,6 +52,7 @@ function renderAt(w, h, drawFn) {
   height = h
   const pixels = new Uint8Array(width * height * 4)
   drawFn(pixels)
+  finishAsset(pixels)
   return writePng(pixels)
 }
 
