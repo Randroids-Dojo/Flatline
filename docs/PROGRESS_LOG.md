@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Critical-ammo pulse on the Ammo HUD pill
+
+- Branch: `feat/feel-ammo-pill-critical`
+- PR: #115
+- Changed: companion to the last-ammo audio cue from PR #108. The audio fires on the 2-to-1 transition, but the visual stays on for the duration of the "running dry" condition so the player can see at a glance that they have one shot left. New pure helper `isAmmoCritical(weapon, ammo)` in `src/game/ammoWarning.ts` returns true when the selected finite-ammo weapon sits at exactly 1 round (peashooter / infinite ammo always returns false; 0 falls through because dry-fire is its own state). The Ammo HUD pill writes `data-critical='true|false'` based on the helper. `app/globals.css` adds a `.ammo-pill[data-critical='true'] strong` rule that paints warning red (#ff5a4f) and runs a 720 ms infinite opacity pulse, with a `prefers-reduced-motion: reduce` block that disables the animation.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (49 files / 462 tests pass; 5 new tests cover boomstick / inkblaster critical, full / mid / dry no-fire, and peashooter no-op).
+- Assumptions: Recommended default does not flag critical at 0 because a dry weapon is a different state than "almost dry" and the player already knows they cannot fire. Recommended default uses `prefers-reduced-motion` to disable the pulse so motion-sensitive players still see the warning color but no flicker.
+- GDD coverage: REQ-056 (post-MVP feel pass) gains a build-log entry in `docs/gdd/56-post-mvp-feel-pass.md`.
+- Followups: none new.
+
 ## 2026-05-08, Damage indicator severity tiers
 
 - Branch: `feat/feel-damage-indicator-severity`

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createWeaponAmmo } from './weapons'
-import { justHitLastAmmo } from './ammoWarning'
+import { isAmmoCritical, justHitLastAmmo } from './ammoWarning'
 
 describe('justHitLastAmmo', () => {
   it('fires for the boomstick when the spent shot takes ammo from 2 to 1', () => {
@@ -42,5 +42,32 @@ describe('justHitLastAmmo', () => {
     const previous = { ...createWeaponAmmo(), inkblaster: 0 }
     const current = { ...createWeaponAmmo(), inkblaster: 1 }
     expect(justHitLastAmmo('inkblaster', previous, current)).toBe(false)
+  })
+})
+
+describe('isAmmoCritical', () => {
+  it('flags critical when boomstick has exactly 1 round', () => {
+    const ammo = { ...createWeaponAmmo(), boomstick: 1 }
+    expect(isAmmoCritical('boomstick', ammo)).toBe(true)
+  })
+
+  it('flags critical when inkblaster has exactly 1 round', () => {
+    const ammo = { ...createWeaponAmmo(), inkblaster: 1 }
+    expect(isAmmoCritical('inkblaster', ammo)).toBe(true)
+  })
+
+  it('does not flag critical at full or mid stock', () => {
+    expect(isAmmoCritical('boomstick', createWeaponAmmo())).toBe(false)
+    const half = { ...createWeaponAmmo(), boomstick: 3 }
+    expect(isAmmoCritical('boomstick', half)).toBe(false)
+  })
+
+  it('does not flag critical at 0 (already dry, separate state)', () => {
+    const dry = { ...createWeaponAmmo(), boomstick: 0 }
+    expect(isAmmoCritical('boomstick', dry)).toBe(false)
+  })
+
+  it('never flags critical for peashooter (infinite ammo)', () => {
+    expect(isAmmoCritical('peashooter', createWeaponAmmo())).toBe(false)
   })
 })

@@ -198,6 +198,32 @@ button {
   pointer-events: none;
 }
 
+/* Critical-ammo pulse on the Ammo HUD pill. Companion to the
+   last-ammo audio cue. While the selected finite-ammo weapon sits
+   at exactly 1 round, the strong text paints in warning red and
+   pulses so the cue is reinforced visually for the duration of the
+   "running dry" condition (not just on the transition). */
+.ammo-pill[data-critical='true'] strong {
+  color: #ff5a4f;
+  text-shadow: 0 0 8px rgba(255, 90, 79, 0.6);
+  animation: ammo-critical-pulse 720ms ease-in-out infinite;
+}
+
+@keyframes ammo-critical-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ammo-pill[data-critical='true'] strong {
+    animation: none;
+  }
+}
+
 .weapon-ready-pill strong {
   color: #8fe6d9;
 }
