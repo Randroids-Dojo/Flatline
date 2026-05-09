@@ -65,6 +65,7 @@ import {
 import { ARENA_COVER_RECTS, clampOutsideRects } from '@/game/coverCollision'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
+import { healthPickupAmount, healthPickupTier } from '@/game/healthPickupTier'
 import { pickupCue, type PickupCueStyle } from '@/game/pickupCue'
 import { pickupLoopGain, pickupLoopStyle } from '@/game/pickupLoopCue'
 import {
@@ -373,6 +374,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const lastDashStartMsRef = useRef<number>(Number.NEGATIVE_INFINITY)
   const rageBuffStateRef = useRef<RageBuffState | null>(null)
   const nextRageEligibleRunMsRef = useRef<number>(90_000)
+  const lastLargeHealRunMsRef = useRef<number>(Number.NEGATIVE_INFINITY)
   const scoreTokenStateRef = useRef<ScoreTokenState | null>(null)
   const nextScoreTokenEligibleRunMsRef = useRef<number>(70_000)
   const selectedWeaponRef = useRef<WeaponId>('peashooter')
@@ -712,6 +714,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     lastDashStartMsRef.current = Number.NEGATIVE_INFINITY
     rageBuffStateRef.current = null
     nextRageEligibleRunMsRef.current = 90_000
+    lastLargeHealRunMsRef.current = Number.NEGATIVE_INFINITY
     setRageActive(false)
     setRageTint(0)
     scoreTokenStateRef.current = null
@@ -1321,7 +1324,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           const atAltar = Math.hypot(positionRef.current.x, positionRef.current.z) <= 1.35
 
           if (healthPickupReadyRef.current && atAltar && (wantsSupply || rageEligibleNow || tokenEligibleNow)) {
-            playerHealthRef.current = Math.min(100, playerHealthRef.current + 15)
+            const healTier = healthPickupTier({
+              playerHealth: playerHealthRef.current,
+              pressure: targetPressureForRunMs(directorRef.current.runMs),
+              runMs: directorRef.current.runMs,
+              lastLargeRunMs: lastLargeHealRunMsRef.current
+            })
+            const healAmount = healthPickupAmount(healTier)
+            playerHealthRef.current = Math.min(100, playerHealthRef.current + healAmount)
+            if (healTier === 'large') {
+              lastLargeHealRunMsRef.current = directorRef.current.runMs
+            }
             weaponAmmoRef.current = collectWeaponAmmo(weaponAmmoRef.current)
             healthPickupReadyRef.current = false
             healthPickupCooldownRef.current = dailyConfig?.supplyCooldownMs ?? 9000
@@ -1351,6 +1364,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               setScoreTokenActiveState(true)
               setStatus('Score token grabbed. 2x scoring window open.')
               playScoreTokenCue(settingsRef.current.audio)
+            } else if (healTier === 'large') {
+              setStatus(`Large supply collected. +${healAmount} health.`)
             } else {
               setStatus('Supplies collected.')
             }

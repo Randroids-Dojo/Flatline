@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Health pickup tiers (closes REQ-033)
+
+- Branch: `feat/health-pickup-tiers`
+- PR: #TBD
+- Changed: closes `REQ-033` (pickup health) by splitting the altar heal into the spec's small (10) and large (35) tiers. New pure helper `src/game/healthPickupTier.ts` returns `'small' | 'large'` from `healthPickupTier({ playerHealth, pressure, runMs, lastLargeRunMs })` and `healthPickupAmount(tier)` returns 10 or 35. Large is eligible only when `playerHealth <= 35` AND `pressure >= 2` AND `runMs - lastLargeRunMs >= 60_000`. `src/components/FlatlineGame.tsx` adds a `lastLargeHealRunMsRef`, replaces the previous flat `+15` heal at the altar with a tier-driven amount, stamps `lastLargeHealRunMsRef` on a large pickup, and shows a distinct status string ("Large supply collected. +35 health.") when the large tier fires.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean across touched files), `git diff --check`, `npm run typecheck`, `npm run test` (494 / 494, +10 new for the pure helper).
+- Assumptions: Recommended default makes the large heal a comeback verb gated on three signals (low health, high pressure, rearm) rather than a passive top-up: a healthy player at high pressure still gets the small heal, so the large tier reads as an "I was about to die" moment, not a free upgrade. Recommended default sets the rearm window to 60 s (longer than the supply cooldown of 9 s) so a player who lingers at the altar cannot farm large heals on every cycle. Recommended default keeps the central altar as the single pickup zone; the spec's "dangerous location" criterion is satisfied by route (crossing open ground past spawn doors), not by adding new corner pickup geometry, which lands as part of REQ-019 if it is ever picked up.
+- GDD coverage: `REQ-033` flipped `partial` to `done`. Build log entry appended to `docs/gdd/33-pickup-health.md`. `implementationRefs` and `testRefs` extended with `src/game/healthPickupTier.ts` and `src/game/healthPickupTier.test.ts`.
+- Followups: none new.
+
 ## 2026-05-09, Pickup loop sound (closes REQ-036)
 
 - Branch: `feat/pickup-loop-cue`
