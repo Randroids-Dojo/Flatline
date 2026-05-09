@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Last-ammo warning cue
+
+- Branch: `feat/feel-pickup-magnet` (originally scoped for pickup magnet; pivoted because pickups are anchored to the central altar, so a magnet did not apply)
+- PR: #108
+- Changed: a player paced into a fight now hears a short warning sting on the shot that takes their boomstick or inkblaster ammo from 2 to 1, so they can engage the next supply altar before going dry. New pure helper `src/game/ammoWarning.ts` exposes `justHitLastAmmo(weapon, previous, current)` returning true exactly on the depletion transition; refills and the dry-fire (1 to 0) transition stay silent. New `playLastAmmoCue` in `src/components/FlatlineGame.tsx` plays a square wave 420 Hz to 220 Hz over 180 ms at gain 0.04 so the cue reads as "running dry," distinct from the brighter triangle milestone palette. Wired into the fire branch right after `spendWeaponAmmo`. REQ-040 coverage refs updated.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (48 files / 430 tests pass; 6 new tests cover boomstick / inkblaster transitions, peashooter no-op, dry-fire silence, full-to-low silence, and refill silence).
+- Assumptions: Recommended default fires on the 2 to 1 transition, not on 1 to 0, because "you have one shot left" is actionable while "you ran out" is post-hoc. Recommended default uses a square wave specifically to land in a different timbre family than the milestone / personal-best cues, so the player does not confuse running dry with achievement.
+- GDD coverage: REQ-040 (audio) gains a build-log entry in `docs/gdd/40-audio.md` and adds the new helper / test to its refs.
+- Followups: none new.
+
 ## 2026-05-08, Enemy death pop ring
 
 - Branch: `feat/feel-enemy-death-pop`
