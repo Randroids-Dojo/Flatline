@@ -1,4 +1,4 @@
-import type { WeaponAmmoState, WeaponId } from './weapons'
+import { weaponConfigs, type WeaponAmmoState, type WeaponId } from './weapons'
 
 // Feel pass: detect the transition where the player just spent the
 // next-to-last shot of a finite-ammo weapon (boomstick / inkblaster).
@@ -22,4 +22,20 @@ export function justHitLastAmmo(
   const currentCount = current[weapon]
 
   return previousCount > 1 && currentCount === 1
+}
+
+// Feel pass companion to the last-ammo audio cue. Returns true when
+// the currently-selected finite-ammo weapon sits at exactly 1 round.
+// The HUD ammo pill paints in warning red and pulses while this is
+// true so the cue is reinforced visually for the duration of the
+// "running dry" condition (not just on the transition that fired
+// the audio sting).
+export function isAmmoCritical(weapon: WeaponId, ammo: WeaponAmmoState): boolean {
+  if (weapon === 'peashooter') {
+    return false
+  }
+  if (weaponConfigs[weapon].maxAmmo === null) {
+    return false
+  }
+  return ammo[weapon] === 1
 }

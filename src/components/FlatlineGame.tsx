@@ -75,7 +75,7 @@ import { accuracy, comboTimeRemainingRatio, createScoreState, finalScore, record
 import { crossedScoreMilestone, type ScoreMilestone } from '@/game/scoreMilestone'
 import { crossedComboMilestone, type ComboMilestone } from '@/game/comboMilestone'
 import { justCrossedPersonalBest } from '@/game/personalBest'
-import { justHitLastAmmo } from '@/game/ammoWarning'
+import { isAmmoCritical, justHitLastAmmo } from '@/game/ammoWarning'
 import { isEnemyOnCrosshair } from '@/game/crosshairLock'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
@@ -2199,7 +2199,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             Wave
             <strong>{wavePhase === 'lull' ? 'Lull' : wavePhase === 'surge' ? 'Surge' : 'Peak'}</strong>
           </div>
-          <div className="hud-pill">
+          <div
+            className="hud-pill ammo-pill"
+            data-critical={isAmmoCritical(selectedWeapon, weaponAmmo) ? 'true' : 'false'}
+          >
             Ammo
             <strong>{weaponAmmoLabel(selectedWeapon, weaponAmmo)}</strong>
           </div>
