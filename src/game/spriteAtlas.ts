@@ -46,7 +46,8 @@ export function validateSpriteAtlas(
   options: AtlasValidationOptions = {}
 ): AtlasValidationIssue[] {
   const issues: AtlasValidationIssue[] = []
-  const requiredAnimations = options.requiredAnimations ?? ['idle', 'hurt', 'death']
+  const requiredAnimations =
+    options.requiredAnimations ?? ['idle', 'walk', 'attackWindup', 'attack', 'hurt', 'death']
   const requiredAngles = options.requiredAngles ?? [...billboardAngles]
 
   if (atlas.imageWidth <= 0 || atlas.imageHeight <= 0) {

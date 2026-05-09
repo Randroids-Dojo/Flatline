@@ -97,7 +97,8 @@ function rowForState(state, frame) {
   if (state === 'attackWindup') return 8 + frame
   if (state === 'attackRelease') return 10 + frame
   if (state === 'hurt') return 12 + frame
-  return 14 + frame
+  if (state === 'death') return 14 + frame
+  throw new Error(`Unknown enemy atlas state: ${state}`)
 }
 
 function drawSkitter(draw, angleIndex, frame, state) {
