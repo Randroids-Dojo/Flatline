@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-09, Migrate kv.ts and rate-limit to @randroids-dojo/vibekit/server
+
+- Branch: `feat/kv-vibekit-server`
+- PR: TBD
+- Changed: closes the priority-2 dot `Flatline-migrate-src-lib-85fbdb56`. `src/lib/kv.ts` now delegates `getKv()` to vibekit's `getKv` (server subpath) and throws if the kit returns null, preserving Flatline's existing throws-when-missing contract. `hasKvConfigured()` and the Flatline-specific `kvKeys` namespace stay in `src/lib/kv.ts` because they encode game-specific routes / key prefixes that do not belong upstream. `src/lib/sharedLeaderboard.ts::hitRateLimit` now calls vibekit's `incrementWithExpiry` instead of inlining `INCR + EXPIRE`. Returns `true` (fail open) when the kit's primitive returns `null` so a transient KV outage does not lock submitters out of the leaderboard. signToken / verifyToken / readKv / writeKv are skipped: Flatline does not currently use signed tokens, and the leaderboard reads zsets directly via zrange, not the schema-validated KV reads vibekit ships. Dot file moved to `.dots/archive/`.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (462 / 462), `npm run build` (clean). Vercel preview deploy will exercise the live KV path against the kit's `getKv` cache.
+- Assumptions: Recommended default keeps `hasKvConfigured()` and `kvKeys` Flatline-local rather than upstreaming them, because both are coupled to Flatline's leaderboard / rate-limit key shape and would make vibekit less generic. Recommended default casts `LeaderboardKv` to `Redis` at the `incrementWithExpiry` call site rather than widening every test mock; the structural shape (`incr`, `expire`) is identical at runtime.
+- GDD coverage: no requirement rows changed; this is internal infrastructure.
+- Followups: none.
+
 ## 2026-05-08, Replace virtualJoystick with @randroids-dojo/vibekit
 
 - Branch: `feat/joystick-vibekit`

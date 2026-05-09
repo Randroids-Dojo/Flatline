@@ -1,27 +1,15 @@
-import { Redis } from '@upstash/redis'
-
-function requireEnv(name: string): string {
-  const value = process.env[name]
-
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`)
-  }
-
-  return value
-}
+import type { Redis } from '@upstash/redis'
+import { getKv as getKvFromVibekit } from '@randroids-dojo/vibekit/server'
 
 export function hasKvConfigured(): boolean {
   return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
 }
 
-let kv: Redis | null = null
-
 export function getKv(): Redis {
+  const kv = getKvFromVibekit()
+
   if (!kv) {
-    kv = new Redis({
-      url: requireEnv('KV_REST_API_URL'),
-      token: requireEnv('KV_REST_API_TOKEN')
-    })
+    throw new Error('Missing required environment variable: KV_REST_API_URL or KV_REST_API_TOKEN')
   }
 
   return kv
