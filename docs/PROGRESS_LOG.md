@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Personal-best cue
+
+- Branch: `feat/feel-personal-best-cue`
+- PR: #105
+- Changed: a triumphant arpeggio fires the moment the run crosses the player's local best, distinct from the milestone tier cues (#103) which fire at fixed score thresholds. New pure helper `src/game/personalBest.ts` exposes `justCrossedPersonalBest(previousScore, currentScore, previousBest)` returning true exactly on the kill that takes the run over the snapshot. New `playPersonalBestCue` in `src/components/FlatlineGame.tsx` plays a triangle ascending arpeggio (720 / 1080 / 1440 Hz over 540 ms at gain 0.085). New `previousBestAtRunStartRef` snapshots `bestLocalScore(leaderboard)` on `startRun` so the comparison stays stable across the run, and the cue fires at most once.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (46 files / 418 tests pass; 6 new tests cover null previous best, score still under, transition cross, post-cross silence, exact-equality not firing, and zero previous best).
+- Assumptions: Recommended default uses strict greater-than so tying the previous best does not fire the cue (only beating it does). Recommended default returns false when previousBest is null so a player's first run never plays the cue, since there is no record to beat. Recommended default snapshots the best at run start rather than reading the leaderboard live, so a leaderboard write triggered by an in-progress run does not retroactively make the cue refuse to fire.
+- GDD coverage: REQ-040 (audio) gains a build-log entry in `docs/gdd/40-audio.md`. No coverage status changes.
+- Followups: none new.
+
 ## 2026-05-08, Finisher-ready tint
 
 - Branch: `feat/feel-low-hp-finisher-tint`
