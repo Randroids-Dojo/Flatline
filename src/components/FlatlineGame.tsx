@@ -72,6 +72,7 @@ import {
 import { playerDamageCue, type PlayerDamageCueStyle } from '@/game/playerDamageCue'
 import { weaponRecoilStyle } from '@/game/weaponRecoil'
 import { accuracy, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
+import { crossedScoreMilestone, type ScoreMilestone } from '@/game/scoreMilestone'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
 import { encounterWaveSignal, peakStartedBetween } from '@/game/encounterWave'
@@ -442,6 +443,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         setKills(scoreRef.current.kills)
         setCombo(scoreRef.current.combo)
         playCue(90, settingsRef.current.audio)
+        const milestone = crossedScoreMilestone(previousScore, scoreRef.current.score)
+        if (milestone !== null) {
+          playScoreMilestoneCue(milestone, settingsRef.current.audio)
+        }
 
         const runtime = runtimeRef.current
         if (runtime && scoreDelta > 0) {
@@ -3843,6 +3848,42 @@ function playDoorOpenCue(cue: DoorCueStyle, enabled: boolean) {
   const stopTime = startTime + cue.durationMs / 1000
   gain.gain.setValueAtTime(0, startTime)
   gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.012, cue.durationMs / 1000 / 5))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+// Score milestone callout. Plays a triumphant two-step rise when the
+// run vaults past 1k / 5k / 10k. Higher tier = higher arrival pitch
+// and slightly longer envelope, so the player can hear a "going
+// further" signal without a HUD popup.
+function playScoreMilestoneCue(milestone: ScoreMilestone, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const tier = milestone === 1000 ? 0 : milestone === 5000 ? 1 : 2
+  const startHz = 520 + tier * 140
+  const peakHz = startHz * 1.5
+  const durationMs = 320 + tier * 60
+  const gainPeak = 0.05 + tier * 0.012
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = 'triangle'
+  const startTime = context.currentTime
+  const stopTime = startTime + durationMs / 1000
+  oscillator.frequency.setValueAtTime(startHz, startTime)
+  oscillator.frequency.exponentialRampToValueAtTime(peakHz, startTime + durationMs / 1000 / 3)
+  oscillator.frequency.exponentialRampToValueAtTime(peakHz * 0.85, stopTime)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(gainPeak, startTime + 0.025)
   gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
   oscillator.connect(gain)
   gain.connect(context.destination)
