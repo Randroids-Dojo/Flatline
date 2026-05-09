@@ -75,6 +75,7 @@ import { accuracy, createScoreState, finalScore, recordKill, recordShot, type Sc
 import { crossedScoreMilestone, type ScoreMilestone } from '@/game/scoreMilestone'
 import { crossedComboMilestone, type ComboMilestone } from '@/game/comboMilestone'
 import { justCrossedPersonalBest } from '@/game/personalBest'
+import { justHitLastAmmo } from '@/game/ammoWarning'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
 import { encounterWaveSignal, peakStartedBetween } from '@/game/encounterWave'
@@ -543,8 +544,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setWeaponReady(false)
 
     if (!practiceSettingsRef.current.infiniteAmmo) {
+      const previousAmmo = weaponAmmoRef.current
       weaponAmmoRef.current = spendWeaponAmmo(weapon, weaponAmmoRef.current)
       setWeaponAmmo(weaponAmmoRef.current)
+      if (justHitLastAmmo(weapon, previousAmmo, weaponAmmoRef.current)) {
+        playLastAmmoCue(settingsRef.current.audio)
+      }
     }
     runtime.muzzleLight.intensity = weapon === 'boomstick' ? 7 : 4.5
     cameraKickStateRef.current = {
@@ -3997,6 +4002,37 @@ function playDoorOpenCue(cue: DoorCueStyle, enabled: boolean) {
   const stopTime = startTime + cue.durationMs / 1000
   gain.gain.setValueAtTime(0, startTime)
   gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.012, cue.durationMs / 1000 / 5))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+// Last-ammo warning. Plays a short downward two-tone click when the
+// player has just spent their next-to-last shot of a finite-ammo
+// weapon. Lower pitch than the milestone family so the cue reads as
+// "running dry" rather than "you achieved something." Fires once
+// per transition; not repeated frame after frame while at 1.
+function playLastAmmoCue(enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = 'square'
+  const startTime = context.currentTime
+  const durationMs = 180
+  const stopTime = startTime + durationMs / 1000
+  oscillator.frequency.setValueAtTime(420, startTime)
+  oscillator.frequency.exponentialRampToValueAtTime(220, stopTime)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(0.04, startTime + 0.012)
   gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
   oscillator.connect(gain)
   gain.connect(context.destination)
