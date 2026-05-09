@@ -3,6 +3,7 @@ import {
   SCORE_FLOATER_TTL_MS,
   formatScoreFloaterText,
   pruneExpiredFloaters,
+  scoreFloaterTier,
   type ScoreFloater
 } from './scoreFloater'
 
@@ -34,7 +35,8 @@ describe('pruneExpiredFloaters', () => {
     text: '+150',
     startedAtMs: 1000,
     screenX: 200,
-    screenY: 300
+    screenY: 300,
+    tier: 'base'
   }
 
   it('keeps floaters within the TTL window', () => {
@@ -49,5 +51,33 @@ describe('pruneExpiredFloaters', () => {
 
   it('returns an empty list when given an empty list', () => {
     expect(pruneExpiredFloaters([], 0)).toEqual([])
+  })
+})
+
+describe('scoreFloaterTier', () => {
+  it('returns base for combos below 5', () => {
+    expect(scoreFloaterTier(1)).toBe('base')
+    expect(scoreFloaterTier(4)).toBe('base')
+  })
+
+  it('returns streak for combos 5 through 9', () => {
+    expect(scoreFloaterTier(5)).toBe('streak')
+    expect(scoreFloaterTier(9)).toBe('streak')
+  })
+
+  it('returns rolling for combos 10 through 19', () => {
+    expect(scoreFloaterTier(10)).toBe('rolling')
+    expect(scoreFloaterTier(19)).toBe('rolling')
+  })
+
+  it('returns rampage for combos 20 and above', () => {
+    expect(scoreFloaterTier(20)).toBe('rampage')
+    expect(scoreFloaterTier(40)).toBe('rampage')
+  })
+
+  it('falls back to base for non-positive or non-finite combos', () => {
+    expect(scoreFloaterTier(0)).toBe('base')
+    expect(scoreFloaterTier(-3)).toBe('base')
+    expect(scoreFloaterTier(Number.NaN)).toBe('base')
   })
 })

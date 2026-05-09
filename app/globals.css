@@ -891,6 +891,42 @@ button {
   will-change: transform, opacity;
 }
 
+/* Combo-tier escalation. Higher tier = warmer color, slightly larger
+   font, brighter glow. Aligns with the comboMilestone tiers (5 / 10
+   / 20) so the visual escalation tracks the audio cue boundaries. */
+.score-floater[data-tier='streak'] {
+  font-size: 20px;
+  color: #ffd166;
+  text-shadow:
+    -1px -1px 0 #1a1a1a,
+    1px -1px 0 #1a1a1a,
+    -1px 1px 0 #1a1a1a,
+    1px 1px 0 #1a1a1a,
+    0 0 8px rgba(255, 209, 102, 0.75);
+}
+
+.score-floater[data-tier='rolling'] {
+  font-size: 22px;
+  color: #ff9c5a;
+  text-shadow:
+    -1px -1px 0 #1a1a1a,
+    1px -1px 0 #1a1a1a,
+    -1px 1px 0 #1a1a1a,
+    1px 1px 0 #1a1a1a,
+    0 0 10px rgba(255, 156, 90, 0.85);
+}
+
+.score-floater[data-tier='rampage'] {
+  font-size: 26px;
+  color: #ff5a4f;
+  text-shadow:
+    -1px -1px 0 #1a1a1a,
+    1px -1px 0 #1a1a1a,
+    -1px 1px 0 #1a1a1a,
+    1px 1px 0 #1a1a1a,
+    0 0 12px rgba(255, 90, 79, 0.9);
+}
+
 @keyframes score-floater-rise {
   0% {
     transform: translate(-50%, 0);

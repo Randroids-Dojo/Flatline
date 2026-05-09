@@ -92,6 +92,7 @@ import {
 } from '@/game/ragePulse'
 import {
   formatScoreFloaterText,
+  scoreFloaterTier,
   SCORE_FLOATER_TTL_MS,
   type ScoreFloater
 } from '@/game/scoreFloater'
@@ -496,7 +497,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               text: formatScoreFloaterText(scoreDelta),
               startedAtMs: performance.now(),
               screenX,
-              screenY
+              screenY,
+              tier: scoreFloaterTier(scoreRef.current.combo)
             }
             setScoreFloaters((current) => [...current, floater])
             window.setTimeout(() => {
@@ -2100,6 +2102,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               key={floater.id}
               className="score-floater"
               data-testid="score-floater"
+              data-tier={floater.tier}
               style={{ left: `${floater.screenX}px`, top: `${floater.screenY}px` }}
             >
               {floater.text}
