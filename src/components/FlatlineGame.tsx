@@ -31,6 +31,7 @@ import {
 } from '@/game/dailyArena'
 import { applyCrossfireRetarget, createEnemy, createGrunt, crossfireStaggerIntensity, damageEnemy, enemyConfigs, enemyTypeForSpawn, isFinisherReady, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
 import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
+import { enemyDeathCue, type EnemyDeathCueStyle } from '@/game/enemyDeathCue'
 import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
 import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
@@ -1616,6 +1617,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             stillDead.add(candidate.id)
             if (!previouslyDead.has(candidate.id)) {
               spawnEnemyDeathPop(runtime, enemyDeathPopsRef.current, candidate.position)
+              playEnemyDeathCue(enemyDeathCue(candidate.type), settingsRef.current.audio)
             }
           }
           previouslyDeadEnemyIdsRef.current = stillDead
@@ -4228,6 +4230,31 @@ function playWindupCue(cue: EnemyWindupCueStyle, enabled: boolean) {
   const stopTime = startTime + cue.durationMs / 1000
   gain.gain.setValueAtTime(0, startTime)
   gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.02, cue.durationMs / 1000 / 4))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startTime)
+  oscillator.stop(stopTime)
+  oscillator.addEventListener('ended', () => {
+    context.close()
+  })
+}
+
+function playEnemyDeathCue(cue: EnemyDeathCueStyle, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
+    return
+  }
+
+  const context = new window.AudioContext()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = cue.waveform
+  const startTime = context.currentTime
+  const stopTime = startTime + cue.durationMs / 1000
+  oscillator.frequency.setValueAtTime(cue.frequencyStart, startTime)
+  oscillator.frequency.exponentialRampToValueAtTime(Math.max(40, cue.frequencyEnd), stopTime)
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(cue.gain, startTime + Math.min(0.02, cue.durationMs / 1000 / 4))
   gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
   oscillator.connect(gain)
   gain.connect(context.destination)
