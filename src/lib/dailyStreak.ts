@@ -1,6 +1,3 @@
-import { z } from 'zod'
-import { readStorage, writeStorage } from './storage'
-
 export type DailyStreakRecord = {
   lastPlayedDate: string
   currentStreak: number
@@ -9,13 +6,6 @@ export type DailyStreakRecord = {
 }
 
 export const dailyStreakStorageKey = 'flatline.dailyStreak.v1'
-
-const DailyStreakRecordSchema = z.object({
-  lastPlayedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  currentStreak: z.number().int().min(1),
-  bestStreak: z.number().int().min(1),
-  totalDailyRuns: z.number().int().min(1)
-})
 
 export function createDailyStreakRecord(dateKey: string): DailyStreakRecord {
   return {
@@ -26,12 +16,26 @@ export function createDailyStreakRecord(dateKey: string): DailyStreakRecord {
   }
 }
 
-export function readDailyStreak(): DailyStreakRecord | null {
-  return readStorage(dailyStreakStorageKey, DailyStreakRecordSchema)
+export function readDailyStreak(storage: Storage): DailyStreakRecord | null {
+  try {
+    const raw = storage.getItem(dailyStreakStorageKey)
+    if (!raw) {
+      return null
+    }
+    const parsed = JSON.parse(raw)
+    return isDailyStreakRecord(parsed) ? parsed : null
+  } catch {
+    // SecurityError (private-browsing) or malformed JSON: streak data is non-critical, treat as absent.
+    return null
+  }
 }
 
-export function writeDailyStreak(record: DailyStreakRecord): void {
-  writeStorage(dailyStreakStorageKey, record)
+export function writeDailyStreak(storage: Storage, record: DailyStreakRecord): void {
+  try {
+    storage.setItem(dailyStreakStorageKey, JSON.stringify(record))
+  } catch {
+    // QuotaExceededError or SecurityError on locked-down browsers; swallow silently.
+  }
 }
 
 export function recordDailyRun(previous: DailyStreakRecord | null, dateKey: string): DailyStreakRecord {
@@ -77,4 +81,22 @@ function daysBetween(fromDateKey: string, toDateKey: string): number {
   }
 
   return Math.round((to - from) / 86_400_000)
+}
+
+function isDailyStreakRecord(value: unknown): value is DailyStreakRecord {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const record = value as DailyStreakRecord
+  return (
+    typeof record.lastPlayedDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(record.lastPlayedDate) &&
+    Number.isInteger(record.currentStreak) &&
+    record.currentStreak >= 1 &&
+    Number.isInteger(record.bestStreak) &&
+    record.bestStreak >= 1 &&
+    Number.isInteger(record.totalDailyRuns) &&
+    record.totalDailyRuns >= 1
+  )
 }

@@ -413,7 +413,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     look: createJoystick()
   }))
   const [summary, setSummary] = useState<RunSummary | null>(null)
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => readLeaderboard())
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
+    typeof window === 'undefined' ? [] : readLeaderboard(window.localStorage)
+  )
   const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
   const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>(() => createPracticeSettings())
   const [seed] = useState(() => dailySeed())
@@ -427,7 +429,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   })
   const [dailyDate] = useState(() => dailyDateKey())
   const [dailyStreak, setDailyStreak] = useState<DailyStreakRecord | null>(() =>
-    arenaMode !== 'daily' ? null : readDailyStreak()
+    typeof window === 'undefined' || arenaMode !== 'daily' ? null : readDailyStreak(window.localStorage)
   )
   const [sharedScope, setSharedScope] = useState<LeaderboardScope>(initialLeaderboardScope)
   const [sharedEntries, setSharedEntries] = useState<RankedLeaderboardEntry[]>([])
@@ -783,9 +785,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
     setSummary(runSummary)
 
-    if (!isPractice) {
+    if (!isPractice && typeof window !== 'undefined') {
       const nextLeaderboard = insertLeaderboardEntry(
-        readLeaderboard(),
+        readLeaderboard(window.localStorage),
         {
           playerInitials: 'YOU',
           score: runSummary.score,
@@ -796,12 +798,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           createdAt: new Date().toISOString()
         }
       )
-      writeLeaderboard(nextLeaderboard)
+      writeLeaderboard(window.localStorage, nextLeaderboard)
       setLeaderboard(nextLeaderboard)
 
       if (arenaMode === 'daily') {
-        const nextDailyStreak = recordDailyRun(readDailyStreak(), dailyDate)
-        writeDailyStreak(nextDailyStreak)
+        const nextDailyStreak = recordDailyRun(readDailyStreak(window.localStorage), dailyDate)
+        writeDailyStreak(window.localStorage, nextDailyStreak)
         setDailyStreak(nextDailyStreak)
       }
     }
