@@ -1,3 +1,5 @@
+import type { Redis } from '@upstash/redis'
+import { incrementWithExpiry } from '@randroids-dojo/vibekit/server'
 import { z } from 'zod'
 import { kvKeys } from './kv'
 
@@ -98,10 +100,10 @@ export function sanitizeSubmission(input: unknown): LeaderboardSubmission | null
 }
 
 export async function hitRateLimit(kv: LeaderboardKv, rule: RateLimitRule): Promise<boolean> {
-  const count = await kv.incr(rule.key)
+  const count = await incrementWithExpiry(kv as unknown as Redis, rule.key, rule.windowSec)
 
-  if (count === 1) {
-    await kv.expire(rule.key, rule.windowSec)
+  if (count === null) {
+    throw new Error(`hitRateLimit: KV unavailable for key ${rule.key}`)
   }
 
   return count <= rule.limit
