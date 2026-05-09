@@ -792,7 +792,7 @@ button {
 }
 
 .leaderboard {
-  max-width: 360px;
+  max-width: 420px;
   margin: 0 auto 18px;
   padding: 0;
   list-style: none;
@@ -800,22 +800,51 @@ button {
 
 .leaderboard li {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  gap: 8px;
   padding: 7px 8px;
   border-bottom: 1px solid rgba(244, 241, 232, 0.12);
   color: rgba(244, 241, 232, 0.84);
   font-size: 13px;
+  align-items: center;
+}
+
+.leaderboard-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-score {
+  color: rgba(244, 241, 232, 0.96);
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-time,
+.leaderboard-kills,
+.leaderboard-accuracy {
+  color: rgba(244, 241, 232, 0.62);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  min-width: 38px;
+  text-align: right;
 }
 
 .shared-leaderboard,
 .submit-panel {
-  max-width: 360px;
   margin: 0 auto 18px;
   padding: 10px;
   border: 1px solid rgba(244, 241, 232, 0.18);
   border-radius: 6px;
   background: rgba(10, 10, 10, 0.62);
+}
+
+.shared-leaderboard {
+  max-width: 420px;
+}
+
+.submit-panel {
+  max-width: 360px;
 }
 
 .shared-leaderboard p {

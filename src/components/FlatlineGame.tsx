@@ -2277,7 +2277,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                 <p>Score {summary.score}</p>
                 <p>Kills {summary.kills}</p>
                 <p>Time {formatTime(summary.survivalMs)}</p>
-                <p>Accuracy {Math.round(summary.accuracy * 100)}%</p>
+                <p>Accuracy {formatAccuracyPercent(summary.accuracy)}</p>
                 <p>Best combo {summary.bestCombo}</p>
                 <p>Close-range kills {summary.closeRangeKills}</p>
                 <p>Weapons used {summary.weaponsUsed}</p>
@@ -3791,8 +3791,11 @@ function SharedLeaderboardPanel({
         <ol className="leaderboard">
           {entries.map((entry) => (
             <li key={entry.id}>
-              <span>#{entry.rank} {entry.playerInitials}</span>
-              <strong>{entry.score}</strong>
+              <span className="leaderboard-name">#{entry.rank} {entry.playerInitials}</span>
+              <strong className="leaderboard-score">{entry.score}</strong>
+              <span className="leaderboard-time">{formatTime(entry.survivalMs)}</span>
+              <span className="leaderboard-kills">{entry.kills}k</span>
+              <span className="leaderboard-accuracy">{formatAccuracyPercent(entry.accuracy)}</span>
             </li>
           ))}
         </ol>
@@ -3844,8 +3847,11 @@ function LocalLeaderboard({ entries }: { entries: LeaderboardEntry[] }) {
     <ol className="leaderboard" data-testid="leaderboard" aria-label="Local leaderboard">
       {entries.map((entry, index) => (
         <li key={`${entry.createdAt}-${index}`}>
-          <span>{entry.playerInitials}</span>
-          <strong>{entry.score}</strong>
+          <span className="leaderboard-name">{entry.playerInitials}</span>
+          <strong className="leaderboard-score">{entry.score}</strong>
+          <span className="leaderboard-time">{formatTime(entry.survivalMs)}</span>
+          <span className="leaderboard-kills">{entry.kills}k</span>
+          <span className="leaderboard-accuracy">{formatAccuracyPercent(entry.accuracy)}</span>
         </li>
       ))}
     </ol>
@@ -3968,6 +3974,11 @@ function formatTime(ms: number): string {
   const minutes = Math.floor(seconds / 60).toString()
   const remainder = (seconds % 60).toString().padStart(2, '0')
   return `${minutes}:${remainder}`
+}
+
+function formatAccuracyPercent(ratio: number): string {
+  if (!Number.isFinite(ratio) || ratio < 0) return '0%'
+  return `${Math.round(Math.min(1, ratio) * 100)}%`
 }
 
 function playCue(frequency: number, enabled: boolean) {
