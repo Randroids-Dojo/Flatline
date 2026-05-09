@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-08, Score milestone callouts
+
+- Branch: `feat/feel-score-milestone-cues`
+- PR: #103
+- Changed: a returning player now hears their run climbing through 1k / 5k / 10k. New pure helper `src/game/scoreMilestone.ts` exposes `SCORE_MILESTONES` and `crossedScoreMilestone(prev, current)` which returns the highest threshold crossed in this update (or null), so a single payout that vaults two thresholds fires only the higher cue. New `playScoreMilestoneCue(milestone, enabled)` in `src/components/FlatlineGame.tsx` plays a triangle two-step rise; tier 0 / 1 / 2 use start frequencies 520 / 660 / 800 Hz, durations 320 / 380 / 440 ms, peak gains 0.05 / 0.062 / 0.074 so each tier is audibly bigger than the last. Wired into the kill-update branch immediately after the score state advances.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'`), `git diff --check`, `npm run typecheck`, `npm run test` (45 files / 411 tests pass; 7 new tests cover null, exact-landing, crossing, multi-cross, no-refire, score-decrease, and the canonical tier list).
+- Assumptions: Recommended default ships three tiers because typical run scores land between 0 and 15k today; the helper accepts adding more thresholds without touching the call site. Recommended default fires only the highest threshold per update so a multi-threshold jump (e.g. score token + bonus combo) never overlaps two cues. Recommended default scales gain modestly per tier (0.05 -> 0.074) so the milestone never overwhelms a damage frame.
+- GDD coverage: REQ-040 (audio) gains a build-log entry in `docs/gdd/40-audio.md`. No coverage status changes.
+- Followups: none new.
+
 ## 2026-05-08, Crossfire stagger tint
 
 - Branch: `feat/feel-crossfire-stagger-tint`
