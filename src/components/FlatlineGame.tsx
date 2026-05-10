@@ -2430,20 +2430,11 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         }
         const merged = mergeWallets(toSharedWallet(walletRef.current), toSharedWallet(body.wallet))
         const nextWallet = fromSharedWallet(merged)
-        if (
-          nextWallet.credits !== walletRef.current.credits ||
-          nextWallet.totalCreditsEarned !== walletRef.current.totalCreditsEarned ||
-          nextWallet.tiers.maxHp !== walletRef.current.tiers.maxHp ||
-          nextWallet.tiers.startingAmmo !== walletRef.current.tiers.startingAmmo ||
-          nextWallet.tiers.weaponDamage !== walletRef.current.tiers.weaponDamage ||
-          nextWallet.tiers.moveSpeed !== walletRef.current.tiers.moveSpeed
-        ) {
-          walletRef.current = nextWallet
-          setWallet(nextWallet)
-          writeUpgradeWallet(window.localStorage, nextWallet)
-        }
-        // Even if the local merge resulted in no change, the local
-        // record may carry tiers the server has not seen yet. A best-
+        walletRef.current = nextWallet
+        setWallet(nextWallet)
+        writeUpgradeWallet(window.localStorage, nextWallet)
+        // The local record may carry tiers the server has not seen
+        // yet (e.g. an offline session that bought a tier). A best-
         // effort push reconciles that direction too.
         void pushSharedWallet()
       } catch {

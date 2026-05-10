@@ -18,7 +18,7 @@
 
 import type { Redis } from '@upstash/redis'
 import { z } from 'zod'
-import { MAX_TIER, UPGRADE_STAT_IDS, type UpgradeStatId, type UpgradeTierState } from '@/game/upgradeTree'
+import { MAX_TIER, type UpgradeTierState } from '@/game/upgradeTree'
 import { createUpgradeWallet, type UpgradeWallet } from '@/lib/upgradeWallet'
 
 const tierFieldSchema = z.number().int().min(0).max(MAX_TIER)
@@ -71,21 +71,15 @@ export function sanitizeWalletSubmission(input: unknown): UpgradeWalletSubmissio
 // successful purchase or kill never decreases any field, so the merge
 // preserves every gain from either side. If a tampered client pushes a
 // regressed payload (e.g. trying to lower the server's totalCreditsEarned
-// to refresh an upgrade gate), the server's record wins.
+// to refresh an upgrade gate), the server's record wins. A new stat
+// added to `UpgradeTierState` will fail this function's structural typing
+// at compile time, so missing-field defense is left to the type system.
 export function mergeWallets(a: SharedUpgradeWallet, b: SharedUpgradeWallet): SharedUpgradeWallet {
   const tiers: UpgradeTierState = {
     maxHp: Math.max(a.tiers.maxHp, b.tiers.maxHp),
     startingAmmo: Math.max(a.tiers.startingAmmo, b.tiers.startingAmmo),
     weaponDamage: Math.max(a.tiers.weaponDamage, b.tiers.weaponDamage),
     moveSpeed: Math.max(a.tiers.moveSpeed, b.tiers.moveSpeed)
-  }
-  // Validate every stat in UPGRADE_STAT_IDS made it into the merged
-  // tiers, so a future stat addition is caught at runtime if a
-  // dependency forgets to extend this function.
-  for (const id of UPGRADE_STAT_IDS) {
-    if (!(id in tiers)) {
-      throw new Error(`mergeWallets: missing tier field for stat ${id satisfies UpgradeStatId}`)
-    }
   }
   return {
     credits: Math.max(a.credits, b.credits),
@@ -170,8 +164,6 @@ export async function hitWalletRateLimit(
   }
   return count <= rule.limit
 }
-
-export type RealKvProvider = () => Redis
 
 // Type-erase an Upstash Redis instance to the small surface this lib
 // uses. Lets the route code call us without leaking the full Redis
