@@ -167,6 +167,14 @@ import {
   writeUpgradeWallet,
   type UpgradeWallet
 } from '@/lib/upgradeWallet'
+import { ensurePlayerId } from '@/lib/playerId'
+import {
+  fromSharedWallet,
+  mergeWallets,
+  toSharedWallet,
+  type UpgradeWalletGetResponse,
+  type UpgradeWalletPostResponse
+} from '@/lib/sharedUpgradeWallet'
 import {
   MAX_HP_PER_TIER,
   MAX_TIER,
@@ -477,6 +485,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   useEffect(() => {
     walletRef.current = wallet
   }, [wallet])
+  const playerIdRef = useRef<string | null>(null)
   const [creditsEarnedThisRun, setCreditsEarnedThisRun] = useState<number>(0)
   const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
   const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>(() => createPracticeSettings())
@@ -841,6 +850,40 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     pickupLoopLayerRef.current = settingsRef.current.audio ? startPickupLoopLayer() : null
   }, [isPractice])
 
+  // Best-effort push of the current wallet to the shared sync route.
+  // Network failures and KV unavailability are swallowed; the player
+  // can still play offline and the local wallet is the source of
+  // truth. The merged response (server-side highest-water-mark per
+  // field) is folded back into local state so a stricter or
+  // higher-tier server record cannot be overwritten by a stale client.
+  const pushSharedWallet = useCallback(async () => {
+    const playerId = playerIdRef.current
+    if (!playerId || typeof window === 'undefined') {
+      return
+    }
+    try {
+      const response = await fetch('/api/upgrade-wallet', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ playerId, wallet: toSharedWallet(walletRef.current) })
+      })
+      if (!response.ok) {
+        return
+      }
+      const body = (await response.json()) as UpgradeWalletPostResponse
+      if (!body.ok) {
+        return
+      }
+      const merged = mergeWallets(toSharedWallet(walletRef.current), toSharedWallet(body.wallet))
+      const nextWallet = fromSharedWallet(merged)
+      walletRef.current = nextWallet
+      setWallet(nextWallet)
+      writeUpgradeWallet(window.localStorage, nextWallet)
+    } catch {
+      // Network error / offline. Local wallet stays canonical.
+    }
+  }, [])
+
   const finishRun = useCallback(() => {
     resetTouchControls(touchJoysticksRef.current, keysRef.current)
     touchLookVectorRef.current = { x: 0, y: 0 }
@@ -886,6 +929,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         writeUpgradeWallet(window.localStorage, nextWallet)
       }
       setCreditsEarnedThisRun(earned)
+      void pushSharedWallet()
 
       if (arenaMode === 'daily') {
         const nextDailyStreak = recordDailyRun(readDailyStreak(window.localStorage), dailyDate)
@@ -912,7 +956,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     if (!isPractice) {
       playRunEndCue(runEndCue(), settingsRef.current.audio)
     }
-  }, [arenaMode, dailyDate, isPractice])
+  }, [arenaMode, dailyDate, isPractice, pushSharedWallet])
 
   const resumeRun = useCallback(() => {
     pausedRef.current = false
@@ -936,7 +980,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     if (typeof window !== 'undefined') {
       writeUpgradeWallet(window.localStorage, nextWallet)
     }
-  }, [])
+    void pushSharedWallet()
+  }, [pushSharedWallet])
 
   const updateSettings = useCallback((nextSettings: typeof settings) => {
     settingsRef.current = nextSettings
@@ -2362,6 +2407,50 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   useEffect(() => {
     void Promise.resolve().then(() => fetchSharedLeaderboard(sharedScope))
   }, [fetchSharedLeaderboard, sharedScope])
+
+  // First-mount cross-device wallet sync: ensure a player id, fetch the
+  // server record, merge it with the local wallet (highest-water-mark
+  // per field), and push the merged result back so both sides agree.
+  // All steps are best-effort; offline play is unchanged.
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    const playerId = ensurePlayerId(window.localStorage)
+    playerIdRef.current = playerId
+    void (async () => {
+      try {
+        const response = await fetch(`/api/upgrade-wallet?playerId=${encodeURIComponent(playerId)}`)
+        if (!response.ok) {
+          return
+        }
+        const body = (await response.json()) as UpgradeWalletGetResponse
+        if (body.unavailable || !body.wallet) {
+          return
+        }
+        const merged = mergeWallets(toSharedWallet(walletRef.current), toSharedWallet(body.wallet))
+        const nextWallet = fromSharedWallet(merged)
+        if (
+          nextWallet.credits !== walletRef.current.credits ||
+          nextWallet.totalCreditsEarned !== walletRef.current.totalCreditsEarned ||
+          nextWallet.tiers.maxHp !== walletRef.current.tiers.maxHp ||
+          nextWallet.tiers.startingAmmo !== walletRef.current.tiers.startingAmmo ||
+          nextWallet.tiers.weaponDamage !== walletRef.current.tiers.weaponDamage ||
+          nextWallet.tiers.moveSpeed !== walletRef.current.tiers.moveSpeed
+        ) {
+          walletRef.current = nextWallet
+          setWallet(nextWallet)
+          writeUpgradeWallet(window.localStorage, nextWallet)
+        }
+        // Even if the local merge resulted in no change, the local
+        // record may carry tiers the server has not seen yet. A best-
+        // effort push reconciles that direction too.
+        void pushSharedWallet()
+      } catch {
+        // Offline / KV down; local wallet is canonical.
+      }
+    })()
+  }, [pushSharedWallet])
 
   return (
     <main className="game-shell">

@@ -19,5 +19,7 @@ export const kvKeys = {
   leaderboardAll: () => 'flatline:leaderboard:all',
   leaderboardDaily: (date: string) => `flatline:leaderboard:daily:${date}`,
   ratelimitIp: (ip: string) => `flatline:ratelimit:submit:ip:${ip}`,
-  ratelimitDaily: (ip: string) => `flatline:ratelimit:submit:daily:${ip}`
+  ratelimitDaily: (ip: string) => `flatline:ratelimit:submit:daily:${ip}`,
+  upgradeWallet: (playerId: string) => `flatline:wallet:${playerId}`,
+  ratelimitWalletIp: (ip: string) => `flatline:ratelimit:wallet:ip:${ip}`
 } as const
