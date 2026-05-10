@@ -1402,8 +1402,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             }
           }
 
+          const maxHpForRun = effectiveMaxHp(walletRef.current.tiers)
           const wantsSupply =
-            playerHealthRef.current < 100 ||
+            playerHealthRef.current < maxHpForRun ||
             weaponAmmoRef.current.boomstick < (weaponConfigs.boomstick.maxAmmo ?? 0) ||
             weaponAmmoRef.current.inkblaster < (weaponConfigs.inkblaster.maxAmmo ?? 0)
           const rageEligibleNow =
@@ -1425,7 +1426,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               lastLargeRunMs: lastLargeHealRunMsRef.current
             })
             const healAmount = healthPickupAmount(healTier)
-            playerHealthRef.current = Math.min(100, playerHealthRef.current + healAmount)
+            playerHealthRef.current = Math.min(maxHpForRun, playerHealthRef.current + healAmount)
             if (healTier === 'large') {
               lastLargeHealRunMsRef.current = directorRef.current.runMs
             }

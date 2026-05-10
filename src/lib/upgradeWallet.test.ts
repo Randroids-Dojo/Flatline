@@ -43,11 +43,14 @@ describe('depositKills', () => {
     expect(next.totalCreditsEarned).toBe(7)
   })
 
-  it('is a no-op for zero, negative, or fractional kills (defensive against runtime drift)', () => {
+  it('is a no-op for zero, negative, fractional, or non-finite kills (defensive against runtime drift)', () => {
     const wallet = createUpgradeWallet()
     expect(depositKills(wallet, 0)).toBe(wallet)
     expect(depositKills(wallet, -3)).toBe(wallet)
     expect(depositKills(wallet, 0.4)).toBe(wallet)
+    expect(depositKills(wallet, Number.NaN)).toBe(wallet)
+    expect(depositKills(wallet, Number.POSITIVE_INFINITY)).toBe(wallet)
+    expect(depositKills(wallet, Number.NEGATIVE_INFINITY)).toBe(wallet)
   })
 
   it('keeps lifetime total monotonically increasing across deposits', () => {
@@ -100,6 +103,24 @@ describe('readUpgradeWallet / writeUpgradeWallet', () => {
     storage.setItem(
       upgradeWalletStorageKey,
       JSON.stringify({ credits: -5, totalCreditsEarned: 0, tiers: { maxHp: 0 } })
+    )
+    expect(readUpgradeWallet(storage)).toEqual(createUpgradeWallet())
+  })
+
+  it('rejects payloads where spendable credits exceed lifetime earnings', () => {
+    const storage = memoryStorage()
+    storage.setItem(
+      upgradeWalletStorageKey,
+      JSON.stringify({ credits: 100, totalCreditsEarned: 50, tiers: { maxHp: 0 } })
+    )
+    expect(readUpgradeWallet(storage)).toEqual(createUpgradeWallet())
+  })
+
+  it('rejects payloads with a max-HP tier above MAX_TIER', () => {
+    const storage = memoryStorage()
+    storage.setItem(
+      upgradeWalletStorageKey,
+      JSON.stringify({ credits: 0, totalCreditsEarned: 0, tiers: { maxHp: 999 } })
     )
     expect(readUpgradeWallet(storage)).toEqual(createUpgradeWallet())
   })

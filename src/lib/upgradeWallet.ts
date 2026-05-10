@@ -1,4 +1,4 @@
-import { createUpgradeTierState, type UpgradeTierState } from '@/game/upgradeTree'
+import { MAX_TIER, createUpgradeTierState, type UpgradeTierState } from '@/game/upgradeTree'
 
 export type UpgradeWallet = {
   credits: number
@@ -40,7 +40,7 @@ export function writeUpgradeWallet(storage: Storage, wallet: UpgradeWallet): voi
 }
 
 export function depositKills(wallet: UpgradeWallet, kills: number): UpgradeWallet {
-  const safeKills = Math.max(0, Math.floor(kills))
+  const safeKills = Number.isFinite(kills) ? Math.max(0, Math.floor(kills)) : 0
   if (safeKills === 0) {
     return wallet
   }
@@ -56,14 +56,22 @@ function isUpgradeWallet(value: unknown): value is UpgradeWallet {
     return false
   }
   const wallet = value as UpgradeWallet
-  return (
-    Number.isInteger(wallet.credits) &&
-    wallet.credits >= 0 &&
-    Number.isInteger(wallet.totalCreditsEarned) &&
-    wallet.totalCreditsEarned >= 0 &&
-    !!wallet.tiers &&
-    typeof wallet.tiers === 'object' &&
-    Number.isInteger((wallet.tiers as UpgradeTierState).maxHp) &&
-    (wallet.tiers as UpgradeTierState).maxHp >= 0
-  )
+  if (
+    !Number.isInteger(wallet.credits) ||
+    wallet.credits < 0 ||
+    !Number.isInteger(wallet.totalCreditsEarned) ||
+    wallet.totalCreditsEarned < 0
+  ) {
+    return false
+  }
+  // Spendable balance is bounded by lifetime earnings. Any payload that
+  // claims more spendable than ever earned is corrupt or tampered.
+  if (wallet.credits > wallet.totalCreditsEarned) {
+    return false
+  }
+  if (!wallet.tiers || typeof wallet.tiers !== 'object') {
+    return false
+  }
+  const tiers = wallet.tiers as UpgradeTierState
+  return Number.isInteger(tiers.maxHp) && tiers.maxHp >= 0 && tiers.maxHp <= MAX_TIER
 }
