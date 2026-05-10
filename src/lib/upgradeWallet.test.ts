@@ -28,11 +28,11 @@ function memoryStorage(): Storage {
 }
 
 describe('createUpgradeWallet', () => {
-  it('starts at zero credits with tier-0 stats', () => {
+  it('starts at zero credits with tier-0 stats across every stat', () => {
     const wallet = createUpgradeWallet()
     expect(wallet.credits).toBe(0)
     expect(wallet.totalCreditsEarned).toBe(0)
-    expect(wallet.tiers.maxHp).toBe(0)
+    expect(wallet.tiers).toEqual({ maxHp: 0, startingAmmo: 0, weaponDamage: 0, moveSpeed: 0 })
   })
 })
 
@@ -62,9 +62,9 @@ describe('depositKills', () => {
   })
 
   it('preserves the existing tier state', () => {
-    const wallet = { ...createUpgradeWallet(), tiers: { maxHp: 3 } }
+    const wallet = { ...createUpgradeWallet(), tiers: { maxHp: 3, startingAmmo: 1, weaponDamage: 2, moveSpeed: 4 } }
     const next = depositKills(wallet, 1)
-    expect(next.tiers.maxHp).toBe(3)
+    expect(next.tiers).toEqual({ maxHp: 3, startingAmmo: 1, weaponDamage: 2, moveSpeed: 4 })
   })
 
   it('does not mutate the input wallet', () => {
@@ -81,9 +81,26 @@ describe('readUpgradeWallet / writeUpgradeWallet', () => {
 
   it('round-trips a written wallet', () => {
     const storage = memoryStorage()
-    const stored = { credits: 14, totalCreditsEarned: 27, tiers: { maxHp: 2 } }
+    const stored = {
+      credits: 14,
+      totalCreditsEarned: 27,
+      tiers: { maxHp: 2, startingAmmo: 1, weaponDamage: 3, moveSpeed: 0 }
+    }
     writeUpgradeWallet(storage, stored)
     expect(readUpgradeWallet(storage)).toEqual(stored)
+  })
+
+  it('migrates a pre-extension wallet (only maxHp on tiers) by defaulting the missing stats to tier 0', () => {
+    const storage = memoryStorage()
+    storage.setItem(
+      upgradeWalletStorageKey,
+      JSON.stringify({ credits: 5, totalCreditsEarned: 25, tiers: { maxHp: 2 } })
+    )
+    expect(readUpgradeWallet(storage)).toEqual({
+      credits: 5,
+      totalCreditsEarned: 25,
+      tiers: { maxHp: 2, startingAmmo: 0, weaponDamage: 0, moveSpeed: 0 }
+    })
   })
 
   it('falls back to a fresh wallet when storage holds malformed JSON', () => {
@@ -116,11 +133,15 @@ describe('readUpgradeWallet / writeUpgradeWallet', () => {
     expect(readUpgradeWallet(storage)).toEqual(createUpgradeWallet())
   })
 
-  it('rejects payloads with a max-HP tier above MAX_TIER', () => {
+  it('rejects payloads with any tier above MAX_TIER', () => {
     const storage = memoryStorage()
     storage.setItem(
       upgradeWalletStorageKey,
-      JSON.stringify({ credits: 0, totalCreditsEarned: 0, tiers: { maxHp: 999 } })
+      JSON.stringify({
+        credits: 0,
+        totalCreditsEarned: 0,
+        tiers: { maxHp: 0, startingAmmo: 999, weaponDamage: 0, moveSpeed: 0 }
+      })
     )
     expect(readUpgradeWallet(storage)).toEqual(createUpgradeWallet())
   })

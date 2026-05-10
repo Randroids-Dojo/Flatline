@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-10, Meta-progression slice B: starting ammo, weapon damage, move speed (closes REQ-066)
+
+- Branch: `feat/meta-progression-extend-tree`
+- PR: pending
+- Changed: extends the upgrade tree with the remaining three stats so all four meta stats are now spendable. New tree fields and helpers in `src/game/upgradeTree.ts` (`startingAmmo`, `weaponDamage`, `moveSpeed`; `effectiveMaxAmmoBonus`, `effectiveDamageMultiplier`, `effectiveMoveSpeedMultiplier`; `UPGRADE_STAT_IDS`). `src/game/weapons.ts` extended `createWeaponAmmo` and `collectWeaponAmmo` with an optional `maxAmmoBonus` parameter (default 0 keeps every existing caller and test untouched). `src/components/FlatlineGame.tsx` threads the bonus into `startRun` ammo init, the `wantsSupply` cap check, the supply pickup refill, both weapon damage application sites (peashooter / boomstick at line 727 and inkblaster splash at line 1508), and the per-frame movement speed multiplier (combined with the rage `moveBuff.speed`). `UpgradePanel` refactored into a config-driven `UPGRADE_ROWS` list so all four stats render from one map; build-time guard ensures the row list stays in sync with `UPGRADE_STAT_IDS`. `src/lib/upgradeWallet.ts` widened the persisted shape with a one-way migrator that defaults missing tier fields to 0, so a player who already bought Max HP under slice A keeps that tier on first read.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean across touched files), `git diff --check`, `npm run typecheck`, `npm run lint` (0 errors), `npm run test` (612 / 612, +10 new for the three new effective-value helpers + the migrator), `npm run build`.
+- Assumptions: Recommended default keeps the same `5 / 10 / 20 / 40 / 80` cost ramp across every stat so the player intuits a consistent pricing rule. Recommended default uses additive multipliers (`+10%` damage, `+4%` speed) so a tier-5 player feels stronger but the early-run combat math stays readable; multiplicative stacking with `rageBuffStateRef` and `boomstickPointBlankMultiplier` keeps the rage / point-blank moments distinct from the meta uplift. Recommended default raises max ammo (not just starting ammo) so the bonus persists across in-run pickups, matching the "compounds across runs" framing; doing the cheaper "starting only" interpretation would have made the bonus lapse on the first supply visit. Recommended default keeps the wallet schema key at `flatline.upgradeWallet.v1` and migrates in place so slice-A wallets are not nuked.
+- GDD coverage: `REQ-066` flipped `partial` to `done`. Build log entry appended to `docs/gdd/66-post-mvp-meta-progression.md`. `implementationRefs` extended with `src/game/weapons.ts`.
+- Followups: PR C (optional) syncs the wallet to Upstash so progression follows the player across devices; mirror the `sharedLeaderboard.ts` pattern.
+
 ## 2026-05-10, Meta-progression slice A: kill-banked credits + Max HP tier (REQ-066 progress)
 
 - Branch: `feat/meta-progression-max-hp`

@@ -170,8 +170,15 @@ import {
 import {
   MAX_HP_PER_TIER,
   MAX_TIER,
+  MOVE_SPEED_PER_TIER,
+  STARTING_AMMO_PER_TIER,
+  UPGRADE_STAT_IDS,
+  WEAPON_DAMAGE_PER_TIER,
   canAffordNextTier,
+  effectiveDamageMultiplier,
+  effectiveMaxAmmoBonus,
   effectiveMaxHp,
+  effectiveMoveSpeedMultiplier,
   nextTierCost,
   purchaseTier,
   type UpgradeStatId
@@ -722,9 +729,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
         const baseDamage = weapon === 'boomstick' ? entry.count : weaponConfigs.peashooter.damage
         const pointBlankMult = weapon === 'boomstick' ? boomstickPointBlankMultiplier(entry.closestDistance) : 1
+        const upgradeDamageMult = effectiveDamageMultiplier(walletRef.current.tiers)
         damageEnemyById(
           enemyId,
-          Math.max(1, Math.round(baseDamage * buff.damage * pointBlankMult)),
+          Math.max(1, Math.round(baseDamage * buff.damage * pointBlankMult * upgradeDamageMult)),
           weapon === 'boomstick' ? 'Boomstick blast landed.' : 'Billboard enemy hurt.',
           weapon === 'boomstick' ? 'Boomstick dropped the enemy.' : 'Billboard enemy dropped.',
           entry.closestDistance
@@ -739,6 +747,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     const firstEnemyType = practiceEnemyTypeForSpawn(0, practiceSettingsRef.current, isPractice)
     const startingWeapon = practiceSettingsRef.current.startingWeapon
     const startHp = effectiveMaxHp(walletRef.current.tiers)
+    const startingAmmoBonus = effectiveMaxAmmoBonus(walletRef.current.tiers)
     positionRef.current = { ...initialPlayerPosition }
     yawRef.current = initialYaw
     pitchRef.current = 0
@@ -777,7 +786,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     }
 
     selectedWeaponRef.current = startingWeapon
-    weaponAmmoRef.current = createWeaponAmmo()
+    weaponAmmoRef.current = createWeaponAmmo(startingAmmoBonus)
     weaponCooldownRef.current = createWeaponCooldownState()
     resetTouchControls(touchJoysticksRef.current, keysRef.current)
     touchLookVectorRef.current = { x: 0, y: 0 }
@@ -1224,12 +1233,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         }
 
         const moveBuff = rageMultipliers(rageBuffStateRef.current, performance.now())
+        const upgradeSpeedMult = effectiveMoveSpeedMultiplier(walletRef.current.tiers)
+        const combinedSpeedMult = moveBuff.speed * upgradeSpeedMult
         positionRef.current = updatePlayerPosition(
           positionRef.current,
           yawRef.current,
           keysRef.current,
           delta,
-          moveBuff.speed === 1 ? movementConfig : { ...movementConfig, speed: movementConfig.speed * moveBuff.speed }
+          combinedSpeedMult === 1 ? movementConfig : { ...movementConfig, speed: movementConfig.speed * combinedSpeedMult }
         )
 
         const dashFrame = dashStep(dashStateRef.current, performance.now())
@@ -1405,10 +1416,11 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           }
 
           const maxHpForRun = effectiveMaxHp(walletRef.current.tiers)
+          const ammoBonusForRun = effectiveMaxAmmoBonus(walletRef.current.tiers)
           const wantsSupply =
             playerHealthRef.current < maxHpForRun ||
-            weaponAmmoRef.current.boomstick < (weaponConfigs.boomstick.maxAmmo ?? 0) ||
-            weaponAmmoRef.current.inkblaster < (weaponConfigs.inkblaster.maxAmmo ?? 0)
+            weaponAmmoRef.current.boomstick < (weaponConfigs.boomstick.maxAmmo ?? 0) + ammoBonusForRun ||
+            weaponAmmoRef.current.inkblaster < (weaponConfigs.inkblaster.maxAmmo ?? 0) + ammoBonusForRun
           const rageEligibleNow =
             rageBuffStateRef.current === null &&
             directorRef.current.runMs >= nextRageEligibleRunMsRef.current &&
@@ -1432,7 +1444,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             if (healTier === 'large') {
               lastLargeHealRunMsRef.current = directorRef.current.runMs
             }
-            weaponAmmoRef.current = collectWeaponAmmo(weaponAmmoRef.current)
+            weaponAmmoRef.current = collectWeaponAmmo(weaponAmmoRef.current, 2, 1, ammoBonusForRun)
             healthPickupReadyRef.current = false
             healthPickupCooldownRef.current = dailyConfig?.supplyCooldownMs ?? 9000
             setPlayerHealth(playerHealthRef.current)
@@ -1505,7 +1517,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
               damageEnemyById(
                 hit.enemyId,
-                Math.max(1, Math.round(weaponConfigs.inkblaster.damage * inkBuff.damage)),
+                Math.max(
+                  1,
+                  Math.round(
+                    weaponConfigs.inkblaster.damage *
+                      inkBuff.damage *
+                      effectiveDamageMultiplier(walletRef.current.tiers)
+                  )
+                ),
                 'Ink splash landed.',
                 'Inkblaster dropped the enemy.',
                 hitDistance
@@ -4247,6 +4266,47 @@ function DailySchedulePanel({ preview, streak }: { preview: DailySchedulePreview
   )
 }
 
+type UpgradeRowConfig = {
+  id: UpgradeStatId
+  label: string
+  effectLabel: (tiers: UpgradeWallet['tiers']) => string
+  buyLabel: string
+}
+
+const UPGRADE_ROWS: ReadonlyArray<UpgradeRowConfig> = [
+  {
+    id: 'maxHp',
+    label: 'Max HP',
+    effectLabel: (tiers) => `${effectiveMaxHp(tiers)} HP`,
+    buyLabel: `+${MAX_HP_PER_TIER} HP`
+  },
+  {
+    id: 'startingAmmo',
+    label: 'Ammo capacity',
+    effectLabel: (tiers) => `+${effectiveMaxAmmoBonus(tiers)} per weapon`,
+    buyLabel: `+${STARTING_AMMO_PER_TIER} ammo`
+  },
+  {
+    id: 'weaponDamage',
+    label: 'Weapon damage',
+    effectLabel: (tiers) => `${Math.round(effectiveDamageMultiplier(tiers) * 100)}% damage`,
+    buyLabel: `+${Math.round(WEAPON_DAMAGE_PER_TIER * 100)}% damage`
+  },
+  {
+    id: 'moveSpeed',
+    label: 'Move speed',
+    effectLabel: (tiers) => `${Math.round(effectiveMoveSpeedMultiplier(tiers) * 100)}% speed`,
+    buyLabel: `+${Math.round(MOVE_SPEED_PER_TIER * 100)}% speed`
+  }
+]
+
+// `UPGRADE_STAT_IDS` is the source of truth for which stats exist; assert the
+// UI list mirrors it so a future stat addition fails the build until the row
+// config is updated.
+if (UPGRADE_ROWS.length !== UPGRADE_STAT_IDS.length) {
+  throw new Error('UPGRADE_ROWS is out of sync with UPGRADE_STAT_IDS')
+}
+
 function UpgradePanel({
   wallet,
   onPurchase
@@ -4254,12 +4314,6 @@ function UpgradePanel({
   wallet: UpgradeWallet
   onPurchase: (stat: UpgradeStatId) => void
 }) {
-  const tier = wallet.tiers.maxHp
-  const cost = nextTierCost(tier)
-  const hp = effectiveMaxHp(wallet.tiers)
-  const affordable = canAffordNextTier(wallet.credits, tier)
-  const maxed = tier >= MAX_TIER
-
   return (
     <section className="upgrade-panel" data-testid="upgrade-panel" aria-label="Meta progression">
       <header className="upgrade-panel-header">
@@ -4269,23 +4323,31 @@ function UpgradePanel({
         </p>
       </header>
       <ul className="upgrade-list">
-        <li className="upgrade-row" data-testid="upgrade-row-maxHp">
-          <div className="upgrade-row-label">
-            <strong>Max HP</strong>
-            <span className="upgrade-tier">
-              Tier {tier}/{MAX_TIER} <span className="upgrade-effect">({hp} HP)</span>
-            </span>
-          </div>
-          <button
-            className="secondary-button upgrade-buy"
-            type="button"
-            disabled={maxed || !affordable}
-            data-testid="upgrade-buy-maxHp"
-            onClick={() => onPurchase('maxHp')}
-          >
-            {maxed ? 'Maxed' : `+${MAX_HP_PER_TIER} HP (${cost})`}
-          </button>
-        </li>
+        {UPGRADE_ROWS.map((row) => {
+          const tier = wallet.tiers[row.id]
+          const cost = nextTierCost(tier)
+          const affordable = canAffordNextTier(wallet.credits, tier)
+          const maxed = tier >= MAX_TIER
+          return (
+            <li className="upgrade-row" key={row.id} data-testid={`upgrade-row-${row.id}`}>
+              <div className="upgrade-row-label">
+                <strong>{row.label}</strong>
+                <span className="upgrade-tier">
+                  Tier {tier}/{MAX_TIER} <span className="upgrade-effect">({row.effectLabel(wallet.tiers)})</span>
+                </span>
+              </div>
+              <button
+                className="secondary-button upgrade-buy"
+                type="button"
+                disabled={maxed || !affordable}
+                data-testid={`upgrade-buy-${row.id}`}
+                onClick={() => onPurchase(row.id)}
+              >
+                {maxed ? 'Maxed' : `${row.buyLabel} (${cost})`}
+              </button>
+            </li>
+          )
+        })}
       </ul>
     </section>
   )
