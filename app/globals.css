@@ -875,12 +875,86 @@ button {
 }
 
 .shared-leaderboard,
-.submit-panel {
+.submit-panel,
+.upgrade-panel {
   margin: 0 auto 18px;
   padding: 10px;
   border: 1px solid rgba(244, 241, 232, 0.18);
   border-radius: 6px;
   background: rgba(10, 10, 10, 0.62);
+}
+
+.upgrade-panel {
+  max-width: 420px;
+  text-align: left;
+}
+
+.upgrade-panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+}
+
+.upgrade-panel-header h3 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(244, 241, 232, 0.86);
+}
+
+.upgrade-credits {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(244, 241, 232, 0.76);
+}
+
+.upgrade-credits strong {
+  margin-left: 6px;
+  color: var(--accent);
+  font-size: 15px;
+}
+
+.upgrade-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.upgrade-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.upgrade-row-label {
+  display: grid;
+  gap: 2px;
+}
+
+.upgrade-tier {
+  font-size: 12px;
+  color: rgba(244, 241, 232, 0.7);
+}
+
+.upgrade-effect {
+  color: rgba(244, 241, 232, 0.55);
+}
+
+.upgrade-buy {
+  min-width: 130px;
+  font-size: 13px;
+  padding: 6px 10px;
+}
+
+.summary-credits-earned {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .shared-leaderboard {

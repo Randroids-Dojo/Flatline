@@ -160,6 +160,22 @@ import {
   type DailyStreakRecord
 } from '@/lib/dailyStreak'
 import { bestLocalScore, insertLeaderboardEntry, readLeaderboard, writeLeaderboard, type LeaderboardEntry } from '@/lib/leaderboard'
+import {
+  createUpgradeWallet,
+  depositKills,
+  readUpgradeWallet,
+  writeUpgradeWallet,
+  type UpgradeWallet
+} from '@/lib/upgradeWallet'
+import {
+  MAX_HP_PER_TIER,
+  MAX_TIER,
+  canAffordNextTier,
+  effectiveMaxHp,
+  nextTierCost,
+  purchaseTier,
+  type UpgradeStatId
+} from '@/game/upgradeTree'
 import { dailyDateKey, type LeaderboardScope, type RankedLeaderboardEntry, type SharedLeaderboardResponse } from '@/lib/sharedLeaderboard'
 
 const cameraHeight = 1.7
@@ -447,6 +463,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
     typeof window === 'undefined' ? [] : readLeaderboard(window.localStorage)
   )
+  const [wallet, setWallet] = useState<UpgradeWallet>(() =>
+    typeof window === 'undefined' ? createUpgradeWallet() : readUpgradeWallet(window.localStorage)
+  )
+  const walletRef = useRef<UpgradeWallet>(wallet)
+  walletRef.current = wallet
+  const [creditsEarnedThisRun, setCreditsEarnedThisRun] = useState<number>(0)
   const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
   const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>(() => createPracticeSettings())
   const [seed] = useState(() => dailySeed())
@@ -714,10 +736,11 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const startRun = useCallback(() => {
     const firstEnemyType = practiceEnemyTypeForSpawn(0, practiceSettingsRef.current, isPractice)
     const startingWeapon = practiceSettingsRef.current.startingWeapon
+    const startHp = effectiveMaxHp(walletRef.current.tiers)
     positionRef.current = { ...initialPlayerPosition }
     yawRef.current = initialYaw
     pitchRef.current = 0
-    playerHealthRef.current = 100
+    playerHealthRef.current = startHp
     directorRef.current = createDirectorState()
     roomStateMsRef.current = 0
     scoreRef.current = createScoreState()
@@ -772,7 +795,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setPaused(false)
     setSummary(null)
     setHits(0)
-    setPlayerHealth(100)
+    setPlayerHealth(startHp)
+    setCreditsEarnedThisRun(0)
     setEnemyHealth(enemiesRef.current[0]?.health ?? 0)
     setEnemyType(enemiesRef.current[0]?.type ?? 'grunt')
     setScore(0)
@@ -840,6 +864,15 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       writeLeaderboard(window.localStorage, nextLeaderboard)
       setLeaderboard(nextLeaderboard)
 
+      const earned = runSummary.kills
+      const nextWallet = depositKills(walletRef.current, earned)
+      if (nextWallet !== walletRef.current) {
+        walletRef.current = nextWallet
+        setWallet(nextWallet)
+        writeUpgradeWallet(window.localStorage, nextWallet)
+      }
+      setCreditsEarnedThisRun(earned)
+
       if (arenaMode === 'daily') {
         const nextDailyStreak = recordDailyRun(readDailyStreak(window.localStorage), dailyDate)
         writeDailyStreak(window.localStorage, nextDailyStreak)
@@ -872,6 +905,23 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     setPaused(false)
     setStatus('Run resumed.')
     requestPointerLock(runtimeRef.current?.renderer.domElement)
+  }, [])
+
+  const purchaseUpgrade = useCallback((stat: UpgradeStatId) => {
+    const result = purchaseTier(walletRef.current.tiers, walletRef.current.credits, stat)
+    if (!result) {
+      return
+    }
+    const nextWallet: UpgradeWallet = {
+      ...walletRef.current,
+      credits: result.creditsRemaining,
+      tiers: result.tiers
+    }
+    walletRef.current = nextWallet
+    setWallet(nextWallet)
+    if (typeof window !== 'undefined') {
+      writeUpgradeWallet(window.localStorage, nextWallet)
+    }
   }, [])
 
   const updateSettings = useCallback((nextSettings: typeof settings) => {
@@ -2443,7 +2493,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                   </p>
                 ) : null}
                 <p>Score {summary.score}</p>
-                <p>Kills {summary.kills}</p>
+                <p>
+                  Kills {summary.kills}
+                  {!isPractice && creditsEarnedThisRun > 0 ? (
+                    <span className="summary-credits-earned" data-testid="summary-credits-earned">
+                      {' '}+{creditsEarnedThisRun} credits
+                    </span>
+                  ) : null}
+                </p>
                 <p>Time {formatTime(summary.survivalMs)}</p>
                 <p>Accuracy {formatAccuracyPercent(summary.accuracy)}</p>
                 <p>Best combo {summary.bestCombo}</p>
@@ -2456,6 +2513,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             ) : (
               <p>Daily seed {seed}. One room. Endless pressure. Move fast, aim clean, and stay alive.</p>
             )}
+            {summary && !isPractice ? (
+              <UpgradePanel wallet={wallet} onPurchase={purchaseUpgrade} />
+            ) : null}
             {!summary && dailySchedule ? <DailySchedulePanel preview={dailySchedule} streak={dailyStreak} /> : null}
             {summary && !isPractice ? (
               <div className="submit-panel" data-testid="shared-submit">
@@ -4181,6 +4241,50 @@ function DailySchedulePanel({ preview, streak }: { preview: DailySchedulePreview
         ))}
       </ol>
     </div>
+  )
+}
+
+function UpgradePanel({
+  wallet,
+  onPurchase
+}: {
+  wallet: UpgradeWallet
+  onPurchase: (stat: UpgradeStatId) => void
+}) {
+  const tier = wallet.tiers.maxHp
+  const cost = nextTierCost(tier)
+  const hp = effectiveMaxHp(wallet.tiers)
+  const affordable = canAffordNextTier(wallet.credits, tier)
+  const maxed = tier >= MAX_TIER
+
+  return (
+    <section className="upgrade-panel" data-testid="upgrade-panel" aria-label="Meta progression">
+      <header className="upgrade-panel-header">
+        <h3>Upgrades</h3>
+        <p className="upgrade-credits" data-testid="upgrade-credits">
+          Credits <strong>{wallet.credits}</strong>
+        </p>
+      </header>
+      <ul className="upgrade-list">
+        <li className="upgrade-row" data-testid="upgrade-row-maxHp">
+          <div className="upgrade-row-label">
+            <strong>Max HP</strong>
+            <span className="upgrade-tier">
+              Tier {tier}/{MAX_TIER} <span className="upgrade-effect">({hp} HP)</span>
+            </span>
+          </div>
+          <button
+            className="secondary-button upgrade-buy"
+            type="button"
+            disabled={maxed || !affordable}
+            data-testid="upgrade-buy-maxHp"
+            onClick={() => onPurchase('maxHp')}
+          >
+            {maxed ? 'Maxed' : `+${MAX_HP_PER_TIER} HP (${cost})`}
+          </button>
+        </li>
+      </ul>
+    </section>
   )
 }
 

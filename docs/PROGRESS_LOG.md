@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-10, Meta-progression slice A: kill-banked credits + Max HP tier (REQ-066 progress)
+
+- Branch: `feat/meta-progression-max-hp`
+- PR: pending
+- Changed: opens the meta-progression layer the GDD has not yet covered. New pure tree in `src/game/upgradeTree.ts` defines `UpgradeStatId`, `UpgradeTierState`, the geometric `TIER_COSTS = [5, 10, 20, 40, 80]` ramp, `MAX_TIER = 5`, plus `nextTierCost`, `effectiveMaxHp`, `canAffordNextTier`, and `purchaseTier` (immutable). New persistent wallet in `src/lib/upgradeWallet.ts` (storage key `flatline.upgradeWallet.v1`) with `readUpgradeWallet` / `writeUpgradeWallet` (Storage param, mirrors `dailyStreak` / `leaderboard` pattern) and a `depositKills(wallet, kills)` helper. `src/components/FlatlineGame.tsx` adds a `walletRef` plus React state, replaces the literal `100` HP at run start with `effectiveMaxHp(wallet.tiers)`, deposits `runSummary.kills` into the wallet on non-practice run end, exposes a `purchaseUpgrade(stat)` callback, and renders a new inline `UpgradePanel` on the run-summary overlay between the summary and submit-panel. The summary's Kills line now annotates `+N credits`. CSS for `.upgrade-panel` and friends in `app/globals.css`.
+- Verification: dash check (`grep -nP '[\x{2014}\x{2013}]'` clean across touched files), `git diff --check`, `npm run typecheck`, `npm run test` (598 / 598, +25 new for the pure tree + wallet).
+- Assumptions: Recommended default uses kills-as-credits 1:1 (decoupled from combo / accuracy / close-range bonuses, which already drive in-run score). Recommended default applies tiers in both daily and practice runs because practice is the rehearsal for the next live run; the player wants to feel the same bullet sponge they will play. Recommended default does not refund credits or reset tiers; pure compounding matches the spec. Recommended default places the upgrade UI inline on the death screen rather than a separate menu, so spending is one click after dying.
+- GDD coverage: New section `docs/gdd/66-post-mvp-meta-progression.md` with full spec for all four stats, status `partial`. New `REQ-066` row in `docs/GDD_COVERAGE.json` with the same status; PR B will flip to `done` once starting ammo, weapon damage, and move speed ship.
+- Followups: PR B extends the tree with starting ammo, weapon damage, and move speed and flips REQ-066 to `done`. PR C (optional) mirrors `sharedLeaderboard.ts` to sync the wallet through Upstash so progression follows the player across devices.
+
 ## 2026-05-09, Lighting near-death pulse phase (REQ-047 progress)
 
 - Branch: `feat/lighting-near-death-pulse`
