@@ -61,23 +61,39 @@ describe('segmentBlockedByRects', () => {
     expect(result).toBeNull()
   })
 
-  it('returns the entry point for a segment that crosses a rect from the left', () => {
+  it('returns the entry point and the index of the only rect for a segment that crosses it from the left', () => {
     const result = segmentBlockedByRects({ x: -2, z: 0 }, { x: 2, z: 0 }, rects)
     expect(result).not.toBeNull()
     expect(result!.x).toBeCloseTo(-1)
     expect(result!.z).toBeCloseTo(0)
+    expect(result!.rectIndex).toBe(0)
   })
 
-  it('picks the closest of multiple overlapping rect hits', () => {
+  it('picks the closest of multiple overlapping rect hits and reports its index', () => {
     const a: CoverRect = { x: 5, z: 0, halfW: 0.5, halfL: 0.5 }
     const b: CoverRect = { x: 2, z: 0, halfW: 0.5, halfL: 0.5 }
     const result = segmentBlockedByRects({ x: 0, z: 0 }, { x: 10, z: 0 }, [a, b])
     expect(result).not.toBeNull()
     expect(result!.x).toBeCloseTo(1.5)
+    expect(result!.rectIndex).toBe(1)
   })
 
   it('returns null for a segment that ends before reaching the rect', () => {
     const result = segmentBlockedByRects({ x: -2, z: 0 }, { x: -1.5, z: 0 }, rects)
     expect(result).toBeNull()
+  })
+
+  it('reports the new index when a rect is spliced out of the list mid-run', () => {
+    const a: CoverRect = { x: 5, z: 0, halfW: 0.5, halfL: 0.5 }
+    const b: CoverRect = { x: 2, z: 0, halfW: 0.5, halfL: 0.5 }
+    const list = [a, b]
+    expect(segmentBlockedByRects({ x: 0, z: 0 }, { x: 10, z: 0 }, list)?.rectIndex).toBe(1)
+    list.splice(1, 1)
+    // After splicing b, the only remaining rect (a) is now at index 0
+    // and the segment hits it instead.
+    const after = segmentBlockedByRects({ x: 0, z: 0 }, { x: 10, z: 0 }, list)
+    expect(after).not.toBeNull()
+    expect(after!.x).toBeCloseTo(4.5)
+    expect(after!.rectIndex).toBe(0)
   })
 })

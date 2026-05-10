@@ -73,7 +73,8 @@ import {
   hudPillWobbleRotationDeg,
   hudSplatterIntensity
 } from '@/game/hudJitter'
-import { ARENA_COVER_RECTS, clampOutsideRects } from '@/game/coverCollision'
+import { ARENA_COVER_RECTS, clampOutsideRects, segmentBlockedByRects, type CoverRect } from '@/game/coverCollision'
+import { BREAKABLE_CRATE_HP, collapsePelletCoverHits, renumberMapAfterSplice, spliceRectAt } from '@/game/breakableCover'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
 import { healthPickupAmount, healthPickupTier } from '@/game/healthPickupTier'
@@ -486,6 +487,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     walletRef.current = wallet
   }, [wallet])
   const playerIdRef = useRef<string | null>(null)
+  // Runtime cover collision rects. Cloned from the static seed list and
+  // mutated as breakables are destroyed during a run; reset on every
+  // startRun so a new run starts with all crates intact.
+  const coverRectsRef = useRef<CoverRect[]>([...ARENA_COVER_RECTS])
+  // Active breakable state, keyed by current rect index in coverRectsRef.
+  // Both maps stay aligned: a rect splice triggers a renumber on both.
+  const breakableMeshesRef = useRef<Map<number, THREE.Mesh>>(new Map())
+  const breakableHpRef = useRef<Map<number, number>>(new Map())
+  // Original mesh refs survive across runs so startRun can rebuild the
+  // active map and restore mesh visibility for the next run.
+  const originalCrateMeshesRef = useRef<THREE.Mesh[]>([])
   const [creditsEarnedThisRun, setCreditsEarnedThisRun] = useState<number>(0)
   const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
   const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>(() => createPracticeSettings())
@@ -609,6 +621,33 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     [dailyConfig]
   )
 
+  // Caller must route rectIndex from a segment-vs-rect hit and order
+  // multi-rect destructions high-to-low (see `collapsePelletCoverHits`)
+  // so each splice does not invalidate any pending lower index.
+  const damageBreakableAt = useCallback((rectIndex: number) => {
+    const currentHp = breakableHpRef.current.get(rectIndex)
+    if (currentHp === undefined) {
+      return
+    }
+    const nextHp = currentHp - 1
+    if (nextHp > 0) {
+      breakableHpRef.current.set(rectIndex, nextHp)
+      return
+    }
+    const mesh = breakableMeshesRef.current.get(rectIndex)
+    if (mesh) {
+      mesh.visible = false
+      const runtime = runtimeRef.current
+      if (runtime) {
+        spawnEnemyDeathPop(runtime, enemyDeathPopsRef.current, mesh.position)
+      }
+    }
+    coverRectsRef.current = spliceRectAt(coverRectsRef.current, rectIndex)
+    breakableMeshesRef.current = renumberMapAfterSplice(breakableMeshesRef.current, rectIndex)
+    breakableHpRef.current = renumberMapAfterSplice(breakableHpRef.current, rectIndex)
+    playCue(110, settingsRef.current.audio)
+  }, [])
+
   const fire = useCallback(() => {
     const runtime = runtimeRef.current
 
@@ -694,14 +733,46 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       radius: 0.72
     }))
     const spread = weaponConfigs[weapon].spreadRadians
+    // Cover-aware shot resolution. Each pellet runs a 2D segment-vs-rect
+    // test against the runtime cover rects. If a rect blocks the pellet
+    // before it reaches an enemy, the rect consumes the shot (and is
+    // damaged if it is a breakable). The bolt visual terminates at
+    // whichever stopped the pellet first.
+    const coverHitsThisShot: number[] = []
     const hits = spread
       .map((yawOffset) => {
         const pelletDirection = forwardFromYawPitch(yawRef.current + yawOffset, pitchRef.current)
-        const hit = fireHitscan(positionRef.current, pelletDirection, targets, 18)
-        spawnShotBolt(runtime, shotBoltsRef.current, positionRef.current, pelletDirection, hit?.distance ?? 18, Boolean(hit))
+        const segmentEnd = {
+          x: positionRef.current.x + pelletDirection.x * 18,
+          z: positionRef.current.z + pelletDirection.z * 18
+        }
+        const coverHit = segmentBlockedByRects(
+          { x: positionRef.current.x, z: positionRef.current.z },
+          segmentEnd,
+          coverRectsRef.current
+        )
+        const coverDist = coverHit
+          ? Math.hypot(coverHit.x - positionRef.current.x, coverHit.z - positionRef.current.z)
+          : Number.POSITIVE_INFINITY
+        const enemyMaxDist = Math.min(18, coverDist)
+        const hit = fireHitscan(positionRef.current, pelletDirection, targets, enemyMaxDist)
+        const boltStopDist = Math.min(hit?.distance ?? Number.POSITIVE_INFINITY, coverDist, 18)
+        spawnShotBolt(runtime, shotBoltsRef.current, positionRef.current, pelletDirection, boltStopDist, Boolean(hit))
+        if (!hit && coverHit && breakableMeshesRef.current.has(coverHit.rectIndex)) {
+          coverHitsThisShot.push(coverHit.rectIndex)
+        }
         return hit
       })
       .filter((hit): hit is NonNullable<typeof hit> => hit !== null)
+
+    // Resolve breakable damage after the per-pellet loop so a six-pellet
+    // boomstick blast collapses to one HP tick per rect (any blast that
+    // touches a crate breaks it).
+    if (coverHitsThisShot.length > 0) {
+      for (const rectIndex of collapsePelletCoverHits(coverHitsThisShot)) {
+        damageBreakableAt(rectIndex)
+      }
+    }
 
     scoreRef.current = recordShot(scoreRef.current, hits.length > 0)
 
@@ -753,7 +824,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     } else {
       setStatus(`${weaponConfigs[weapon].label} missed. Track the target and fire again.`)
     }
-  }, [damageEnemyById])
+  }, [damageEnemyById, damageBreakableAt])
 
   const startRun = useCallback(() => {
     const firstEnemyType = practiceEnemyTypeForSpawn(0, practiceSettingsRef.current, isPractice)
@@ -785,6 +856,20 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     rageBuffStateRef.current = null
     nextRageEligibleRunMsRef.current = 90_000
     lastLargeHealRunMsRef.current = Number.NEGATIVE_INFINITY
+    // Reset breakable cover so each run starts with all crates intact.
+    coverRectsRef.current = [...ARENA_COVER_RECTS]
+    const restoredMeshes = originalCrateMeshesRef.current
+    breakableMeshesRef.current = new Map<number, THREE.Mesh>([
+      [4, restoredMeshes[0]],
+      [5, restoredMeshes[1]]
+    ])
+    breakableHpRef.current = new Map<number, number>([
+      [4, BREAKABLE_CRATE_HP],
+      [5, BREAKABLE_CRATE_HP]
+    ])
+    for (const mesh of restoredMeshes) {
+      mesh.visible = true
+    }
     setRageActive(false)
     setRageTint(0)
     scoreTokenStateRef.current = null
@@ -1138,6 +1223,18 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     const roomVisuals = createRoom()
     scene.add(roomVisuals.group)
 
+    // Seed breakable cover state. The two crate meshes returned by
+    // createRoom map to ARENA_COVER_RECTS indices 4 (west) and 5 (east).
+    originalCrateMeshesRef.current = roomVisuals.breakableCrateMeshes
+    breakableMeshesRef.current = new Map<number, THREE.Mesh>([
+      [4, roomVisuals.breakableCrateMeshes[0]],
+      [5, roomVisuals.breakableCrateMeshes[1]]
+    ])
+    breakableHpRef.current = new Map<number, number>([
+      [4, BREAKABLE_CRATE_HP],
+      [5, BREAKABLE_CRATE_HP]
+    ])
+
     const enemySlots: EnemyRenderSlot[] = []
 
     for (let i = 0; i < MAX_ENEMIES; i += 1) {
@@ -1313,7 +1410,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           positionRef.current.x,
           positionRef.current.z,
           0.4,
-          ARENA_COVER_RECTS
+          coverRectsRef.current
         )
         positionRef.current = {
           x: clampedPlayer.x,
@@ -1616,7 +1713,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
               delta * 1000,
               enemyConfigs[candidate.type],
               nearbyEnemies,
-              pursuitTarget
+              pursuitTarget,
+              coverRectsRef.current
             )
             enemiesRef.current[i] = result.enemy
             runningPlayerHealth = result.player.health
@@ -2913,6 +3011,12 @@ function createRoom() {
     { texture: '/assets/cover/hanging-banner.png', widthM: 1.4, heightM: 1.9, x: 0, y: 2.4, z: -4.0 }
   ]
 
+  // The two crate billboards are the breakable props for REQ-059. Order
+  // matters: index 0 is the west crate (rect index 4 in
+  // ARENA_COVER_RECTS), index 1 is the east crate (rect index 5). The
+  // caller pairs these meshes with their rect indices when seeding the
+  // breakable map.
+  const breakableCrateMeshes: THREE.Mesh[] = []
   for (const instance of coverInstances) {
     const texture = coverLoader.load(instance.texture)
     texture.colorSpace = THREE.SRGBColorSpace
@@ -2928,6 +3032,9 @@ function createRoom() {
     mesh.position.set(instance.x, instance.y, instance.z)
     mesh.renderOrder = 1
     group.add(mesh)
+    if (instance.texture === '/assets/cover/crate.png') {
+      breakableCrateMeshes.push(mesh)
+    }
   }
 
   const altar = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.6, 0.45, 24), pickupMaterial)
@@ -3083,7 +3190,12 @@ function createRoom() {
   addDoorVisual(group, doorSignals, 'east', { x: 9.78, y: 1.12, z: 0 }, new THREE.BoxGeometry(0.08, 1.8, 2.25), doorMaterial)
   addDoorVisual(group, doorSignals, 'west', { x: -9.78, y: 1.12, z: 0 }, new THREE.BoxGeometry(0.08, 1.8, 2.25), doorMaterial)
 
-  return { group, doorSignals, pickup: { altar, halo: pickupHalo, restY: altarRestY } }
+  return {
+    group,
+    doorSignals,
+    pickup: { altar, halo: pickupHalo, restY: altarRestY },
+    breakableCrateMeshes
+  }
 }
 
 function addDoorVisual(
