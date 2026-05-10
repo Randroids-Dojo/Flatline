@@ -730,9 +730,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         const baseDamage = weapon === 'boomstick' ? entry.count : weaponConfigs.peashooter.damage
         const pointBlankMult = weapon === 'boomstick' ? boomstickPointBlankMultiplier(entry.closestDistance) : 1
         const upgradeDamageMult = effectiveDamageMultiplier(walletRef.current.tiers)
+        // Pass the unrounded damage so each +10% tier contributes continuously.
+        // Quantizing per-hit would make tiers 1..4 invisible for single-pellet
+        // attacks (1 * 1.1 = 1.1 -> round = 1) and only "appear" at tier 5.
         damageEnemyById(
           enemyId,
-          Math.max(1, Math.round(baseDamage * buff.damage * pointBlankMult * upgradeDamageMult)),
+          Math.max(1, baseDamage * buff.damage * pointBlankMult * upgradeDamageMult),
           weapon === 'boomstick' ? 'Boomstick blast landed.' : 'Billboard enemy hurt.',
           weapon === 'boomstick' ? 'Boomstick dropped the enemy.' : 'Billboard enemy dropped.',
           entry.closestDistance
@@ -1519,11 +1522,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                 hit.enemyId,
                 Math.max(
                   1,
-                  Math.round(
-                    weaponConfigs.inkblaster.damage *
-                      inkBuff.damage *
-                      effectiveDamageMultiplier(walletRef.current.tiers)
-                  )
+                  weaponConfigs.inkblaster.damage *
+                    inkBuff.damage *
+                    effectiveDamageMultiplier(walletRef.current.tiers)
                 ),
                 'Ink splash landed.',
                 'Inkblaster dropped the enemy.',
@@ -4301,9 +4302,13 @@ const UPGRADE_ROWS: ReadonlyArray<UpgradeRowConfig> = [
 ]
 
 // `UPGRADE_STAT_IDS` is the source of truth for which stats exist; assert the
-// UI list mirrors it so a future stat addition fails the build until the row
-// config is updated.
-if (UPGRADE_ROWS.length !== UPGRADE_STAT_IDS.length) {
+// UI list mirrors it (in the same order) so a future stat addition,
+// duplication, or reorder fails the build until the row config is updated.
+const upgradeRowIds = UPGRADE_ROWS.map((row) => row.id)
+if (
+  upgradeRowIds.length !== UPGRADE_STAT_IDS.length ||
+  upgradeRowIds.some((id, index) => id !== UPGRADE_STAT_IDS[index])
+) {
   throw new Error('UPGRADE_ROWS is out of sync with UPGRADE_STAT_IDS')
 }
 
