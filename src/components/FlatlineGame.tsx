@@ -467,7 +467,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     typeof window === 'undefined' ? createUpgradeWallet() : readUpgradeWallet(window.localStorage)
   )
   const walletRef = useRef<UpgradeWallet>(wallet)
-  walletRef.current = wallet
+  useEffect(() => {
+    walletRef.current = wallet
+  }, [wallet])
   const [creditsEarnedThisRun, setCreditsEarnedThisRun] = useState<number>(0)
   const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
   const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>(() => createPracticeSettings())

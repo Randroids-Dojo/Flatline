@@ -124,4 +124,32 @@ describe('readUpgradeWallet / writeUpgradeWallet', () => {
     )
     expect(readUpgradeWallet(storage)).toEqual(createUpgradeWallet())
   })
+
+  it('falls back to a fresh wallet when getItem throws (locked or private-browser storage)', () => {
+    const storage: Storage = {
+      getItem: () => {
+        throw new Error('SecurityError: storage is locked')
+      },
+      setItem: () => undefined,
+      removeItem: () => undefined,
+      clear: () => undefined,
+      key: () => null,
+      length: 0
+    }
+    expect(readUpgradeWallet(storage)).toEqual(createUpgradeWallet())
+  })
+
+  it('does not throw when setItem fails (quota exceeded or locked storage)', () => {
+    const storage: Storage = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('QuotaExceededError')
+      },
+      removeItem: () => undefined,
+      clear: () => undefined,
+      key: () => null,
+      length: 0
+    }
+    expect(() => writeUpgradeWallet(storage, createUpgradeWallet())).not.toThrow()
+  })
 })
