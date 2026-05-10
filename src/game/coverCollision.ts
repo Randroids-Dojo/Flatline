@@ -136,20 +136,25 @@ function segmentRectEntryT(
   return tMin
 }
 
+// `rectIndex` is the position in the supplied `rects` array on this
+// call. Splicing the list invalidates the index for the next call;
+// breakable callers must act on the rect in the same tick.
 export function segmentBlockedByRects(
   start: { x: number; z: number },
   end: { x: number; z: number },
   rects: readonly CoverRect[]
-): { x: number; z: number } | null {
+): { x: number; z: number; rectIndex: number } | null {
   let bestT: number | null = null
+  let bestIndex = -1
 
-  for (const rect of rects) {
-    const t = segmentRectEntryT(start.x, start.z, end.x, end.z, rect)
+  for (let i = 0; i < rects.length; i++) {
+    const t = segmentRectEntryT(start.x, start.z, end.x, end.z, rects[i])
     if (t === null) {
       continue
     }
     if (bestT === null || t < bestT) {
       bestT = t
+      bestIndex = i
     }
   }
 
@@ -159,6 +164,7 @@ export function segmentBlockedByRects(
 
   return {
     x: start.x + (end.x - start.x) * bestT,
-    z: start.z + (end.z - start.z) * bestT
+    z: start.z + (end.z - start.z) * bestT,
+    rectIndex: bestIndex
   }
 }

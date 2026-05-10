@@ -1,4 +1,4 @@
-import { ARENA_COVER_RECTS, clampOutsideRects } from './coverCollision'
+import { ARENA_COVER_RECTS, clampOutsideRects, type CoverRect } from './coverCollision'
 import {
   SKITTER_DASH_DURATION_MS,
   SKITTER_DASH_REARM_COOLDOWN_MS,
@@ -310,7 +310,9 @@ export function tickEnemy(
   deltaMs: number,
   config: EnemyConfig,
   nearbyEnemies: readonly NearbyEnemy[] = [],
-  pursuitTarget?: PursuitTarget
+  pursuitTarget?: PursuitTarget,
+  // Runtime override so destroyed breakable cover stops blocking AI motion.
+  coverRects: readonly CoverRect[] = ARENA_COVER_RECTS
 ): EnemyTickResult {
   if (enemy.state === 'dead') {
     return { enemy, player, events: [] }
@@ -536,7 +538,7 @@ export function tickEnemy(
     nextEnemy.position.x,
     nextEnemy.position.z,
     0.4 * config.scale,
-    ARENA_COVER_RECTS
+    coverRects
   )
   nextEnemy.position = {
     x: clampedEnemy.x,

@@ -93,6 +93,19 @@ describe('enemy AI', () => {
     expect(circlesOverlap(result.enemy.position, result.enemy.radius, player.position, player.radius)).toBe(false)
   })
 
+  it('respects a custom coverRects array, then stops respecting a rect once it is removed', () => {
+    // Enemy starts directly behind a tall isolated cover rect on the
+    // axis between it and the player. The chase-clamp should keep the
+    // enemy on the far side of the rect.
+    const wallRect = { x: 0, z: 2.5, halfW: 0.5, halfL: 0.5 }
+    const enemy = createGrunt('grunt-1', { x: 0, y: 1, z: 5 }, player.position)
+    const blocked = tickEnemy(enemy, player, 1000, gruntConfig, [], undefined, [wallRect])
+    expect(blocked.enemy.position.z).toBeGreaterThan(wallRect.z + wallRect.halfL)
+    // With the rect removed, the enemy can finally close the gap.
+    const unblocked = tickEnemy(blocked.enemy, player, 1000, gruntConfig, [], undefined, [])
+    expect(unblocked.enemy.position.z).toBeLessThan(blocked.enemy.position.z)
+  })
+
   it('starts a melee windup when inside range', () => {
     const enemy = createGrunt('grunt-1', { x: 0, y: 1, z: 1.2 }, player.position)
     const result = tickEnemy(enemy, player, 16, gruntConfig)
