@@ -41,4 +41,4 @@ What this is NOT:
 
 ### Build log
 
-- 2026-05-10: Slice A shipped. Wallet (`src/lib/upgradeWallet.ts`), pure tier tree (`src/game/upgradeTree.ts`), and Max HP wiring into `startRun` / `finishRun` plus an inline `UpgradePanel` on the run-summary overlay (`src/components/FlatlineGame.tsx`). CSS in `app/globals.css`. Status stays `partial` because 3 of the 4 planned stats (starting ammo, weapon damage, move speed) ship in PR B. PR #pending.
+- 2026-05-10: Slice A shipped. Wallet (`src/lib/upgradeWallet.ts`), pure tier tree (`src/game/upgradeTree.ts`), and Max HP wiring into `startRun` / `finishRun` plus an inline `UpgradePanel` on the run-summary overlay (`src/components/FlatlineGame.tsx`). CSS in `app/globals.css`. Status stays `partial` because 3 of the 4 planned stats (starting ammo, weapon damage, move speed) ship in PR B. PR #151.
