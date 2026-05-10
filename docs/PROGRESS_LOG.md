@@ -21,7 +21,7 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 ## 2026-05-10, Spawn density ramp re-tune (REQ-032 build log)
 
 - Branch: `feat/spawn-density-ramp`
-- PR: pending
+- PR: #154
 - Changed: closes a "still only one enemy spawning" playtest report. Root cause: `targetPressureForRunMs` returned `1` for the entire first minute and `MAX_ENEMIES` was hardcoded to `3`, so the spec's "endless escalating waves" feel was clipped at both ends. New curve in `src/game/spawnDirector.ts`: `2 / 3 / 4 / 5 / 6 / 7 / 8` at run times `0 / 15 / 45 / 90 / 150 / 210 / 300+` seconds. `MAX_ENEMIES` raised from 3 to 8 in `src/components/FlatlineGame.tsx` so the cap matches the new top-of-ramp. Encounter wave's `+1 / +2` surge / peak still adds on top, so brief spikes can hit 9-10, gated by the new cap. Test in `src/game/spawnDirector.test.ts` updated to lock in the new break points + an asymptote check; the "no spawn at target" test bumped from pressure `1` to `2` to match the new floor.
 - Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm run test` (655 / 655, +1 net for the new asymptote check), `npm run build`.
 - Assumptions: Recommended default starts at 2 enemies (not 1) so the arena never feels empty; the player has a target the moment the run starts. Recommended default keeps the asymptote at 8 (not higher) so the late-game still feels manageable on a 60 FPS budget; soft / hard caps in REQ-051 are 25 / 40, leaving headroom for a future "horde mode" if it ever lands. Recommended default does not move the rage / score-token gates' time floors (90s, 70s); `targetPressureForRunMs >= 2` now passes immediately, but the time gates stay so the meta-pickup pacing is unchanged.
