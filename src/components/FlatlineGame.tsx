@@ -209,7 +209,7 @@ const weaponIdsForSelect = [...weaponIds]
 const enemyTypesForSelect: EnemyType[] = ['grunt', 'skitter', 'brute', 'spitter']
 const enemyAtlasTypes: EnemyType[] = ['grunt', 'skitter', 'brute', 'spitter']
 
-const MAX_ENEMIES = 3
+const MAX_ENEMIES = 8
 
 // Q-008 recommended default: cross-faction (infighting) damage is 50% of
 // player-facing damage. Hazard ticks against enemies and spitter projectile

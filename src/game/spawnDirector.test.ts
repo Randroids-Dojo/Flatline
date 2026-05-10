@@ -3,10 +3,18 @@ import { createDirectorState, selectSpawnDoor, spawnCadenceForRunMs, targetPress
 
 describe('spawn director', () => {
   it('ramps pressure over survival time', () => {
-    expect(targetPressureForRunMs(0)).toBe(1)
-    expect(targetPressureForRunMs(60000)).toBe(2)
-    expect(targetPressureForRunMs(120000)).toBe(3)
-    expect(targetPressureForRunMs(240000)).toBe(4)
+    expect(targetPressureForRunMs(0)).toBe(2)
+    expect(targetPressureForRunMs(15000)).toBe(3)
+    expect(targetPressureForRunMs(45000)).toBe(4)
+    expect(targetPressureForRunMs(90000)).toBe(5)
+    expect(targetPressureForRunMs(150000)).toBe(6)
+    expect(targetPressureForRunMs(210000)).toBe(7)
+    expect(targetPressureForRunMs(300000)).toBe(8)
+  })
+
+  it('asymptotes at 8 so the late-game cap matches MAX_ENEMIES headroom', () => {
+    expect(targetPressureForRunMs(600000)).toBe(8)
+    expect(targetPressureForRunMs(3_600_000)).toBe(8)
   })
 
   it('reduces spawn cadence as the run ages', () => {
@@ -23,7 +31,7 @@ describe('spawn director', () => {
   })
 
   it('does not spawn when pressure is already at target', () => {
-    const result = tickDirector(createDirectorState(), 3000, 1, { x: 0, y: 1.7, z: 0 })
+    const result = tickDirector(createDirectorState(), 3000, 2, { x: 0, y: 1.7, z: 0 })
 
     expect(result.spawn).toBeNull()
   })

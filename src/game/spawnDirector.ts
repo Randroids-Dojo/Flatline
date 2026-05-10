@@ -72,20 +72,37 @@ export function tickDirector(
   }
 }
 
+// Aggressive escalation curve. Starts the player against two enemies
+// (so the arena never feels empty), ramps to four by the one-minute
+// mark, and asymptotes at eight. The encounter wave layer adds another
+// +1 / +2 during surge / peak phases on top of these. Tuned so the
+// game feels endless rather than turn-based.
 export function targetPressureForRunMs(runMs: number): number {
-  if (runMs < 60000) {
-    return 1
-  }
-
-  if (runMs < 120000) {
+  if (runMs < 15000) {
     return 2
   }
 
-  if (runMs < 240000) {
+  if (runMs < 45000) {
     return 3
   }
 
-  return 4
+  if (runMs < 90000) {
+    return 4
+  }
+
+  if (runMs < 150000) {
+    return 5
+  }
+
+  if (runMs < 210000) {
+    return 6
+  }
+
+  if (runMs < 300000) {
+    return 7
+  }
+
+  return 8
 }
 
 export function spawnCadenceForRunMs(runMs: number): number {
