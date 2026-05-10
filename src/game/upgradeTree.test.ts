@@ -3,10 +3,17 @@ import {
   MAX_HP_BASE,
   MAX_HP_PER_TIER,
   MAX_TIER,
+  MOVE_SPEED_PER_TIER,
+  STARTING_AMMO_PER_TIER,
   TIER_COSTS,
+  UPGRADE_STAT_IDS,
+  WEAPON_DAMAGE_PER_TIER,
   canAffordNextTier,
   createUpgradeTierState,
+  effectiveDamageMultiplier,
+  effectiveMaxAmmoBonus,
   effectiveMaxHp,
+  effectiveMoveSpeedMultiplier,
   nextTierCost,
   purchaseTier
 } from './upgradeTree'
@@ -15,6 +22,19 @@ describe('createUpgradeTierState', () => {
   it('starts with every stat at tier 0', () => {
     const state = createUpgradeTierState()
     expect(state.maxHp).toBe(0)
+    expect(state.startingAmmo).toBe(0)
+    expect(state.weaponDamage).toBe(0)
+    expect(state.moveSpeed).toBe(0)
+  })
+})
+
+describe('UPGRADE_STAT_IDS', () => {
+  it('lists every stat key on the tier state, in render order', () => {
+    expect([...UPGRADE_STAT_IDS]).toEqual(['maxHp', 'startingAmmo', 'weaponDamage', 'moveSpeed'])
+    const state = createUpgradeTierState()
+    for (const id of UPGRADE_STAT_IDS) {
+      expect(typeof state[id]).toBe('number')
+    }
   })
 })
 
@@ -40,8 +60,46 @@ describe('effectiveMaxHp', () => {
   })
 
   it('adds MAX_HP_PER_TIER per purchased tier', () => {
-    expect(effectiveMaxHp({ maxHp: 1 })).toBe(MAX_HP_BASE + MAX_HP_PER_TIER)
-    expect(effectiveMaxHp({ maxHp: MAX_TIER })).toBe(MAX_HP_BASE + MAX_TIER * MAX_HP_PER_TIER)
+    expect(effectiveMaxHp({ ...createUpgradeTierState(), maxHp: 1 })).toBe(MAX_HP_BASE + MAX_HP_PER_TIER)
+    expect(effectiveMaxHp({ ...createUpgradeTierState(), maxHp: MAX_TIER })).toBe(MAX_HP_BASE + MAX_TIER * MAX_HP_PER_TIER)
+  })
+})
+
+describe('effectiveMaxAmmoBonus', () => {
+  it('returns 0 at tier 0', () => {
+    expect(effectiveMaxAmmoBonus(createUpgradeTierState())).toBe(0)
+  })
+
+  it('adds STARTING_AMMO_PER_TIER per purchased tier', () => {
+    expect(effectiveMaxAmmoBonus({ ...createUpgradeTierState(), startingAmmo: 3 })).toBe(3 * STARTING_AMMO_PER_TIER)
+    expect(effectiveMaxAmmoBonus({ ...createUpgradeTierState(), startingAmmo: MAX_TIER })).toBe(MAX_TIER * STARTING_AMMO_PER_TIER)
+  })
+})
+
+describe('effectiveDamageMultiplier', () => {
+  it('returns 1 at tier 0 (no buff)', () => {
+    expect(effectiveDamageMultiplier(createUpgradeTierState())).toBe(1)
+  })
+
+  it('returns 1 + WEAPON_DAMAGE_PER_TIER * tier', () => {
+    const tier3 = { ...createUpgradeTierState(), weaponDamage: 3 }
+    expect(effectiveDamageMultiplier(tier3)).toBeCloseTo(1 + 3 * WEAPON_DAMAGE_PER_TIER, 10)
+  })
+
+  it('caps cleanly at MAX_TIER (1.5x at +10%/tier x 5 tiers)', () => {
+    const tierMax = { ...createUpgradeTierState(), weaponDamage: MAX_TIER }
+    expect(effectiveDamageMultiplier(tierMax)).toBeCloseTo(1 + MAX_TIER * WEAPON_DAMAGE_PER_TIER, 10)
+  })
+})
+
+describe('effectiveMoveSpeedMultiplier', () => {
+  it('returns 1 at tier 0', () => {
+    expect(effectiveMoveSpeedMultiplier(createUpgradeTierState())).toBe(1)
+  })
+
+  it('returns 1 + MOVE_SPEED_PER_TIER * tier', () => {
+    const tier2 = { ...createUpgradeTierState(), moveSpeed: 2 }
+    expect(effectiveMoveSpeedMultiplier(tier2)).toBeCloseTo(1 + 2 * MOVE_SPEED_PER_TIER, 10)
   })
 })
 
@@ -74,7 +132,7 @@ describe('purchaseTier', () => {
   })
 
   it('returns null at the cap', () => {
-    const capped = { maxHp: MAX_TIER }
+    const capped = { ...createUpgradeTierState(), maxHp: MAX_TIER }
     const result = purchaseTier(capped, Number.MAX_SAFE_INTEGER, 'maxHp')
     expect(result).toBeNull()
   })
@@ -85,17 +143,27 @@ describe('purchaseTier', () => {
     expect(state.maxHp).toBe(0)
   })
 
-  it('walks the full tier ladder with the documented geometric ramp', () => {
-    let tiers = createUpgradeTierState()
-    let credits = TIER_COSTS.reduce((sum, cost) => sum + cost, 0)
-    for (let step = 0; step < MAX_TIER; step++) {
-      const result = purchaseTier(tiers, credits, 'maxHp')
-      expect(result).not.toBeNull()
-      tiers = result!.tiers
-      credits = result!.creditsRemaining
+  it('walks the full tier ladder for any stat with the documented geometric ramp', () => {
+    for (const stat of UPGRADE_STAT_IDS) {
+      let tiers = createUpgradeTierState()
+      let credits = TIER_COSTS.reduce((sum, cost) => sum + cost, 0)
+      for (let step = 0; step < MAX_TIER; step++) {
+        const result = purchaseTier(tiers, credits, stat)
+        expect(result).not.toBeNull()
+        tiers = result!.tiers
+        credits = result!.creditsRemaining
+      }
+      expect(tiers[stat]).toBe(MAX_TIER)
+      expect(credits).toBe(0)
+      expect(purchaseTier(tiers, credits, stat)).toBeNull()
     }
-    expect(tiers.maxHp).toBe(MAX_TIER)
-    expect(credits).toBe(0)
-    expect(purchaseTier(tiers, credits, 'maxHp')).toBeNull()
+  })
+
+  it('only mutates the targeted stat', () => {
+    const result = purchaseTier(createUpgradeTierState(), TIER_COSTS[0], 'weaponDamage')
+    expect(result?.tiers.weaponDamage).toBe(1)
+    expect(result?.tiers.maxHp).toBe(0)
+    expect(result?.tiers.startingAmmo).toBe(0)
+    expect(result?.tiers.moveSpeed).toBe(0)
   })
 })

@@ -1,15 +1,26 @@
 // Pure tier definitions for the meta-progression system.
 //
-// PR A scopes the tree to a single stat (max HP) so the wallet, accrual,
-// run-start hook, and spend UI can ship as one vertical slice. PR B will
-// extend `UpgradeStatId`, `UpgradeTierState`, and the effective-value
-// helpers with starting ammo, weapon damage, and move speed.
+// All four stats from the GDD spec ship in this slice. Each stat has 5
+// tiers, each tier doubles the previous cost (5, 10, 20, 40, 80 credits).
+// Effects per tier:
+//   - maxHp:        +10 HP on top of the 100 base.
+//   - startingAmmo: +1 to both Boomstick and Inkblaster max ammo (boosts
+//                   both the run-start refill and the supply pickup cap).
+//   - weaponDamage: +10% additive damage multiplier.
+//   - moveSpeed:    +4% additive move speed multiplier.
 
-export type UpgradeStatId = 'maxHp'
+export type UpgradeStatId = 'maxHp' | 'startingAmmo' | 'weaponDamage' | 'moveSpeed'
 
 export type UpgradeTierState = {
   [K in UpgradeStatId]: number
 }
+
+export const UPGRADE_STAT_IDS: ReadonlyArray<UpgradeStatId> = [
+  'maxHp',
+  'startingAmmo',
+  'weaponDamage',
+  'moveSpeed'
+]
 
 export const MAX_TIER = 5
 
@@ -20,9 +31,12 @@ export const TIER_COSTS: ReadonlyArray<number> = [5, 10, 20, 40, 80] as const
 
 export const MAX_HP_BASE = 100
 export const MAX_HP_PER_TIER = 10
+export const STARTING_AMMO_PER_TIER = 1
+export const WEAPON_DAMAGE_PER_TIER = 0.1
+export const MOVE_SPEED_PER_TIER = 0.04
 
 export function createUpgradeTierState(): UpgradeTierState {
-  return { maxHp: 0 }
+  return { maxHp: 0, startingAmmo: 0, weaponDamage: 0, moveSpeed: 0 }
 }
 
 export function nextTierCost(currentTier: number): number | null {
@@ -37,6 +51,18 @@ export function nextTierCost(currentTier: number): number | null {
 
 export function effectiveMaxHp(state: UpgradeTierState): number {
   return MAX_HP_BASE + state.maxHp * MAX_HP_PER_TIER
+}
+
+export function effectiveMaxAmmoBonus(state: UpgradeTierState): number {
+  return state.startingAmmo * STARTING_AMMO_PER_TIER
+}
+
+export function effectiveDamageMultiplier(state: UpgradeTierState): number {
+  return 1 + state.weaponDamage * WEAPON_DAMAGE_PER_TIER
+}
+
+export function effectiveMoveSpeedMultiplier(state: UpgradeTierState): number {
+  return 1 + state.moveSpeed * MOVE_SPEED_PER_TIER
 }
 
 export function canAffordNextTier(credits: number, currentTier: number): boolean {

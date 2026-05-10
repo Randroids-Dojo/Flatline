@@ -1,4 +1,10 @@
-import { MAX_TIER, createUpgradeTierState, type UpgradeTierState } from '@/game/upgradeTree'
+import {
+  MAX_TIER,
+  UPGRADE_STAT_IDS,
+  createUpgradeTierState,
+  type UpgradeStatId,
+  type UpgradeTierState
+} from '@/game/upgradeTree'
 
 export type UpgradeWallet = {
   credits: number
@@ -23,7 +29,8 @@ export function readUpgradeWallet(storage: Storage): UpgradeWallet {
       return createUpgradeWallet()
     }
     const parsed = JSON.parse(raw)
-    return isUpgradeWallet(parsed) ? parsed : createUpgradeWallet()
+    const normalized = normalizeWallet(parsed)
+    return normalized ?? createUpgradeWallet()
   } catch {
     // SecurityError (private-browsing) or malformed JSON: progression
     // data is recoverable from future runs, so treat as a fresh wallet.
@@ -51,9 +58,15 @@ export function depositKills(wallet: UpgradeWallet, kills: number): UpgradeWalle
   }
 }
 
-function isUpgradeWallet(value: unknown): value is UpgradeWallet {
+// Validates the persisted shape and fills in defaults for any tier field
+// that was missing. This is the migration seam for older wallets that
+// only carried `tiers.maxHp` before this slice introduced startingAmmo,
+// weaponDamage, and moveSpeed. Returning null means the payload was
+// fundamentally invalid (bad credit math, bad object shape) and the
+// caller should fall back to a fresh wallet.
+function normalizeWallet(value: unknown): UpgradeWallet | null {
   if (!value || typeof value !== 'object') {
-    return false
+    return null
   }
   const wallet = value as UpgradeWallet
   if (
@@ -62,16 +75,32 @@ function isUpgradeWallet(value: unknown): value is UpgradeWallet {
     !Number.isInteger(wallet.totalCreditsEarned) ||
     wallet.totalCreditsEarned < 0
   ) {
-    return false
+    return null
   }
   // Spendable balance is bounded by lifetime earnings. Any payload that
   // claims more spendable than ever earned is corrupt or tampered.
   if (wallet.credits > wallet.totalCreditsEarned) {
-    return false
+    return null
   }
   if (!wallet.tiers || typeof wallet.tiers !== 'object') {
-    return false
+    return null
   }
-  const tiers = wallet.tiers as UpgradeTierState
-  return Number.isInteger(tiers.maxHp) && tiers.maxHp >= 0 && tiers.maxHp <= MAX_TIER
+  const rawTiers = wallet.tiers as Partial<Record<UpgradeStatId, unknown>>
+  const tiers = createUpgradeTierState()
+  for (const id of UPGRADE_STAT_IDS) {
+    const value = rawTiers[id]
+    if (value === undefined) {
+      // Missing field on a pre-extension wallet. Treat as tier 0.
+      continue
+    }
+    if (!Number.isInteger(value) || (value as number) < 0 || (value as number) > MAX_TIER) {
+      return null
+    }
+    tiers[id] = value as number
+  }
+  return {
+    credits: wallet.credits,
+    totalCreditsEarned: wallet.totalCreditsEarned,
+    tiers
+  }
 }

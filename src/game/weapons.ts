@@ -57,10 +57,10 @@ export function createWeaponCooldownState(): WeaponCooldownState {
   }
 }
 
-export function createWeaponAmmo(): WeaponAmmoState {
+export function createWeaponAmmo(maxAmmoBonus = 0): WeaponAmmoState {
   return {
-    boomstick: weaponConfigs.boomstick.maxAmmo ?? 0,
-    inkblaster: weaponConfigs.inkblaster.maxAmmo ?? 0
+    boomstick: (weaponConfigs.boomstick.maxAmmo ?? 0) + maxAmmoBonus,
+    inkblaster: (weaponConfigs.inkblaster.maxAmmo ?? 0) + maxAmmoBonus
   }
 }
 
@@ -103,10 +103,15 @@ export function canFireWeaponAt(weapon: WeaponId, lastFiredAtMs: number, nowMs: 
   return weaponCooldownRemainingMs(weapon, lastFiredAtMs, nowMs) === 0
 }
 
-export function collectWeaponAmmo(ammo: WeaponAmmoState, boomstick = 2, inkblaster = 1): WeaponAmmoState {
+export function collectWeaponAmmo(
+  ammo: WeaponAmmoState,
+  boomstick = 2,
+  inkblaster = 1,
+  maxAmmoBonus = 0
+): WeaponAmmoState {
   return {
-    boomstick: Math.min(weaponConfigs.boomstick.maxAmmo ?? 0, ammo.boomstick + boomstick),
-    inkblaster: Math.min(weaponConfigs.inkblaster.maxAmmo ?? 0, ammo.inkblaster + inkblaster)
+    boomstick: Math.min((weaponConfigs.boomstick.maxAmmo ?? 0) + maxAmmoBonus, ammo.boomstick + boomstick),
+    inkblaster: Math.min((weaponConfigs.inkblaster.maxAmmo ?? 0) + maxAmmoBonus, ammo.inkblaster + inkblaster)
   }
 }
 
