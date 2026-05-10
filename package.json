@@ -14,7 +14,7 @@
     "verify": "npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e"
   },
   "dependencies": {
-    "@randroids-dojo/vibekit": "github:Randroids-Dojo/VibeKit#0b2b104acb9fbc173f613049f95ebaeb678af4c6",
+    "@randroids-dojo/vibekit": "github:Randroids-Dojo/VibeKit#v0.1.0",
     "@upstash/redis": "^1.37.0",
     "next": "^16.0.0",
     "react": "^19.0.0",
