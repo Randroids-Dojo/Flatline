@@ -7,6 +7,12 @@ import type { CoverRect } from './coverCollision'
 
 export const BREAKABLE_CRATE_HP = 1
 
+// Score awarded for destroying a breakable crate. Sized as a fraction
+// of the base enemy kill score (100) so smashing a crate feels like a
+// satisfying environment punch without competing with enemy kills as
+// a scoring strategy.
+export const CRATE_DESTRUCTION_SCORE = 25
+
 export function spliceRectAt(rects: ReadonlyArray<CoverRect>, index: number): CoverRect[] {
   const next = [...rects]
   next.splice(index, 1)

@@ -1,12 +1,28 @@
 import { describe, expect, it } from 'vitest'
 import type { CoverRect } from './coverCollision'
-import { BREAKABLE_CRATE_HP, collapsePelletCoverHits, renumberMapAfterSplice, spliceRectAt } from './breakableCover'
+import {
+  BREAKABLE_CRATE_HP,
+  CRATE_DESTRUCTION_SCORE,
+  collapsePelletCoverHits,
+  renumberMapAfterSplice,
+  spliceRectAt
+} from './breakableCover'
 
 const fixtureRect = (x: number): CoverRect => ({ x, z: 0, halfW: 0.5, halfL: 0.5 })
 
 describe('BREAKABLE_CRATE_HP', () => {
   it('is one (crates are pinatas; multi-hit comes with multi-prop)', () => {
     expect(BREAKABLE_CRATE_HP).toBe(1)
+  })
+})
+
+describe('CRATE_DESTRUCTION_SCORE', () => {
+  it('is positive so the destruction lands as a score event', () => {
+    expect(CRATE_DESTRUCTION_SCORE).toBeGreaterThan(0)
+  })
+
+  it('is well below the base enemy kill score so crates are a punch, not a strategy', () => {
+    expect(CRATE_DESTRUCTION_SCORE).toBeLessThan(100)
   })
 })
 
