@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-10, Lighting darkness phase (REQ-047 build log)
+
+- Branch: `feat/lighting-darkness`
+- PR: pending
+- Changed: ships the fifth and last of REQ-047's planned lighting phases. New `'darkness'` enum value plus `darknessIntensityScale(elapsedMs)` that cuts the overhead light to 0.1 for 2 s out of every 3.5 s cycle and snaps back to baseline. Triggers at the pressure asymptote (8) so the blackouts only land during peak-of-peak waves. Enemy billboards use unlit material so they remain visible as silhouettes against the darkened lit-material walls; this satisfies the "with enemy eyes" hint from the spec without a per-enemy emissive overlay (which would be a separate, heavier slice). Precedence is now `near-death > darkness > emergency > flicker > normal`. No caller change is required; `combinedLightingIntensityScale` routes the new phase through the same path the existing call site already uses.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm run lint` (0 errors), `npm test` (694 / 694, +4 new), `npm run build`.
+- Assumptions: Recommended default uses hard cuts (no easing) so the room reads as a blackout, not a smooth dim. Recommended default sets the dark window to 2 s of a 3.5 s cycle so the playable window is shorter than the dark window (forces the player into a "wait for the lights" rhythm during peak waves). Recommended default keeps the light color teal during darkness so the dim moments do not double-signal as emergency (which already strobes red on its own pressure band).
+- GDD coverage: REQ-047 stays `partial` (hazard / cover phase mutations remain). All five spec'd lighting phases now ship. Build log entry appended.
+- Followups: hazard phase mutations (hazard cycle frequency scales with pressure), cover phase mutations (moving cover speed scales with pressure). Door enemy-type signal lights as called out in the audit.
+
 ## 2026-05-10, Lighting emergency phase (REQ-047 build log)
 
 - Branch: `feat/lighting-emergency`

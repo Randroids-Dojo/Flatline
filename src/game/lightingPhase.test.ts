@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DARKNESS_CYCLE_MS,
+  DARKNESS_DARK_DURATION_MS,
+  DARKNESS_PRESSURE_THRESHOLD,
+  DARKNESS_SCALE,
   EMERGENCY_BRIGHT_SCALE,
   EMERGENCY_DIM_SCALE,
   EMERGENCY_LIGHT_COLOR,
@@ -13,6 +17,7 @@ import {
   NEAR_DEATH_TROUGH_SCALE,
   NORMAL_LIGHT_COLOR,
   combinedLightingIntensityScale,
+  darknessIntensityScale,
   emergencyIntensityScale,
   flickerIntensityScale,
   lightingColorForPhase,
@@ -33,10 +38,37 @@ describe('lightingPhaseForPressure', () => {
     expect(lightingPhaseForPressure(1)).toBe('flicker')
   })
 
-  it('returns emergency once pressure reaches the emergency threshold', () => {
+  it('returns emergency once pressure reaches the emergency threshold (and is below darkness)', () => {
     expect(lightingPhaseForPressure(EMERGENCY_PRESSURE_THRESHOLD - 0.01)).toBe('flicker')
     expect(lightingPhaseForPressure(EMERGENCY_PRESSURE_THRESHOLD)).toBe('emergency')
-    expect(lightingPhaseForPressure(EMERGENCY_PRESSURE_THRESHOLD + 5)).toBe('emergency')
+    expect(lightingPhaseForPressure(DARKNESS_PRESSURE_THRESHOLD - 0.01)).toBe('emergency')
+  })
+
+  it('returns darkness at the asymptote pressure', () => {
+    expect(lightingPhaseForPressure(DARKNESS_PRESSURE_THRESHOLD)).toBe('darkness')
+    expect(lightingPhaseForPressure(DARKNESS_PRESSURE_THRESHOLD + 10)).toBe('darkness')
+  })
+})
+
+describe('darknessIntensityScale', () => {
+  it('cuts to DARKNESS_SCALE for the dark window then snaps back to 1', () => {
+    expect(darknessIntensityScale(0)).toBe(DARKNESS_SCALE)
+    expect(darknessIntensityScale(DARKNESS_DARK_DURATION_MS - 1)).toBe(DARKNESS_SCALE)
+    expect(darknessIntensityScale(DARKNESS_DARK_DURATION_MS)).toBe(1)
+    expect(darknessIntensityScale(DARKNESS_CYCLE_MS - 1)).toBe(1)
+  })
+
+  it('repeats across cycles', () => {
+    expect(darknessIntensityScale(DARKNESS_CYCLE_MS)).toBe(DARKNESS_SCALE)
+    expect(darknessIntensityScale(DARKNESS_CYCLE_MS * 2)).toBe(DARKNESS_SCALE)
+  })
+
+  it('handles negative elapsedMs as wrap-around', () => {
+    // Same reasoning as `movingCoverPositionX`: defensive against an
+    // accidentally-negative timer (e.g. paused-then-resumed).
+    const result = darknessIntensityScale(-1)
+    const matches = result === DARKNESS_SCALE || result === 1
+    expect(matches).toBe(true)
   })
 })
 
@@ -65,6 +97,7 @@ describe('lightingColorForPhase', () => {
   it('returns the normal teal for every non-emergency phase', () => {
     expect(lightingColorForPhase('normal')).toBe(NORMAL_LIGHT_COLOR)
     expect(lightingColorForPhase('flicker')).toBe(NORMAL_LIGHT_COLOR)
+    expect(lightingColorForPhase('darkness')).toBe(NORMAL_LIGHT_COLOR)
     expect(lightingColorForPhase('near-death')).toBe(NORMAL_LIGHT_COLOR)
   })
 })
