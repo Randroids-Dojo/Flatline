@@ -1627,13 +1627,22 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             playPickupCue(pickupCue('supply'), settingsRef.current.audio)
           }
 
-          const projectileHits = tickInkProjectiles(
+          const projectileTick = tickInkProjectiles(
             runtime,
             inkProjectiles,
             enemiesRef.current,
             positionRef.current,
-            delta * 1000
+            delta * 1000,
+            coverRectsRef.current
           )
+
+          if (projectileTick.coverRectHits.length > 0) {
+            for (const rectIndex of collapsePelletCoverHits(projectileTick.coverRectHits)) {
+              damageBreakableAt(rectIndex)
+            }
+          }
+
+          const projectileHits = projectileTick.enemyHits
 
           if (projectileHits.length > 0) {
             scoreRef.current = {
@@ -1814,6 +1823,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             0.4,
             enemiesRef.current,
             delta * 1000,
+            coverRectsRef.current,
             (damage) => {
               if (!practiceSettingsRef.current.damageEnabled) {
                 return
@@ -2181,7 +2191,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       mount.removeChild(renderer.domElement)
       runtimeRef.current = null
     }
-  }, [dailyConfig, damageEnemyById, finishRun, isPractice])
+  }, [dailyConfig, damageBreakableAt, damageEnemyById, finishRun, isPractice])
 
   useEffect(() => {
     function updateKey(event: KeyboardEvent, pressed: boolean) {
@@ -3688,23 +3698,49 @@ type InkProjectileHit = {
   hitDistance: number
 }
 
+type InkProjectileTickResult = {
+  enemyHits: InkProjectileHit[]
+  coverRectHits: number[]
+}
+
 function tickInkProjectiles(
   runtime: RuntimeRefs,
   projectiles: InkProjectile[],
   enemies: EnemyModel[],
   playerPosition: Vec3,
-  deltaMs: number
-): InkProjectileHit[] {
-  const hits: InkProjectileHit[] = []
+  deltaMs: number,
+  coverRects: readonly CoverRect[]
+): InkProjectileTickResult {
+  const enemyHits: InkProjectileHit[] = []
+  const coverRectHits: number[] = []
 
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index]
     const step = Math.min(projectile.remainingDistance, deltaMs * 0.028)
     projectile.ageMs += deltaMs
+
+    const startX = projectile.group.position.x
+    const startZ = projectile.group.position.z
     projectile.group.position.addScaledVector(projectile.direction, step)
     projectile.remainingDistance -= step
     const pulse = 1 + Math.sin(projectile.ageMs / 72) * 0.16
     projectile.halo.scale.setScalar(pulse)
+
+    // Cover-vs-segment test for the just-completed step. If a rect
+    // blocked the step, the projectile is consumed by it (no splash
+    // through cover); the rect index flows back to the caller so a
+    // breakable can be damaged.
+    const coverHit = segmentBlockedByRects(
+      { x: startX, z: startZ },
+      { x: projectile.group.position.x, z: projectile.group.position.z },
+      coverRects
+    )
+    if (coverHit) {
+      coverRectHits.push(coverHit.rectIndex)
+      disposeInkProjectile(runtime, projectile)
+      projectiles.splice(index, 1)
+      continue
+    }
 
     let hitEnemyId: string | null = null
 
@@ -3729,7 +3765,7 @@ function tickInkProjectiles(
       const hitDistance = target
         ? Math.hypot(target.position.x - playerPosition.x, target.position.z - playerPosition.z)
         : 0
-      hits.push({ enemyId: hitEnemyId, hitDistance })
+      enemyHits.push({ enemyId: hitEnemyId, hitDistance })
     }
 
     if (hitEnemyId !== null || projectile.remainingDistance <= 0) {
@@ -3738,7 +3774,7 @@ function tickInkProjectiles(
     }
   }
 
-  return hits
+  return { enemyHits, coverRectHits }
 }
 
 function clearInkProjectiles(runtime: RuntimeRefs | null, projectiles: InkProjectile[]) {
@@ -3790,12 +3826,13 @@ function tickAndResolveSpitterProjectiles(
   playerRadius: number,
   enemies: EnemyModel[],
   deltaMs: number,
+  coverRects: readonly CoverRect[],
   onPlayerHit: (damage: number) => void,
   onEnemyHit: (enemyId: string, damage: number, sourceEnemyId: string) => void
 ) {
   for (let index = projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = projectiles[index]
-    projectile.state = tickSpitterProjectile(projectile.state, deltaMs)
+    projectile.state = tickSpitterProjectile(projectile.state, deltaMs, coverRects)
     projectile.group.position.set(
       projectile.state.position.x,
       projectile.state.position.y,

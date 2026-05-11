@@ -1,15 +1,17 @@
-import { ARENA_COVER_RECTS, segmentBlockedByRects } from './coverCollision'
+import { ARENA_COVER_RECTS, segmentBlockedByRects, type CoverRect } from './coverCollision'
 import type { Vec3 } from './types'
 
 export const SPITTER_PROJECTILE_RADIUS_M = 0.18
 export const SPITTER_PROJECTILE_TTL_MS = 3000
 
-const INFLATED_COVER_RECTS = ARENA_COVER_RECTS.map((rect) => ({
-  x: rect.x,
-  z: rect.z,
-  halfW: rect.halfW + SPITTER_PROJECTILE_RADIUS_M,
-  halfL: rect.halfL + SPITTER_PROJECTILE_RADIUS_M
-}))
+function inflateCoverRects(rects: readonly CoverRect[]): CoverRect[] {
+  return rects.map((rect) => ({
+    x: rect.x,
+    z: rect.z,
+    halfW: rect.halfW + SPITTER_PROJECTILE_RADIUS_M,
+    halfL: rect.halfL + SPITTER_PROJECTILE_RADIUS_M
+  }))
+}
 
 export type SpitterProjectile = {
   id: string
@@ -46,7 +48,15 @@ export function createSpitterProjectile(
   }
 }
 
-export function tickSpitterProjectile(projectile: SpitterProjectile, deltaMs: number): SpitterProjectile {
+export function tickSpitterProjectile(
+  projectile: SpitterProjectile,
+  deltaMs: number,
+  // Runtime cover-rects override. Defaults to the static seed list so
+  // existing tests stay green; FlatlineGame passes its mutable list
+  // so destroyed breakable cover stops blocking spitter projectiles
+  // mid-flight.
+  coverRects: readonly CoverRect[] = ARENA_COVER_RECTS
+): SpitterProjectile {
   const dt = deltaMs / 1000
 
   const startX = projectile.position.x
@@ -62,7 +72,7 @@ export function tickSpitterProjectile(projectile: SpitterProjectile, deltaMs: nu
   const hit = segmentBlockedByRects(
     { x: startX, z: startZ },
     { x: nextX, z: nextZ },
-    INFLATED_COVER_RECTS
+    inflateCoverRects(coverRects)
   )
 
   if (hit !== null) {
