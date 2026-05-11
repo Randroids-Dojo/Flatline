@@ -14,6 +14,15 @@ export const COMBAT_PEAK_GAIN = 0.045
 export const COMBAT_LEAD_HZ = 180
 export const COMBAT_DETUNE_CENTS = 4
 
+// Layer 3: high-pressure stem. Joins after the combat stem so the mix
+// keeps thickening as the room saturates. Sawtooth pitched well above
+// the combat lead so the harmonics broaden into a "wall of pressure."
+export const HIGH_PRESSURE_RAMP_START = 0.8
+export const HIGH_PRESSURE_RAMP_END = 0.95
+export const HIGH_PRESSURE_PEAK_GAIN = 0.035
+export const HIGH_PRESSURE_LEAD_HZ = 320
+export const HIGH_PRESSURE_DETUNE_CENTS = 9
+
 // Maps the active-pressure / target-pressure ratio to a 0..1 gain
 // envelope. The thrash layer is silent below 0.5 (the player is not
 // under threat), ramps in linearly across 0.5..1.0 so the music
@@ -45,4 +54,22 @@ export function combatMusicGain(pressureRatio: number): number {
   }
 
   return (pressureRatio - COMBAT_RAMP_START) / (COMBAT_RAMP_END - COMBAT_RAMP_START)
+}
+
+// Layer 3 envelope. Same shape as the combat envelope but a higher
+// band so the high-pressure stem fades in only after the combat layer
+// has hit peak.
+export function highPressureMusicGain(pressureRatio: number): number {
+  if (!Number.isFinite(pressureRatio) || pressureRatio <= HIGH_PRESSURE_RAMP_START) {
+    return 0
+  }
+
+  if (pressureRatio >= HIGH_PRESSURE_RAMP_END) {
+    return 1
+  }
+
+  return (
+    (pressureRatio - HIGH_PRESSURE_RAMP_START) /
+    (HIGH_PRESSURE_RAMP_END - HIGH_PRESSURE_RAMP_START)
+  )
 }

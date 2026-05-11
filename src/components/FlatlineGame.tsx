@@ -105,9 +105,13 @@ import {
   COMBAT_LEAD_HZ,
   COMBAT_DETUNE_CENTS,
   COMBAT_PEAK_GAIN,
+  HIGH_PRESSURE_LEAD_HZ,
+  HIGH_PRESSURE_DETUNE_CENTS,
+  HIGH_PRESSURE_PEAK_GAIN,
   MUSIC_PEAK_GAIN,
   MUSIC_THROB_HZ,
   combatMusicGain,
+  highPressureMusicGain,
   musicIntensityGain
 } from '@/game/musicIntensity'
 import {
@@ -414,6 +418,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     throbGain: GainNode
     combatLead: OscillatorNode
     combatGain: GainNode
+    highPressureLead: OscillatorNode
+    highPressureGain: GainNode
   } | null>(null)
   const ragePulseLayerRef = useRef<{
     context: AudioContext
@@ -1962,6 +1968,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             musicLayer.masterGain.gain.setTargetAtTime(gainNow, musicLayer.context.currentTime, 0.12)
             const combatGainNow = audioEnabled ? combatMusicGain(ratio) * COMBAT_PEAK_GAIN : 0
             musicLayer.combatGain.gain.setTargetAtTime(combatGainNow, musicLayer.context.currentTime, 0.14)
+            const highGainNow = audioEnabled ? highPressureMusicGain(ratio) * HIGH_PRESSURE_PEAK_GAIN : 0
+            musicLayer.highPressureGain.gain.setTargetAtTime(highGainNow, musicLayer.context.currentTime, 0.16)
           }
 
           const ragePulseLayer = ragePulseLayerRef.current
@@ -3995,6 +4003,8 @@ function startMusicLayer(): {
   throbGain: GainNode
   combatLead: OscillatorNode
   combatGain: GainNode
+  highPressureLead: OscillatorNode
+  highPressureGain: GainNode
 } | null {
   if (typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
     return null
@@ -4038,11 +4048,32 @@ function startMusicLayer(): {
   combatLead.connect(combatGain)
   combatGain.connect(context.destination)
 
+  // Layer 3: high-pressure stem. Joins after the combat stem peaks.
+  const highPressureLead = context.createOscillator()
+  highPressureLead.type = 'sawtooth'
+  highPressureLead.frequency.value = HIGH_PRESSURE_LEAD_HZ
+  highPressureLead.detune.value = HIGH_PRESSURE_DETUNE_CENTS
+  const highPressureGain = context.createGain()
+  highPressureGain.gain.value = 0
+  highPressureLead.connect(highPressureGain)
+  highPressureGain.connect(context.destination)
+
   bass.start()
   throb.start()
   combatLead.start()
+  highPressureLead.start()
 
-  return { context, masterGain, bass, throb, throbGain, combatLead, combatGain }
+  return {
+    context,
+    masterGain,
+    bass,
+    throb,
+    throbGain,
+    combatLead,
+    combatGain,
+    highPressureLead,
+    highPressureGain
+  }
 }
 
 function stopMusicLayer(layer: {
@@ -4053,6 +4084,8 @@ function stopMusicLayer(layer: {
   throbGain: GainNode
   combatLead: OscillatorNode
   combatGain: GainNode
+  highPressureLead: OscillatorNode
+  highPressureGain: GainNode
 } | null) {
   if (layer === null) {
     return
@@ -4072,6 +4105,12 @@ function stopMusicLayer(layer: {
 
   try {
     layer.combatLead.stop()
+  } catch {
+    // already stopped
+  }
+
+  try {
+    layer.highPressureLead.stop()
   } catch {
     // already stopped
   }
