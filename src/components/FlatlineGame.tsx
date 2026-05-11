@@ -110,9 +110,14 @@ import {
   HIGH_PRESSURE_PEAK_GAIN,
   MUSIC_PEAK_GAIN,
   MUSIC_THROB_HZ,
+  NEAR_DEATH_LEAD_HZ,
+  NEAR_DEATH_PEAK_GAIN,
+  NEAR_DEATH_PULSE_DEPTH,
+  NEAR_DEATH_PULSE_HZ,
   combatMusicGain,
   highPressureMusicGain,
-  musicIntensityGain
+  musicIntensityGain,
+  nearDeathMusicGain
 } from '@/game/musicIntensity'
 import {
   RAGE_PULSE_BASS_HZ,
@@ -420,6 +425,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     combatGain: GainNode
     highPressureLead: OscillatorNode
     highPressureGain: GainNode
+    nearDeathLead: OscillatorNode
+    nearDeathGain: GainNode
+    nearDeathPulse: OscillatorNode
   } | null>(null)
   const ragePulseLayerRef = useRef<{
     context: AudioContext
@@ -1970,6 +1978,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             musicLayer.combatGain.gain.setTargetAtTime(combatGainNow, musicLayer.context.currentTime, 0.14)
             const highGainNow = audioEnabled ? highPressureMusicGain(ratio) * HIGH_PRESSURE_PEAK_GAIN : 0
             musicLayer.highPressureGain.gain.setTargetAtTime(highGainNow, musicLayer.context.currentTime, 0.16)
+            const nearDeathGainNow = audioEnabled
+              ? nearDeathMusicGain(playerHealthRef.current) * NEAR_DEATH_PEAK_GAIN
+              : 0
+            musicLayer.nearDeathGain.gain.setTargetAtTime(nearDeathGainNow, musicLayer.context.currentTime, 0.18)
           }
 
           const ragePulseLayer = ragePulseLayerRef.current
@@ -4005,6 +4017,9 @@ function startMusicLayer(): {
   combatGain: GainNode
   highPressureLead: OscillatorNode
   highPressureGain: GainNode
+  nearDeathLead: OscillatorNode
+  nearDeathGain: GainNode
+  nearDeathPulse: OscillatorNode
 } | null {
   if (typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
     return null
@@ -4058,10 +4073,31 @@ function startMusicLayer(): {
   highPressureLead.connect(highPressureGain)
   highPressureGain.connect(context.destination)
 
+  // Layer 4: near-death stem. Sub-bass sine modulated by a heart-rate
+  // LFO (matches the lighting near-death pulse cadence). Caller fades
+  // gain in via `nearDeathMusicGain(playerHealth)` so the layer is
+  // gated by HP rather than room pressure.
+  const nearDeathLead = context.createOscillator()
+  nearDeathLead.type = 'sine'
+  nearDeathLead.frequency.value = NEAR_DEATH_LEAD_HZ
+  const nearDeathGain = context.createGain()
+  nearDeathGain.gain.value = 0
+  nearDeathLead.connect(nearDeathGain)
+  nearDeathGain.connect(context.destination)
+  const nearDeathPulse = context.createOscillator()
+  nearDeathPulse.type = 'sine'
+  nearDeathPulse.frequency.value = NEAR_DEATH_PULSE_HZ
+  const nearDeathPulseDepth = context.createGain()
+  nearDeathPulseDepth.gain.value = NEAR_DEATH_PULSE_DEPTH
+  nearDeathPulse.connect(nearDeathPulseDepth)
+  nearDeathPulseDepth.connect(nearDeathGain.gain)
+
   bass.start()
   throb.start()
   combatLead.start()
   highPressureLead.start()
+  nearDeathLead.start()
+  nearDeathPulse.start()
 
   return {
     context,
@@ -4072,7 +4108,10 @@ function startMusicLayer(): {
     combatLead,
     combatGain,
     highPressureLead,
-    highPressureGain
+    highPressureGain,
+    nearDeathLead,
+    nearDeathGain,
+    nearDeathPulse
   }
 }
 
@@ -4086,6 +4125,9 @@ function stopMusicLayer(layer: {
   combatGain: GainNode
   highPressureLead: OscillatorNode
   highPressureGain: GainNode
+  nearDeathLead: OscillatorNode
+  nearDeathGain: GainNode
+  nearDeathPulse: OscillatorNode
 } | null) {
   if (layer === null) {
     return
@@ -4111,6 +4153,18 @@ function stopMusicLayer(layer: {
 
   try {
     layer.highPressureLead.stop()
+  } catch {
+    // already stopped
+  }
+
+  try {
+    layer.nearDeathLead.stop()
+  } catch {
+    // already stopped
+  }
+
+  try {
+    layer.nearDeathPulse.stop()
   } catch {
     // already stopped
   }
