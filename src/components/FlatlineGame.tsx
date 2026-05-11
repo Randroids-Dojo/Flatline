@@ -75,7 +75,13 @@ import {
   hudSplatterIntensity
 } from '@/game/hudJitter'
 import { ARENA_COVER_RECTS, clampOutsideRects, segmentBlockedByRects, type CoverRect } from '@/game/coverCollision'
-import { BREAKABLE_CRATE_HP, collapsePelletCoverHits, renumberMapAfterSplice, spliceRectAt } from '@/game/breakableCover'
+import {
+  BREAKABLE_CRATE_HP,
+  CRATE_DESTRUCTION_SCORE,
+  collapsePelletCoverHits,
+  renumberMapAfterSplice,
+  spliceRectAt
+} from '@/game/breakableCover'
 import { MOVING_COVER_HEIGHT_M, MOVING_COVER_HALF_L, MOVING_COVER_HALF_W, movingCoverRectAt } from '@/game/movingCover'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
@@ -673,6 +679,32 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       const runtime = runtimeRef.current
       if (runtime) {
         spawnEnemyDeathPop(runtime, enemyDeathPopsRef.current, mesh.position)
+        scoreRef.current = {
+          ...scoreRef.current,
+          score: scoreRef.current.score + CRATE_DESTRUCTION_SCORE
+        }
+        setScore(scoreRef.current.score)
+        const projected = new THREE.Vector3(mesh.position.x, mesh.position.y + 0.4, mesh.position.z).project(runtime.camera)
+        const canvas = runtime.renderer.domElement
+        const rect = canvas.getBoundingClientRect()
+        const screenX = (projected.x * 0.5 + 0.5) * rect.width
+        const screenY = (1 - (projected.y * 0.5 + 0.5)) * rect.height
+        const inFront = projected.z < 1
+        if (inFront && screenX >= 0 && screenX <= rect.width && screenY >= 0 && screenY <= rect.height) {
+          scoreFloaterSeqRef.current += 1
+          const floater: ScoreFloater = {
+            id: scoreFloaterSeqRef.current,
+            text: formatScoreFloaterText(CRATE_DESTRUCTION_SCORE),
+            startedAtMs: performance.now(),
+            screenX,
+            screenY,
+            tier: 'base'
+          }
+          setScoreFloaters((current) => [...current, floater])
+          window.setTimeout(() => {
+            setScoreFloaters((current) => current.filter((entry) => entry.id !== floater.id))
+          }, SCORE_FLOATER_TTL_MS + 60)
+        }
       }
     }
     coverRectsRef.current = spliceRectAt(coverRectsRef.current, rectIndex)
