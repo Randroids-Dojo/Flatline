@@ -102,8 +102,12 @@ import { createDirectorState, targetPressureForRunMs, tickDirector, type Directo
 import { encounterWaveSignal, lullStartedBetween, peakStartedBetween } from '@/game/encounterWave'
 import {
   MUSIC_BASS_HZ,
+  COMBAT_LEAD_HZ,
+  COMBAT_DETUNE_CENTS,
+  COMBAT_PEAK_GAIN,
   MUSIC_PEAK_GAIN,
   MUSIC_THROB_HZ,
+  combatMusicGain,
   musicIntensityGain
 } from '@/game/musicIntensity'
 import {
@@ -408,6 +412,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     bass: OscillatorNode
     throb: OscillatorNode
     throbGain: GainNode
+    combatLead: OscillatorNode
+    combatGain: GainNode
   } | null>(null)
   const ragePulseLayerRef = useRef<{
     context: AudioContext
@@ -1954,6 +1960,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             const audioEnabled = settingsRef.current.audio
             const gainNow = audioEnabled ? musicIntensityGain(ratio) * MUSIC_PEAK_GAIN : 0
             musicLayer.masterGain.gain.setTargetAtTime(gainNow, musicLayer.context.currentTime, 0.12)
+            const combatGainNow = audioEnabled ? combatMusicGain(ratio) * COMBAT_PEAK_GAIN : 0
+            musicLayer.combatGain.gain.setTargetAtTime(combatGainNow, musicLayer.context.currentTime, 0.14)
           }
 
           const ragePulseLayer = ragePulseLayerRef.current
@@ -3985,6 +3993,8 @@ function startMusicLayer(): {
   bass: OscillatorNode
   throb: OscillatorNode
   throbGain: GainNode
+  combatLead: OscillatorNode
+  combatGain: GainNode
 } | null {
   if (typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
     return null
@@ -4016,10 +4026,23 @@ function startMusicLayer(): {
   bass.connect(throbGain)
   throbGain.connect(masterGain)
 
+  // Layer 2: combat-intensity stem. A detuned square wave that mixes
+  // through its own gain node so the caller can fade it in based on
+  // `combatMusicGain(ratio)` independent of the bass envelope.
+  const combatLead = context.createOscillator()
+  combatLead.type = 'square'
+  combatLead.frequency.value = COMBAT_LEAD_HZ
+  combatLead.detune.value = COMBAT_DETUNE_CENTS
+  const combatGain = context.createGain()
+  combatGain.gain.value = 0
+  combatLead.connect(combatGain)
+  combatGain.connect(context.destination)
+
   bass.start()
   throb.start()
+  combatLead.start()
 
-  return { context, masterGain, bass, throb, throbGain }
+  return { context, masterGain, bass, throb, throbGain, combatLead, combatGain }
 }
 
 function stopMusicLayer(layer: {
@@ -4028,6 +4051,8 @@ function stopMusicLayer(layer: {
   bass: OscillatorNode
   throb: OscillatorNode
   throbGain: GainNode
+  combatLead: OscillatorNode
+  combatGain: GainNode
 } | null) {
   if (layer === null) {
     return
@@ -4041,6 +4066,12 @@ function stopMusicLayer(layer: {
 
   try {
     layer.throb.stop()
+  } catch {
+    // already stopped
+  }
+
+  try {
+    layer.combatLead.stop()
   } catch {
     // already stopped
   }

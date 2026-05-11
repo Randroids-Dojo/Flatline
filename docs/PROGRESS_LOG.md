@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-10, Music combat-intensity stem (REQ-040 build log)
+
+- Branch: `feat/music-combat-stem`
+- PR: pending
+- Changed: ships the second adaptive music layer the audit called out. A new square-wave stem at `COMBAT_LEAD_HZ = 180` (with 4 cent detune for tension) is added to the existing music layer struct; its gain fades in across `COMBAT_RAMP_START = 0.6` to `COMBAT_RAMP_END = 0.75` pressure ratio via a new `combatMusicGain(ratio)` helper. The stem is mixed at `COMBAT_PEAK_GAIN = 0.045` (below the sub-bass thrash at 0.07) so it sits underneath the player's verbs. `startMusicLayer` creates the oscillator and routes it through its own gain node directly to the audio destination so the master-gain envelope for the bass thrash does not stomp on the combat layer's independent fade.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm run lint` (0 errors), `npm test` (702 / 702, +8 new for the combat helper), `npm run build`.
+- Assumptions: Recommended default uses a narrower ramp window (0.6 to 0.75) than the bass layer (0.5 to 1.0) so the layers stack with visible separation rather than feeling like a single rising sound. Recommended default mixes the combat stem strictly below the bass thrash so the bass continues to define the "is the room dangerous?" cue, and the combat stem reads as the "this is starting to fight back" cue.
+- GDD coverage: REQ-040 stays `partial`. Three more music layers remain.
+- Followups: high-pressure stem, near-death stem, boss-surge stem.
+
 ## 2026-05-10, Lighting darkness phase (REQ-047 build log)
 
 - Branch: `feat/lighting-darkness`

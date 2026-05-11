@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  COMBAT_LEAD_HZ,
+  COMBAT_PEAK_GAIN,
+  COMBAT_RAMP_END,
+  COMBAT_RAMP_START,
   MUSIC_BASS_HZ,
   MUSIC_PEAK_GAIN,
   MUSIC_RAMP_END,
   MUSIC_RAMP_START,
   MUSIC_THROB_HZ,
+  combatMusicGain,
   musicIntensityGain
 } from './musicIntensity'
 
@@ -66,5 +71,50 @@ describe('musicIntensityGain', () => {
     for (let i = 1; i < samples.length; i += 1) {
       expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1])
     }
+  })
+})
+
+describe('combat-intensity layer constants', () => {
+  it('starts later than the bass thrash and finishes sooner so layers stack', () => {
+    expect(COMBAT_RAMP_START).toBeGreaterThan(MUSIC_RAMP_START)
+    expect(COMBAT_RAMP_END).toBeLessThan(MUSIC_RAMP_END)
+  })
+
+  it('exposes a non-zero peak gain mixed below the bass thrash', () => {
+    expect(COMBAT_PEAK_GAIN).toBeGreaterThan(0)
+    expect(COMBAT_PEAK_GAIN).toBeLessThan(MUSIC_PEAK_GAIN)
+  })
+
+  it('runs above the bass band so the stems read as layered', () => {
+    expect(COMBAT_LEAD_HZ).toBeGreaterThan(MUSIC_BASS_HZ * 2)
+  })
+})
+
+describe('combatMusicGain', () => {
+  it('is 0 below the combat ramp start', () => {
+    expect(combatMusicGain(0)).toBe(0)
+    expect(combatMusicGain(COMBAT_RAMP_START - 0.01)).toBe(0)
+    expect(combatMusicGain(COMBAT_RAMP_START)).toBe(0)
+  })
+
+  it('reaches 1 exactly at the combat ramp end', () => {
+    expect(combatMusicGain(COMBAT_RAMP_END)).toBe(1)
+  })
+
+  it('holds at 1 above the ramp end', () => {
+    expect(combatMusicGain(1)).toBe(1)
+    expect(combatMusicGain(5)).toBe(1)
+  })
+
+  it('rises monotonically across the combat band', () => {
+    const samples = [0.6, 0.65, 0.7, 0.75].map(combatMusicGain)
+    for (let i = 1; i < samples.length; i += 1) {
+      expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1])
+    }
+  })
+
+  it('returns 0 for non-finite or negative inputs', () => {
+    expect(combatMusicGain(Number.NaN)).toBe(0)
+    expect(combatMusicGain(-1)).toBe(0)
   })
 })
