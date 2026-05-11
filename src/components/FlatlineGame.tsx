@@ -83,6 +83,7 @@ import {
   spliceRectAt
 } from '@/game/breakableCover'
 import { MOVING_COVER_HEIGHT_M, MOVING_COVER_HALF_L, MOVING_COVER_HALF_W, movingCoverClockRate, movingCoverRectAt } from '@/game/movingCover'
+import { pillarBobOffsetMeters } from '@/game/pillarBob'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
 import { healthPickupAmount, healthPickupTier } from '@/game/healthPickupTier'
@@ -262,6 +263,8 @@ type RuntimeRefs = {
     halo: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
     restY: number
   }
+  pillars: THREE.Mesh[]
+  pillarRestY: number
 }
 
 type EnemyVisualAsset = {
@@ -1373,7 +1376,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       shotGroup,
       hazardMeshes,
       movingCover,
-      pickup: roomVisuals.pickup
+      pickup: roomVisuals.pickup,
+      pillars: roomVisuals.pillars,
+      pillarRestY: roomVisuals.pillarRestY
     }
 
     loadEnemyAtlases().then((assets) => {
@@ -1605,6 +1610,19 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             lightingColorForPhase(lightingPhase(lightingPressure, playerHealthRef.current))
           )
           runtime.movingCover.position.x = Math.sin(roomStateMsRef.current / 1800) * 2.2
+
+          // Pillar bob at peak pressure. Each pillar gets a distinct
+          // phase offset so the four bob out of sync; collision rects
+          // for pillars are not changed (cover read stays the same).
+          const pillarPressure = roomPressureIntensity(roomStateMsRef.current)
+          for (let i = 0; i < runtime.pillars.length; i += 1) {
+            const offset = pillarBobOffsetMeters(
+              roomStateMsRef.current,
+              pillarPressure,
+              i * (Math.PI / 2)
+            )
+            runtime.pillars[i].position.y = runtime.pillarRestY + offset
+          }
 
           if (hazardDamageCooldownRef.current === 0) {
             const hazardDamage = hazardDamageAtPosition(positionRef.current, hazards)
@@ -3111,6 +3129,8 @@ function createRoom() {
   group.add(westWall)
 
   const pillarGeometry = new THREE.CylinderGeometry(0.45, 0.58, 3.2, 8)
+  const pillarRestY = 1.6
+  const pillars: THREE.Mesh[] = []
 
   for (const [x, z] of [
     [-3.5, -1.8],
@@ -3119,10 +3139,11 @@ function createRoom() {
     [3.5, 2.1]
   ]) {
     const pillar = new THREE.Mesh(pillarGeometry, wallMaterial)
-    pillar.position.set(x, 1.6, z)
+    pillar.position.set(x, pillarRestY, z)
     pillar.castShadow = true
     pillar.receiveShadow = true
     group.add(pillar)
+    pillars.push(pillar)
   }
 
   // Cover billboards (REQ-021). Closes F-020. Visual cover only,
@@ -3345,7 +3366,9 @@ function createRoom() {
     doorSignals,
     pickup: { altar, halo: pickupHalo, restY: altarRestY },
     breakableCrateMeshes,
-    movingCover
+    movingCover,
+    pillars,
+    pillarRestY
   }
 }
 

@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-11, Pillars bob at peak pressure (REQ-047 build log)
+
+- Branch: `feat/pillar-bob-at-peak-pressure`
+- PR: pending
+- Changed: ships the first cover-phase mutation from REQ-047. The four arena pillars now bob vertically as room pressure approaches its peak. New pure helper `src/game/pillarBob.ts` exposes `PILLAR_BOB_PRESSURE_THRESHOLD = 0.75`, `PILLAR_BOB_AMPLITUDE_M = 0.18`, `PILLAR_BOB_HZ = 0.4`, `pillarBobAmplitudeScale(pressure)`, and `pillarBobOffsetMeters(elapsedMs, pressure, phaseOffset)`. `createRoom` captures the pillars in a `pillars[]` array (+ `pillarRestY`); `RuntimeRefs` gains both fields. FlatlineGame's animate loop applies the offset to each pillar with a per-pillar `phaseOffset = i * π/2` so the four bob 90° out of sync. Pillar collision rects are untouched: visual cue only.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm test` (754 / 754, +12 new for pillarBob), `npm run lint` (0 errors, 9 pre-existing warnings), `npm run build`.
+- Assumptions: Recommended default keeps the pillar bob as a visual-only cue (collision rects unchanged) so this slice does not alter cover gameplay. Recommended default uses the same `roomPressureIntensity(roomStateMsRef.current)` pressure source as the hazard and moving-cover slices so all three mutations escalate in lockstep.
+- GDD coverage: REQ-047 stays `partial`. Door jam-open / door smoke burst, hazard variants, broken-prop, and moving-partition cover variants remain.
+- Followups: door jam-open phase, door smoke burst, hazard floor-trap variant, hazard center-zone variant, hazard corner-pickup-trap variant, hazard wall-vent variant, broken-prop cover variant, moving-partition cover variant.
+
 ## 2026-05-11, Moving cover speed scales with room pressure (REQ-059 build log)
 
 - Branch: `feat/moving-cover-speed-scales`
