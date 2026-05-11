@@ -4076,13 +4076,18 @@ function startMusicLayer(): {
   // Layer 4: near-death stem. Sub-bass sine modulated by a heart-rate
   // LFO (matches the lighting near-death pulse cadence). Caller fades
   // gain in via `nearDeathMusicGain(playerHealth)` so the layer is
-  // gated by HP rather than room pressure.
+  // gated by HP rather than room pressure. The LFO modulates an inner
+  // pulse gain (not the outer fade) so a mute via the outer envelope
+  // cannot be re-opened by the bipolar sine.
   const nearDeathLead = context.createOscillator()
   nearDeathLead.type = 'sine'
   nearDeathLead.frequency.value = NEAR_DEATH_LEAD_HZ
+  const nearDeathPulseGain = context.createGain()
+  nearDeathPulseGain.gain.value = NEAR_DEATH_PULSE_DEPTH
   const nearDeathGain = context.createGain()
   nearDeathGain.gain.value = 0
-  nearDeathLead.connect(nearDeathGain)
+  nearDeathLead.connect(nearDeathPulseGain)
+  nearDeathPulseGain.connect(nearDeathGain)
   nearDeathGain.connect(context.destination)
   const nearDeathPulse = context.createOscillator()
   nearDeathPulse.type = 'sine'
@@ -4090,7 +4095,7 @@ function startMusicLayer(): {
   const nearDeathPulseDepth = context.createGain()
   nearDeathPulseDepth.gain.value = NEAR_DEATH_PULSE_DEPTH
   nearDeathPulse.connect(nearDeathPulseDepth)
-  nearDeathPulseDepth.connect(nearDeathGain.gain)
+  nearDeathPulseDepth.connect(nearDeathPulseGain.gain)
 
   bass.start()
   throb.start()
