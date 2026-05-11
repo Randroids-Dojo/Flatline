@@ -21,7 +21,7 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 ## 2026-05-11, Crate destruction grants score and floater (REQ-059 build log)
 
 - Branch: `feat/crate-destruction-score-floater`
-- PR: pending
+- PR: #164
 - Changed: closes the "score floaters" deferral from the breakable-cover-v1 build log. New `CRATE_DESTRUCTION_SCORE = 25` in `src/game/breakableCover.ts` (one quarter of the base enemy kill score). `damageBreakableAt` now adds the score to `scoreRef`, calls `setScore` so the HUD pill updates, projects the crate mesh position to screen space (same projection path as the enemy-kill floater), and pushes a new `ScoreFloater` (tier `'base'`) onto `scoreFloaters` with the standard TTL cleanup window. The floater spawns 0.4 m above the crate so it does not overlap the destruction dust pop.
 - Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm test` (725 / 725, +2 new for the score constant), `npm run lint` (0 errors, 9 pre-existing warnings), `npm run build`.
 - Assumptions: Recommended default sets the score at 25 so smashing a crate reads as a satisfying environment punch but does not compete with enemy kills as a scoring strategy. Recommended default uses tier `'base'` for the floater so the destruction never visually escalates beyond the player's current combo state.
