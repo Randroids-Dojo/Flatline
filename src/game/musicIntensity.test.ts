@@ -5,12 +5,17 @@ import {
   COMBAT_PEAK_GAIN,
   COMBAT_RAMP_END,
   COMBAT_RAMP_START,
+  HIGH_PRESSURE_LEAD_HZ,
+  HIGH_PRESSURE_PEAK_GAIN,
+  HIGH_PRESSURE_RAMP_END,
+  HIGH_PRESSURE_RAMP_START,
   MUSIC_BASS_HZ,
   MUSIC_PEAK_GAIN,
   MUSIC_RAMP_END,
   MUSIC_RAMP_START,
   MUSIC_THROB_HZ,
   combatMusicGain,
+  highPressureMusicGain,
   musicIntensityGain
 } from './musicIntensity'
 
@@ -116,5 +121,49 @@ describe('combatMusicGain', () => {
   it('returns 0 for non-finite or negative inputs', () => {
     expect(combatMusicGain(Number.NaN)).toBe(0)
     expect(combatMusicGain(-1)).toBe(0)
+  })
+})
+
+describe('high-pressure layer constants', () => {
+  it('starts after the combat layer hits peak so the stems stack in order', () => {
+    expect(HIGH_PRESSURE_RAMP_START).toBeGreaterThanOrEqual(COMBAT_RAMP_END)
+  })
+
+  it('exposes a non-zero peak gain mixed below the combat stem', () => {
+    expect(HIGH_PRESSURE_PEAK_GAIN).toBeGreaterThan(0)
+    expect(HIGH_PRESSURE_PEAK_GAIN).toBeLessThan(COMBAT_PEAK_GAIN)
+  })
+
+  it('runs above the combat lead so the layers read as separate bands', () => {
+    expect(HIGH_PRESSURE_LEAD_HZ).toBeGreaterThan(COMBAT_LEAD_HZ)
+  })
+})
+
+describe('highPressureMusicGain', () => {
+  it('is 0 below the ramp start', () => {
+    expect(highPressureMusicGain(0)).toBe(0)
+    expect(highPressureMusicGain(HIGH_PRESSURE_RAMP_START - 0.01)).toBe(0)
+    expect(highPressureMusicGain(HIGH_PRESSURE_RAMP_START)).toBe(0)
+  })
+
+  it('reaches 1 exactly at the ramp end', () => {
+    expect(highPressureMusicGain(HIGH_PRESSURE_RAMP_END)).toBe(1)
+  })
+
+  it('holds at 1 above the ramp end', () => {
+    expect(highPressureMusicGain(1)).toBe(1)
+    expect(highPressureMusicGain(5)).toBe(1)
+  })
+
+  it('rises monotonically across the band', () => {
+    const samples = [0.8, 0.85, 0.9, 0.95].map(highPressureMusicGain)
+    for (let i = 1; i < samples.length; i += 1) {
+      expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1])
+    }
+  })
+
+  it('returns 0 for non-finite or negative inputs', () => {
+    expect(highPressureMusicGain(Number.NaN)).toBe(0)
+    expect(highPressureMusicGain(-1)).toBe(0)
   })
 })

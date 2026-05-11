@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-10, Music high-pressure stem (REQ-040 build log)
+
+- Branch: `feat/music-high-pressure-stem`
+- PR: pending
+- Changed: ships the third adaptive music layer. A new sawtooth stem at `HIGH_PRESSURE_LEAD_HZ = 320` (with 9 cent detune for tension) is added to the existing music layer struct; its gain fades in across `HIGH_PRESSURE_RAMP_START = 0.8` to `HIGH_PRESSURE_RAMP_END = 0.95` pressure ratio via a new `highPressureMusicGain(ratio)` helper. The stem is mixed at `HIGH_PRESSURE_PEAK_GAIN = 0.035` (below the combat stem at 0.045) so the stack reads as layered rather than louder. `startMusicLayer` creates the oscillator and routes it through its own gain node directly to `context.destination`, mirroring the combat-stem wiring. Per-frame gain glides at `setTargetAtTime(..., 0.16)` (slower than the combat layer at 0.14) so the highest stem feels like it slides in last as the room saturates.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm test` (710 / 710, +8 new for the high-pressure helper), `npm run lint` (0 errors, 18 pre-existing warnings), `npm run build`.
+- Assumptions: Recommended default starts the high-pressure stem after the combat stem peaks (`HIGH_PRESSURE_RAMP_START = 0.8 >= COMBAT_RAMP_END = 0.75`) so the layers cascade in order. Recommended default uses a sawtooth voiced an octave above the combat square so the harmonics broaden rather than doubling the same band.
+- GDD coverage: REQ-040 stays `partial`. One more music layer (near-death) remains; boss-surge is later-stage.
+- Followups: near-death stem, boss-surge stem.
+
 ## 2026-05-10, Music combat-intensity stem (REQ-040 build log)
 
 - Branch: `feat/music-combat-stem`
