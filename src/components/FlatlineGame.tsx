@@ -82,7 +82,7 @@ import {
   renumberMapAfterSplice,
   spliceRectAt
 } from '@/game/breakableCover'
-import { MOVING_COVER_HEIGHT_M, MOVING_COVER_HALF_L, MOVING_COVER_HALF_W, movingCoverRectAt } from '@/game/movingCover'
+import { MOVING_COVER_HEIGHT_M, MOVING_COVER_HALF_L, MOVING_COVER_HALF_W, movingCoverClockRate, movingCoverRectAt } from '@/game/movingCover'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
 import { healthPickupAmount, healthPickupTier } from '@/game/healthPickupTier'
@@ -1453,7 +1453,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         // new rect into coverRectsRef BEFORE player movement / enemy AI
         // clamp so the slab is up-to-date for every collision read this
         // frame. The mesh position mirrors the rect for visual sync.
-        movingCoverElapsedMsRef.current += delta * 1000
+        // The clock advances at a pressure-scaled rate so the sweep
+        // tightens as the room fills up.
+        const movingCoverPressure = roomPressureIntensity(roomStateMsRef.current)
+        movingCoverElapsedMsRef.current += delta * 1000 * movingCoverClockRate(movingCoverPressure)
         const movingRect = movingCoverRectAt(movingCoverElapsedMsRef.current)
         const moverIndex = movingCoverRectIndexRef.current
         if (moverIndex >= 0 && moverIndex < coverRectsRef.current.length) {

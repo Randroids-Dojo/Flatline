@@ -3,9 +3,12 @@ import {
   MOVING_COVER_HALF_L,
   MOVING_COVER_HALF_W,
   MOVING_COVER_MAX_X,
+  MOVING_COVER_MIN_PERIOD_SCALE,
   MOVING_COVER_MIN_X,
   MOVING_COVER_PERIOD_MS,
   MOVING_COVER_Z,
+  movingCoverClockRate,
+  movingCoverPeriodScale,
   movingCoverPositionX,
   movingCoverRectAt
 } from './movingCover'
@@ -73,5 +76,45 @@ describe('movingCoverRectAt', () => {
     const b = movingCoverRectAt(0)
     expect(a).not.toBe(b)
     expect(a).toEqual(b)
+  })
+})
+
+describe('movingCoverPeriodScale', () => {
+  it('runs at baseline at pressure 0 so early-run sweeps match legacy timing', () => {
+    expect(movingCoverPeriodScale(0)).toBe(1)
+  })
+
+  it('compresses to the floor at peak pressure', () => {
+    expect(movingCoverPeriodScale(1)).toBe(MOVING_COVER_MIN_PERIOD_SCALE)
+  })
+
+  it('interpolates linearly between baseline and floor', () => {
+    expect(movingCoverPeriodScale(0.5)).toBeCloseTo(1 + (MOVING_COVER_MIN_PERIOD_SCALE - 1) * 0.5)
+  })
+
+  it('clamps non-finite, negative, and above-1 pressures', () => {
+    expect(movingCoverPeriodScale(Number.NaN)).toBe(1)
+    expect(movingCoverPeriodScale(-1)).toBe(1)
+    expect(movingCoverPeriodScale(2)).toBe(MOVING_COVER_MIN_PERIOD_SCALE)
+  })
+
+  it('floor sits well below baseline so the player feels the speed-up', () => {
+    expect(MOVING_COVER_MIN_PERIOD_SCALE).toBeLessThan(0.75)
+    expect(MOVING_COVER_MIN_PERIOD_SCALE).toBeGreaterThan(0.4)
+  })
+})
+
+describe('movingCoverClockRate', () => {
+  it('is the inverse of the period scale', () => {
+    for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+      expect(movingCoverClockRate(p) * movingCoverPeriodScale(p)).toBeCloseTo(1)
+    }
+  })
+
+  it('rises monotonically with pressure', () => {
+    const rates = [0, 0.25, 0.5, 0.75, 1].map(movingCoverClockRate)
+    for (let i = 1; i < rates.length; i += 1) {
+      expect(rates[i]).toBeGreaterThanOrEqual(rates[i - 1])
+    }
   })
 })
