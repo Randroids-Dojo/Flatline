@@ -14,9 +14,16 @@ import {
   MUSIC_RAMP_END,
   MUSIC_RAMP_START,
   MUSIC_THROB_HZ,
+  NEAR_DEATH_FULL_HEALTH,
+  NEAR_DEATH_HEALTH_THRESHOLD,
+  NEAR_DEATH_LEAD_HZ,
+  NEAR_DEATH_PEAK_GAIN,
+  NEAR_DEATH_PULSE_DEPTH,
+  NEAR_DEATH_PULSE_HZ,
   combatMusicGain,
   highPressureMusicGain,
-  musicIntensityGain
+  musicIntensityGain,
+  nearDeathMusicGain
 } from './musicIntensity'
 
 describe('music intensity constants', () => {
@@ -165,5 +172,62 @@ describe('highPressureMusicGain', () => {
   it('returns 0 for non-finite or negative inputs', () => {
     expect(highPressureMusicGain(Number.NaN)).toBe(0)
     expect(highPressureMusicGain(-1)).toBe(0)
+  })
+})
+
+describe('near-death layer constants', () => {
+  it('uses the same health threshold as the lighting near-death pulse so audio and lighting throb together', () => {
+    expect(NEAR_DEATH_HEALTH_THRESHOLD).toBe(25)
+    expect(NEAR_DEATH_FULL_HEALTH).toBeLessThan(NEAR_DEATH_HEALTH_THRESHOLD)
+    expect(NEAR_DEATH_FULL_HEALTH).toBeGreaterThanOrEqual(0)
+  })
+
+  it('exposes a non-zero peak gain mixed in the same band as the other stems', () => {
+    expect(NEAR_DEATH_PEAK_GAIN).toBeGreaterThan(0)
+    expect(NEAR_DEATH_PEAK_GAIN).toBeLessThan(MUSIC_PEAK_GAIN)
+  })
+
+  it('voices the stem below the bass thrash so the heartbeat thuds under the mix', () => {
+    expect(NEAR_DEATH_LEAD_HZ).toBeLessThan(MUSIC_BASS_HZ)
+  })
+
+  it('pulses at a heart-rate cadence (roughly 80 bpm)', () => {
+    expect(NEAR_DEATH_PULSE_HZ).toBeGreaterThan(0.8)
+    expect(NEAR_DEATH_PULSE_HZ).toBeLessThan(2)
+  })
+
+  it('exposes a non-zero pulse depth below 1 so the LFO does not silence the layer at its trough', () => {
+    expect(NEAR_DEATH_PULSE_DEPTH).toBeGreaterThan(0)
+    expect(NEAR_DEATH_PULSE_DEPTH).toBeLessThan(1)
+  })
+})
+
+describe('nearDeathMusicGain', () => {
+  it('is 0 at full health and any HP at or above the threshold', () => {
+    expect(nearDeathMusicGain(100)).toBe(0)
+    expect(nearDeathMusicGain(NEAR_DEATH_HEALTH_THRESHOLD)).toBe(0)
+    expect(nearDeathMusicGain(NEAR_DEATH_HEALTH_THRESHOLD + 0.01)).toBe(0)
+  })
+
+  it('reaches 1 at or below full-health threshold', () => {
+    expect(nearDeathMusicGain(NEAR_DEATH_FULL_HEALTH)).toBe(1)
+    expect(nearDeathMusicGain(1)).toBe(1)
+    expect(nearDeathMusicGain(0)).toBe(1)
+  })
+
+  it('rises monotonically as health drops', () => {
+    const samples = [24, 20, 15, 10, 5].map(nearDeathMusicGain)
+    for (let i = 1; i < samples.length; i += 1) {
+      expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1])
+    }
+  })
+
+  it('returns 0 for non-finite inputs', () => {
+    expect(nearDeathMusicGain(Number.NaN)).toBe(0)
+    expect(nearDeathMusicGain(Number.POSITIVE_INFINITY)).toBe(0)
+  })
+
+  it('holds at peak even when HP goes negative so dying mid-frame keeps the layer roaring', () => {
+    expect(nearDeathMusicGain(-5)).toBe(1)
   })
 })

@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-10, Music near-death stem (REQ-040 build log)
+
+- Branch: `feat/music-near-death-stem`
+- PR: #162
+- Changed: ships the fourth adaptive music layer. Unlike the prior three stems which key on room pressure, the near-death stem keys on player health, so it reads as "you are dying" rather than "the room is busy." New `nearDeathMusicGain(playerHealth)` is silent above HP 25 (matches the lighting near-death pulse threshold), ramps to 1 as HP drops to 5, and holds at peak below 5. The voice is a sine at 55 Hz (below the 60 Hz bass thrash so it thuds under the mix and beats against the bass at 5 Hz) modulated by a 1.33 Hz LFO at 0.5 depth so the layer pulses at the same heart-rate cadence as the lighting near-death pulse. `startMusicLayer` routes `nearDeathLead` -> inner `nearDeathPulseGain` (LFO target) -> outer `nearDeathGain` (fade target) -> `context.destination`, and the LFO graph (`nearDeathPulse` -> `nearDeathPulseDepth` -> `nearDeathPulseGain.gain`) modulates the inner pulse gain only. Keeping the LFO off the outer fade gain means `setTargetAtTime(0)` on `nearDeathGain.gain` reliably mutes the layer regardless of LFO phase. Per-frame outer gain glides at `setTargetAtTime(..., 0.18)`.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm test` (720 / 720, +10 new for the near-death helper), `npm run lint` (0 errors, 9 pre-existing warnings), `npm run build`.
+- Assumptions: Recommended default uses the same HP threshold (25) as the lighting near-death pulse phase so audio and lighting throb in unison rather than offsetting. Recommended default holds at peak below HP 5 so a player at 1 HP feels the layer sustained rather than spiking and receding.
+- GDD coverage: REQ-040 stays `partial`. Boss-surge stem is later-stage; the four MVP layers (bass thrash, combat, high pressure, near death) all land.
+- Followups: boss-surge stem.
+
 ## 2026-05-10, Music high-pressure stem (REQ-040 build log)
 
 - Branch: `feat/music-high-pressure-stem`

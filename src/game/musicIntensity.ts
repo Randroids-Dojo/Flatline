@@ -23,6 +23,20 @@ export const HIGH_PRESSURE_PEAK_GAIN = 0.035
 export const HIGH_PRESSURE_LEAD_HZ = 320
 export const HIGH_PRESSURE_DETUNE_CENTS = 9
 
+// Layer 4: near-death stem. Driven by player health rather than room
+// pressure: silent above `NEAR_DEATH_HEALTH_THRESHOLD`, ramps in as
+// HP drops, holds at peak once HP is at `NEAR_DEATH_FULL_HEALTH` or
+// below. Sine pitched under the bass thrash with a 1.33 Hz LFO so the
+// stem reads as a slow heartbeat thudding under the music. The
+// threshold and pulse frequency intentionally match the lighting
+// near-death pulse phase so audio and lighting throb in unison.
+export const NEAR_DEATH_HEALTH_THRESHOLD = 25
+export const NEAR_DEATH_FULL_HEALTH = 5
+export const NEAR_DEATH_PEAK_GAIN = 0.04
+export const NEAR_DEATH_LEAD_HZ = 55
+export const NEAR_DEATH_PULSE_HZ = 1.33
+export const NEAR_DEATH_PULSE_DEPTH = 0.5
+
 // Maps the active-pressure / target-pressure ratio to a 0..1 gain
 // envelope. The thrash layer is silent below 0.5 (the player is not
 // under threat), ramps in linearly across 0.5..1.0 so the music
@@ -71,5 +85,26 @@ export function highPressureMusicGain(pressureRatio: number): number {
   return (
     (pressureRatio - HIGH_PRESSURE_RAMP_START) /
     (HIGH_PRESSURE_RAMP_END - HIGH_PRESSURE_RAMP_START)
+  )
+}
+
+// Layer 4 envelope. Keyed to player health (lower health is more
+// dangerous, so the gain rises as HP falls). Silent above the
+// threshold, ramps in linearly between threshold and `FULL_HEALTH`,
+// and holds at peak once HP is at or below `FULL_HEALTH` so a player
+// hovering at 1 HP feels the layer sustained rather than spiking and
+// receding.
+export function nearDeathMusicGain(playerHealth: number): number {
+  if (!Number.isFinite(playerHealth) || playerHealth >= NEAR_DEATH_HEALTH_THRESHOLD) {
+    return 0
+  }
+
+  if (playerHealth <= NEAR_DEATH_FULL_HEALTH) {
+    return 1
+  }
+
+  return (
+    (NEAR_DEATH_HEALTH_THRESHOLD - playerHealth) /
+    (NEAR_DEATH_HEALTH_THRESHOLD - NEAR_DEATH_FULL_HEALTH)
   )
 }
