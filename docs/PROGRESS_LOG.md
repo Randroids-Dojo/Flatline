@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-11, Door lights signal enemy type (REQ-047 build log)
+
+- Branch: `feat/door-color-signals-enemy-type`
+- PR: #163
+- Changed: ships the "Door lights signal enemy type" door-phase mutation. New pure helper `src/game/doorEnemyTint.ts` exposes `doorEnemyTint(type)` returning a hex per enemy type: grunt amber `#f0c668` (matches existing open color so the default door read is unchanged), skitter green-teal `#70e6b8`, brute red-orange `#e8553a`, spitter purple `#b478e8`. FlatlineGame tracks the latest spawn's enemy type per door in `doorSpawnTypesRef`, set next to `doorSignalTimersRef` on the spawn frame and cleared on run reset. `applyDoorSignals` now takes the type map and replaces the door color with the enemy tint only while the door is in its `opening` or `open` phase, so the tint fades to the default `cooling` and `idle` colors as the door dies down.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm test` (723 / 723, +3 new for `doorEnemyTint`), `npm run lint` (0 errors, 9 pre-existing warnings), `npm run build`.
+- Assumptions: Recommended default keeps the grunt tint at the existing open-phase amber so players who have not yet learned the system still parse "door open" as "amber glow." Recommended default scopes the override to the `opening` and `open` phases only so cooling and idle remain on the doorState helper's colors and the cue does not bleed past the spawn window.
+- GDD coverage: REQ-047 stays `partial`. Door jam-open / door smoke burst plus all hazard and cover phase mutations remain.
+- Followups: door jam-open phase, door smoke burst, hazard phase mutations, cover phase mutations.
+
 ## 2026-05-10, Music near-death stem (REQ-040 build log)
 
 - Branch: `feat/music-near-death-stem`
