@@ -19,7 +19,8 @@ import {
 import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
 import { damageDirectionRadians, damageIndicatorSeverity, type DamageIndicatorSeverity } from '@/game/damageDirection'
 import { doorOpenCue, type DoorCueStyle } from '@/game/doorCue'
-import { DOOR_TOTAL_MS, doorPhaseVisualAtElapsedMs } from '@/game/doorState'
+import { DOOR_TOTAL_MS, doorPhaseAtElapsedMs, doorPhaseVisualAtElapsedMs } from '@/game/doorState'
+import { doorEnemyTint } from '@/game/doorEnemyTint'
 import {
   applyDailySpawnOffset,
   createDailyArenaConfig,
@@ -464,6 +465,10 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   // at or above DOOR_TOTAL_MS, which the door state helper resolves
   // to the `idle` phase.
   const doorSignalTimersRef = useRef<Record<string, number>>({})
+  // Enemy type that came out of each door on its most recent spawn,
+  // so the door signal can tint to a per-type hue while the door is
+  // still in its opening / open phase. Cleared on run reset.
+  const doorSpawnTypesRef = useRef<Record<string, EnemyType>>({})
   const [running, setRunning] = useState(false)
   const [paused, setPaused] = useState(false)
   const [hits, setHits] = useState(0)
@@ -924,6 +929,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     resetTouchControls(touchJoysticksRef.current, keysRef.current)
     touchLookVectorRef.current = { x: 0, y: 0 }
     doorSignalTimersRef.current = {}
+    doorSpawnTypesRef.current = {}
     clearShotBolts(runtimeRef.current, shotBoltsRef.current)
     clearShotImpacts(runtimeRef.current, shotImpactsRef.current)
     clearEnemyDeathPops(runtimeRef.current, enemyDeathPopsRef.current)
@@ -2032,6 +2038,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             )
             enemiesRef.current = [...enemiesRef.current, newEnemy]
             doorSignalTimersRef.current[directorTick.spawn.door.id] = 0
+            doorSpawnTypesRef.current[directorTick.spawn.door.id] = newEnemy.type
             playDoorOpenCue(doorOpenCue(), settingsRef.current.audio)
             setEnemyHealth(newEnemy.health)
             setEnemyType(newEnemy.type)
@@ -2070,7 +2077,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       runtime.camera.rotation.set(pitchRef.current, yawRef.current, 0)
       runtime.muzzleLight.position.copy(runtime.camera.position)
       runtime.muzzleLight.intensity = Math.max(0, runtime.muzzleLight.intensity - delta * 22)
-      applyDoorSignals(runtime, doorSignalTimersRef.current, delta * 1000)
+      applyDoorSignals(runtime, doorSignalTimersRef.current, doorSpawnTypesRef.current, delta * 1000)
       applyPickupReadability(runtime, time, healthPickupReadyRef.current)
 
       const pickupLoopLayer = pickupLoopLayerRef.current
@@ -3366,14 +3373,29 @@ function applyHazardMeshes(runtime: RuntimeRefs, hazards: HazardState[]) {
   })
 }
 
-function applyDoorSignals(runtime: RuntimeRefs, timers: Record<string, number>, deltaMs: number) {
+function applyDoorSignals(
+  runtime: RuntimeRefs,
+  timers: Record<string, number>,
+  spawnTypes: Record<string, EnemyType>,
+  deltaMs: number
+) {
   for (const [id, signal] of Object.entries(runtime.doorSignals)) {
     const elapsedMs = (timers[id] ?? DOOR_TOTAL_MS) + deltaMs
     timers[id] = Math.min(DOOR_TOTAL_MS, elapsedMs)
     const visual = doorPhaseVisualAtElapsedMs(elapsedMs)
+    const phase = doorPhaseAtElapsedMs(elapsedMs)
+    const spawnType = spawnTypes[id]
+    // Tint the door to the most recent spawn's enemy type while the
+    // door is still in its bright phases (opening burst + open hold)
+    // so the player can read which enemy just came out by glance.
+    // Cooling and idle stay on the default doorState colors so the
+    // tint fades cleanly back to the resting glow.
+    const color = spawnType !== undefined && (phase === 'opening' || phase === 'open')
+      ? doorEnemyTint(spawnType)
+      : visual.color
     const material = signal.material
     material.opacity = visual.opacity
-    material.color.set(visual.color)
+    material.color.set(color)
     signal.scale.y = visual.scaleY
   }
 }
