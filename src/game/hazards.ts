@@ -52,6 +52,32 @@ export function roomPressureIntensity(runMs: number): number {
   return Math.min(1, runMs / 180000)
 }
 
+// Multiplier applied to hazard cycle periods as a function of room
+// pressure. At pressure 0 the cycles run at baseline (scale = 1); at
+// pressure 1 the cycles compress to `HAZARD_MIN_CYCLE_SCALE` so the
+// idle gaps shrink and hazards fire more often at peak pressure. The
+// telegraph (`warningMs`) and damage window (`activeMs`) keep their
+// proportional shape because the caller scales the hazard clock
+// rather than the per-phase config; this means the player still gets
+// the same warning duration, just sooner.
+export const HAZARD_MIN_CYCLE_SCALE = 0.6
+export function hazardCycleScale(pressure: number): number {
+  if (!Number.isFinite(pressure) || pressure <= 0) {
+    return 1
+  }
+  if (pressure >= 1) {
+    return HAZARD_MIN_CYCLE_SCALE
+  }
+  return 1 + (HAZARD_MIN_CYCLE_SCALE - 1) * pressure
+}
+
+// Rate at which the hazard clock should advance against wall-clock
+// time. The inverse of `hazardCycleScale` so a 0.6 cycle scale
+// advances the hazard clock 1/0.6x faster (~1.67x).
+export function hazardClockRate(pressure: number): number {
+  return 1 / hazardCycleScale(pressure)
+}
+
 function phaseInCycle(runMs: number, cycleMs: number, warningMs: number, activeMs: number): HazardPhase {
   const wrapped = positiveModulo(runMs, cycleMs)
 

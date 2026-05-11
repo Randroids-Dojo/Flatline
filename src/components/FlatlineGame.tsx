@@ -64,7 +64,7 @@ import {
   type SpitterProjectile
 } from '@/game/spitterProjectile'
 import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
-import { hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
+import { hazardClockRate, hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { hitstopOnKill, hitstopScaleAtElapsedMs, hitstopStyle, type HitstopStyle } from '@/game/hitstop'
 import { knockbackDistance } from '@/game/knockback'
 import {
@@ -410,6 +410,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const playerHealthRef = useRef<number>(100)
   const directorRef = useRef<DirectorState>(createDirectorState())
   const roomStateMsRef = useRef<number>(0)
+  // Hazard clock. Advances at a pressure-scaled rate so cycles
+  // compress at high pressure (idle gaps shrink, warning + active
+  // windows still feel the same to the player because the ratio is
+  // preserved). roomStateMsRef stays on real time for lighting and
+  // the moving cover oscillator.
+  const hazardClockMsRef = useRef<number>(0)
   const scoreRef = useRef<ScoreState>(createScoreState())
   // PB cue: snapshot of the player's local best at run start. The kill
   // branch checks against this so the cue fires at most once per run,
@@ -907,6 +913,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     playerHealthRef.current = startHp
     directorRef.current = createDirectorState()
     roomStateMsRef.current = 0
+    hazardClockMsRef.current = 0
     scoreRef.current = createScoreState()
     previousBestAtRunStartRef.current = bestLocalScore(leaderboard)
     enemySpawnSeqRef.current = 1
@@ -1559,10 +1566,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
           if (!practiceSettingsRef.current.roomStateFrozen) {
             roomStateMsRef.current += delta * 1000
+            const hazardPressure = roomPressureIntensity(roomStateMsRef.current)
+            hazardClockMsRef.current += delta * 1000 * hazardClockRate(hazardPressure)
           }
           hazardDamageCooldownRef.current = Math.max(0, hazardDamageCooldownRef.current - delta * 1000)
           enemyHazardCooldownRef.current = Math.max(0, enemyHazardCooldownRef.current - delta * 1000)
-          const hazardRunMs = roomStateMsRef.current + (dailyConfig?.hazardOffsetMs ?? 0)
+          const hazardRunMs = hazardClockMsRef.current + (dailyConfig?.hazardOffsetMs ?? 0)
           const hazards = hazardStatesForRunMs(hazardRunMs)
           applyHazardMeshes(runtime, hazards)
           if (prevHazardRunMsRef.current >= 0 && settingsRef.current.audio) {
