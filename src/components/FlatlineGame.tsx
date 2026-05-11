@@ -96,7 +96,7 @@ import { crossedComboMilestone, type ComboMilestone } from '@/game/comboMileston
 import { justCrossedPersonalBest } from '@/game/personalBest'
 import { isAmmoCritical, justHitLastAmmo } from '@/game/ammoWarning'
 import { isEnemyOnCrosshair } from '@/game/crosshairLock'
-import { combinedLightingIntensityScale } from '@/game/lightingPhase'
+import { combinedLightingIntensityScale, lightingColorForPhase, lightingPhase } from '@/game/lightingPhase'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
 import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
 import { encounterWaveSignal, lullStartedBetween, peakStartedBetween } from '@/game/encounterWave'
@@ -1517,13 +1517,23 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             }
           }
           prevHazardRunMsRef.current = hazardRunMs
+          // Effective pressure adds the encounter-wave delta so the
+          // emergency / flicker phases react to surge / peak windows
+          // earlier than the base ramp alone would trigger them.
+          // Matches the spawn-director call site in spawnDirector.ts.
+          const lightingPressure =
+            targetPressureForRunMs(directorRef.current.runMs) +
+            encounterWaveSignal(directorRef.current.runMs).targetDelta
           runtime.overhead.intensity =
             (55 + roomPressureIntensity(roomStateMsRef.current) * 35) *
             combinedLightingIntensityScale(
-              targetPressureForRunMs(directorRef.current.runMs),
+              lightingPressure,
               playerHealthRef.current,
               roomStateMsRef.current
             )
+          runtime.overhead.color.set(
+            lightingColorForPhase(lightingPhase(lightingPressure, playerHealthRef.current))
+          )
           runtime.movingCover.position.x = Math.sin(roomStateMsRef.current / 1800) * 2.2
 
           if (hazardDamageCooldownRef.current === 0) {

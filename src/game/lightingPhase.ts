@@ -18,11 +18,23 @@
  * pattern, occasionally hitting the trough so the room "stutters"
  * rather than wavering.
  */
-export type LightingPhase = 'normal' | 'flicker' | 'near-death'
+export type LightingPhase = 'normal' | 'flicker' | 'emergency' | 'near-death'
 
 export const FLICKER_PRESSURE_THRESHOLD = 0.7
 export const FLICKER_TROUGH_SCALE = 0.5
 export const FLICKER_PEAK_SCALE = 1.05
+
+// REQ-047 lighting emergency phase. Triggers when the spawn director's
+// integer pressure target reaches 6 (~150s into a run, or earlier during
+// surge / peak waves once the caller adds the encounter-wave delta).
+// Above this threshold the overhead light strobes red.
+export const EMERGENCY_PRESSURE_THRESHOLD = 6
+export const EMERGENCY_STEP_MS = 250
+export const EMERGENCY_BRIGHT_SCALE = 1.4
+export const EMERGENCY_DIM_SCALE = 0.3
+
+export const NORMAL_LIGHT_COLOR = '#50d1c0'
+export const EMERGENCY_LIGHT_COLOR = '#f23a3a'
 
 export const NEAR_DEATH_HEALTH_THRESHOLD = 25
 export const NEAR_DEATH_PULSE_HZ = 1.33
@@ -30,6 +42,10 @@ export const NEAR_DEATH_TROUGH_SCALE = 0.55
 export const NEAR_DEATH_PEAK_SCALE = 1.25
 
 export function lightingPhaseForPressure(pressure: number): LightingPhase {
+  if (pressure >= EMERGENCY_PRESSURE_THRESHOLD) {
+    return 'emergency'
+  }
+
   if (pressure >= FLICKER_PRESSURE_THRESHOLD) {
     return 'flicker'
   }
@@ -38,9 +54,11 @@ export function lightingPhaseForPressure(pressure: number): LightingPhase {
 }
 
 /**
- * Pick the active lighting phase from both signals. Near-death (low
- * player health) takes precedence over the wave-driven flicker so a
- * near-death player feels the heartbeat regardless of pressure.
+ * Pick the active lighting phase from both signals. Precedence:
+ * near-death > emergency > flicker > normal. Player state always wins
+ * because a near-death heartbeat is more urgent than any environmental
+ * cue; emergency wins over flicker because peak waves should override
+ * the lower-pressure stutter.
  */
 export function lightingPhase(pressure: number, playerHealth: number): LightingPhase {
   if (playerHealth <= NEAR_DEATH_HEALTH_THRESHOLD && playerHealth > 0) {
@@ -54,6 +72,14 @@ export function nearDeathIntensityScale(elapsedMs: number): number {
   const phase = (elapsedMs / 1000) * NEAR_DEATH_PULSE_HZ * 2 * Math.PI
   const norm = (Math.sin(phase) + 1) / 2
   return NEAR_DEATH_TROUGH_SCALE + norm * (NEAR_DEATH_PEAK_SCALE - NEAR_DEATH_TROUGH_SCALE)
+}
+
+// Two-step strobe: alternates a bright spike and a dim trough every
+// EMERGENCY_STEP_MS so the room reads as "red alert" rather than a
+// smooth red glow.
+export function emergencyIntensityScale(elapsedMs: number): number {
+  const step = Math.floor(elapsedMs / EMERGENCY_STEP_MS)
+  return step % 2 === 0 ? EMERGENCY_BRIGHT_SCALE : EMERGENCY_DIM_SCALE
 }
 
 export function flickerIntensityScale(elapsedMs: number): number {
@@ -82,10 +108,8 @@ export function lightingIntensityScale(pressure: number, elapsedMs: number): num
 }
 
 /**
- * Combined per-frame scale that picks the right modulation from
- * both the pressure-tied flicker and the health-tied near-death
- * pulse. Near-death wins on overlap because the player's situation
- * is more urgent than the room's.
+ * Combined per-frame scale across all four phases. Precedence:
+ * near-death > emergency > flicker > normal (see `lightingPhase`).
  */
 export function combinedLightingIntensityScale(
   pressure: number,
@@ -98,9 +122,20 @@ export function combinedLightingIntensityScale(
     return nearDeathIntensityScale(elapsedMs)
   }
 
+  if (phase === 'emergency') {
+    return emergencyIntensityScale(elapsedMs)
+  }
+
   if (phase === 'flicker') {
     return flickerIntensityScale(elapsedMs)
   }
 
   return 1
+}
+
+// Color override for the overhead light. Only the emergency phase tints
+// the room; near-death keeps the normal cool teal so the heartbeat reads
+// as a brightness pulse, not a color shift.
+export function lightingColorForPhase(phase: LightingPhase): string {
+  return phase === 'emergency' ? EMERGENCY_LIGHT_COLOR : NORMAL_LIGHT_COLOR
 }

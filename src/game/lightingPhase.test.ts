@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import {
+  EMERGENCY_BRIGHT_SCALE,
+  EMERGENCY_DIM_SCALE,
+  EMERGENCY_LIGHT_COLOR,
+  EMERGENCY_PRESSURE_THRESHOLD,
+  EMERGENCY_STEP_MS,
   FLICKER_PEAK_SCALE,
   FLICKER_PRESSURE_THRESHOLD,
   FLICKER_TROUGH_SCALE,
   NEAR_DEATH_HEALTH_THRESHOLD,
   NEAR_DEATH_PEAK_SCALE,
   NEAR_DEATH_TROUGH_SCALE,
+  NORMAL_LIGHT_COLOR,
   combinedLightingIntensityScale,
+  emergencyIntensityScale,
   flickerIntensityScale,
+  lightingColorForPhase,
   lightingIntensityScale,
   lightingPhase,
   lightingPhaseForPressure,
@@ -23,6 +31,41 @@ describe('lightingPhaseForPressure', () => {
   it('returns flicker at and above the threshold', () => {
     expect(lightingPhaseForPressure(FLICKER_PRESSURE_THRESHOLD)).toBe('flicker')
     expect(lightingPhaseForPressure(1)).toBe('flicker')
+  })
+
+  it('returns emergency once pressure reaches the emergency threshold', () => {
+    expect(lightingPhaseForPressure(EMERGENCY_PRESSURE_THRESHOLD - 0.01)).toBe('flicker')
+    expect(lightingPhaseForPressure(EMERGENCY_PRESSURE_THRESHOLD)).toBe('emergency')
+    expect(lightingPhaseForPressure(EMERGENCY_PRESSURE_THRESHOLD + 5)).toBe('emergency')
+  })
+})
+
+describe('emergencyIntensityScale', () => {
+  it('alternates bright and dim every EMERGENCY_STEP_MS (strobe)', () => {
+    expect(emergencyIntensityScale(0)).toBe(EMERGENCY_BRIGHT_SCALE)
+    expect(emergencyIntensityScale(EMERGENCY_STEP_MS - 1)).toBe(EMERGENCY_BRIGHT_SCALE)
+    expect(emergencyIntensityScale(EMERGENCY_STEP_MS)).toBe(EMERGENCY_DIM_SCALE)
+    expect(emergencyIntensityScale(EMERGENCY_STEP_MS * 2)).toBe(EMERGENCY_BRIGHT_SCALE)
+  })
+
+  it('keeps the dim trough noticeably darker than the bright peak (visible strobe)', () => {
+    expect(EMERGENCY_DIM_SCALE).toBeLessThan(EMERGENCY_BRIGHT_SCALE - 0.5)
+  })
+
+  it('is deterministic in elapsed time', () => {
+    expect(emergencyIntensityScale(700)).toBe(emergencyIntensityScale(700))
+  })
+})
+
+describe('lightingColorForPhase', () => {
+  it('tints to the emergency red only on emergency', () => {
+    expect(lightingColorForPhase('emergency')).toBe(EMERGENCY_LIGHT_COLOR)
+  })
+
+  it('returns the normal teal for every non-emergency phase', () => {
+    expect(lightingColorForPhase('normal')).toBe(NORMAL_LIGHT_COLOR)
+    expect(lightingColorForPhase('flicker')).toBe(NORMAL_LIGHT_COLOR)
+    expect(lightingColorForPhase('near-death')).toBe(NORMAL_LIGHT_COLOR)
   })
 })
 

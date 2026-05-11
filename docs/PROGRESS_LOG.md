@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-10, Lighting emergency phase (REQ-047 build log)
+
+- Branch: `feat/lighting-emergency`
+- PR: pending
+- Changed: ships the fourth of REQ-047's five lighting phases. New `'emergency'` enum value plus a 2 Hz red strobe that fires whenever effective pressure (raw target + encounter-wave delta) reaches `EMERGENCY_PRESSURE_THRESHOLD = 6`. Strobe alternates bright (1.4x) and dim (0.3x) intensity every 250 ms; the overhead light's color tints to `#f23a3a` while emergency, back to the normal teal `#50d1c0` otherwise. Precedence is `near-death > emergency > flicker > normal` so a dying player at peak pressure still feels the heartbeat. New helpers `emergencyIntensityScale` and `lightingColorForPhase`. Caller in `FlatlineGame.tsx` now passes effective pressure (`targetPressureForRunMs + encounterWaveSignal.targetDelta`) instead of raw pressure so the strobe fires during surge / peak waves earlier in the run, matching how the spawn director itself reads pressure.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm run lint` (0 errors), `npm test` (690 / 690, +6 new for the emergency phase + color helper).
+- Assumptions: Recommended default trigger 6 (matches end-of-mid-run pressure curve OR earlier during a peak wave from pressure 4 + delta 2). Recommended default keeps emergency RED only on its own phase, not on near-death; near-death is a player-state cue and the heartbeat brightness reads better unblended. Recommended default 2 Hz strobe so the alarm reads as electrical (not as a flicker, which is already its own phase).
+- GDD coverage: REQ-047 stays `partial`. Build log entry appended.
+- Followups: darkness with enemy eyes phase (the fifth lighting state), hazard phase mutations, cover phase mutations.
+
 ## 2026-05-10, Moving cover slab (REQ-059 build log)
 
 - Branch: `feat/moving-cover`
