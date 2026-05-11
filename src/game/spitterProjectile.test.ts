@@ -121,6 +121,32 @@ describe('tickSpitterProjectile cover blocking', () => {
     const stepped = tickSpitterProjectile(projectile, 100)
     expect(stepped.blockedByCover).toBe(false)
   })
+
+  it('respects a custom coverRects list, then stops blocking once a rect is removed (breakable destroyed)', () => {
+    // Single isolated rect on the path; projectile is blocked.
+    const wallRect = { x: -3.5, z: -1.8, halfW: 0.5, halfL: 0.5 }
+    const projectile = createSpitterProjectile(
+      'p-cov-runtime',
+      { x: -5, y: 1.05, z: -1.8 },
+      { x: 1, y: 0, z: 0 },
+      8,
+      8,
+      'spitter-source'
+    )
+    const blocked = tickSpitterProjectile(projectile, 500, [wallRect])
+    expect(blocked.blockedByCover).toBe(true)
+    // With the rect removed, the same projectile path is clear.
+    const fresh = createSpitterProjectile(
+      'p-cov-runtime-2',
+      { x: -5, y: 1.05, z: -1.8 },
+      { x: 1, y: 0, z: 0 },
+      8,
+      8,
+      'spitter-source'
+    )
+    const passes = tickSpitterProjectile(fresh, 500, [])
+    expect(passes.blockedByCover).toBe(false)
+  })
 })
 
 describe('spitterProjectileHitsPlayer', () => {

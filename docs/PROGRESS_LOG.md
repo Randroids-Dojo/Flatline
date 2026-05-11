@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-10, Cover-aware projectiles (REQ-059 build log)
+
+- Branch: `feat/cover-aware-projectiles`
+- PR: #156
+- Changed: closes the two explicit followups left in PR #155's build log. Spitter projectile and inkblaster projectile now both respect the runtime cover-rect list, so destroying a crate frees the path for both. Plumbing: `tickSpitterProjectile` in `src/game/spitterProjectile.ts` gains an optional `coverRects` param defaulting to `ARENA_COVER_RECTS`; the per-call `inflateCoverRects` helper replaces the module-level `INFLATED_COVER_RECTS` const so the inflation runs against whatever rects the caller passes. `tickInkProjectiles` in `src/components/FlatlineGame.tsx` gains the same `coverRects` param and now returns `{ enemyHits, coverRectHits }`; the per-step segment test reuses `segmentBlockedByRects` exactly the way the hitscan path does and the caller routes cover hits through the existing `damageBreakableAt` callback via the existing `collapsePelletCoverHits` dedup helper (in case of a future multi-step projectile that crosses two rects). FlatlineGame's animate loop now passes `coverRectsRef.current` into both `tickAndResolveSpitterProjectiles` and `tickInkProjectiles`. New test in `src/game/spitterProjectile.test.ts` locks in: with a custom rects list, a projectile is blocked; with that list emptied (rect "destroyed"), the same path is clear.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm run lint` (0 errors), `npm test` (673 / 673, +1 spitter cover-runtime test), `npm run build`.
+- Assumptions: Recommended default keeps both projectiles fully consumed by cover (no splash through). Doom-correct behavior; allowing splash through would mean an inkblaster could damage an enemy on the far side of cover, which would be exactly the tactic the "juice not tactics" framing rejects. Recommended default makes inkblaster damage crates the same way hitscan does, so the player's mental model is "my weapons affect breakable cover" with no per-weapon special case. Recommended default leaves enemy spitter projectiles incapable of damaging breakable cover; an enemy projectile that breaks the player's cover is hostile design and the spitter is already a ranged threat without needing a cover-removal verb.
+- GDD coverage: `REQ-059` stays `partial`. Build log entry appended to `docs/gdd/59-post-mvp-room-v1.md`. `implementationRefs` already covers `src/game/spitterProjectile.ts` via REQ-031 (no change needed here).
+- Followups: partition / broken-wall destructibility (each is its own slice with its own playtest signal), pre-break impact dust on partial damage (only relevant if multi-hit props ship later), score floater on break (defer until score-token / floater families converge per REQ-035 tuning), one-moving-cover-element-that-cycles-predictably (the remaining unbuilt REQ-059 beat).
+
 ## 2026-05-10, Breakable cover v1: shootable crates (REQ-059 build log)
 
 - Branch: `feat/breakable-crates`
