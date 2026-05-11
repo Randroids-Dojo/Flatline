@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-10, Moving cover slab (REQ-059 build log)
+
+- Branch: `feat/moving-cover`
+- PR: pending
+- Changed: closes the last unbuilt REQ-059 beat ("one moving cover element that cycles predictably"). A new steel slab sweeps east-west across z=4 between the altar and the north spawn doors, traveling between x=-3.5 and x=3.5 on an 8-second linear triangle wave (4s each direction). New pure helpers in `src/game/movingCover.ts` cover the period / endpoints / dimensions constants, a `movingCoverPositionX` triangle-wave interpolator (with safe handling of zero / negative period and negative elapsed time), and a `movingCoverRectAt(elapsedMs)` that returns the corresponding CoverRect. The slab is solid (not breakable). A new seed rect is appended to `ARENA_COVER_RECTS` at index 8 holding the start-of-cycle position; FlatlineGame's animate loop overwrites that entry in `coverRectsRef.current` every frame BEFORE the player / enemy clamps run so the collision rect tracks the visual. The mesh (a `BoxGeometry(1.0, 1.8, 0.4)` with a dark steel `MeshStandardMaterial`, set in `createRoom`) mirrors the same rect each frame. `damageBreakableAt` now decrements `movingCoverRectIndexRef.current` when a breakable splice happens below it so the mover's rect stays addressable after either crate is destroyed. `startRun` resets the elapsed timer to 0 and pins the index back to 8.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm run lint` (0 errors), `npm test` (684 / 684, +11 new for the pure helper), `npm run build`.
+- Assumptions: Recommended default places the slab at z=4 (between altar and north doors) so the player encounters it on north-bound traversal but never blocking the south-spawn approach. Recommended default uses linear (not sinusoidal) motion so "predictably" in the spec maps to "countable beats" rather than a feel that the player has to learn by curve. Recommended default 8s period is fast enough to feel kinetic but slow enough that a player who is not paying attention can still time a crossing. Recommended default uses a steel-grey `MeshStandardMaterial` (not a billboard texture) so the slab reads as architecturally distinct from the rubber-hose billboard cover; this also keeps the slice texture-asset-free. Recommended default keeps the slab solid (not breakable) since the spec lists "breakable props" and "moving cover" as separate beats.
+- GDD coverage: `REQ-059` stays `partial` because partition / broken-wall destructibility is still listed as a beat in the spec text and remains intentionally deferred to a per-prop playtest signal. The narrative text in `docs/gdd/59-post-mvp-room-v1.md` is updated to record which beats shipped and which are explicit-out-of-scope.
+- Followups: partition / broken-wall destructibility (each its own slice with its own playtest signal). Score floater on slab-block (defer until the score-token / floater families converge). A second moving cover element if playtest asks for it.
+
 ## 2026-05-10, Cover-aware projectiles (REQ-059 build log)
 
 - Branch: `feat/cover-aware-projectiles`
