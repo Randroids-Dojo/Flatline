@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-11, Moving cover speed scales with room pressure (REQ-059 build log)
+
+- Branch: `feat/moving-cover-speed-scales`
+- PR: #166
+- Changed: the single moving slab now sweeps faster as room pressure rises. `movingCoverElapsedMsRef` advances at `delta * 1000 * movingCoverClockRate(pressure)` per frame, where pressure is the same 0..1 ramp the hazard slice uses. New pure helpers in `src/game/movingCover.ts`: `MOVING_COVER_MIN_PERIOD_SCALE = 0.6` (floor), `movingCoverPeriodScale(pressure)` (linear 1 → 0.6 ramp), and `movingCoverClockRate(pressure)` (inverse so the clock advances ~1.67x at peak pressure). Phase stays continuous when pressure drifts because the clock is scaled, not the period itself. Sweep endpoints, triangle wave shape, and rest of the rect API are untouched.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm test` (742 / 742, +7 new for cover speed scaling), `npm run lint` (0 errors, 9 pre-existing warnings), `npm run build`.
+- Assumptions: Recommended default mirrors the hazard slice's pressure source (`roomPressureIntensity(roomStateMsRef.current)`) so cover and hazards intensify in lockstep without a separate ramp. Recommended default uses the same `0.6` floor as hazards so both knobs feel coherent.
+- GDD coverage: REQ-059 stays `partial`. Additional moving cover elements are explicit out-of-scope; partition / broken-wall destructibility and crate variants remain.
+- Followups: hitstop-on-break, pre-break impact dust, partition / broken-wall destructibility, additional breakable prop types.
+
 ## 2026-05-11, Hazard cycles compress with room pressure (REQ-047 build log)
 
 - Branch: `feat/hazard-cycle-scales-with-pressure`

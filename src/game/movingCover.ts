@@ -44,3 +44,27 @@ export function movingCoverRectAt(
     halfL: MOVING_COVER_HALF_L
   }
 }
+
+// Multiplier applied to the moving cover sweep period as room
+// pressure rises. At pressure 0 the slab keeps its baseline period;
+// at pressure 1 the period compresses to
+// `MOVING_COVER_MIN_PERIOD_SCALE` so the slab sweeps faster. Caller
+// scales the cover clock rather than the period directly so the
+// phase stays continuous when pressure drifts mid-run.
+export const MOVING_COVER_MIN_PERIOD_SCALE = 0.6
+export function movingCoverPeriodScale(pressure: number): number {
+  if (!Number.isFinite(pressure) || pressure <= 0) {
+    return 1
+  }
+  if (pressure >= 1) {
+    return MOVING_COVER_MIN_PERIOD_SCALE
+  }
+  return 1 + (MOVING_COVER_MIN_PERIOD_SCALE - 1) * pressure
+}
+
+// Inverse of the period scale. Multiply wall-clock delta by this when
+// advancing the moving cover clock so a 0.6 period scale advances the
+// clock ~1.67x faster at peak pressure.
+export function movingCoverClockRate(pressure: number): number {
+  return 1 / movingCoverPeriodScale(pressure)
+}
