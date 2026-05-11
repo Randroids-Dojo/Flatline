@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity } from './hazards'
+import {
+  HAZARD_MIN_CYCLE_SCALE,
+  hazardClockRate,
+  hazardCycleScale,
+  hazardDamageAtPosition,
+  hazardStatesForRunMs,
+  roomPressureIntensity
+} from './hazards'
 
 describe('hazards', () => {
   it('starts with a flame lane warning before activation', () => {
@@ -18,5 +25,56 @@ describe('hazards', () => {
     expect(roomPressureIntensity(0)).toBe(0)
     expect(roomPressureIntensity(90000)).toBeCloseTo(0.5)
     expect(roomPressureIntensity(999999)).toBe(1)
+  })
+})
+
+describe('hazardCycleScale', () => {
+  it('runs at baseline at pressure 0 so early-run cycles match the legacy timing', () => {
+    expect(hazardCycleScale(0)).toBe(1)
+  })
+
+  it('compresses to the floor at peak pressure', () => {
+    expect(hazardCycleScale(1)).toBe(HAZARD_MIN_CYCLE_SCALE)
+  })
+
+  it('interpolates linearly between baseline and floor', () => {
+    expect(hazardCycleScale(0.5)).toBeCloseTo(1 + (HAZARD_MIN_CYCLE_SCALE - 1) * 0.5)
+  })
+
+  it('clamps non-finite and negative pressures to baseline', () => {
+    expect(hazardCycleScale(Number.NaN)).toBe(1)
+    expect(hazardCycleScale(-1)).toBe(1)
+  })
+
+  it('clamps pressures above 1 to the floor', () => {
+    expect(hazardCycleScale(3)).toBe(HAZARD_MIN_CYCLE_SCALE)
+  })
+
+  it('floor is well below baseline so the player feels the compression', () => {
+    expect(HAZARD_MIN_CYCLE_SCALE).toBeLessThan(0.75)
+    expect(HAZARD_MIN_CYCLE_SCALE).toBeGreaterThan(0.4)
+  })
+})
+
+describe('hazardClockRate', () => {
+  it('runs at real time at pressure 0', () => {
+    expect(hazardClockRate(0)).toBe(1)
+  })
+
+  it('advances faster at peak pressure', () => {
+    expect(hazardClockRate(1)).toBeCloseTo(1 / HAZARD_MIN_CYCLE_SCALE)
+  })
+
+  it('is the multiplicative inverse of hazardCycleScale', () => {
+    for (const pressure of [0, 0.25, 0.5, 0.75, 1]) {
+      expect(hazardClockRate(pressure) * hazardCycleScale(pressure)).toBeCloseTo(1)
+    }
+  })
+
+  it('rises monotonically with pressure', () => {
+    const samples = [0, 0.25, 0.5, 0.75, 1].map(hazardClockRate)
+    for (let i = 1; i < samples.length; i += 1) {
+      expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1])
+    }
   })
 })

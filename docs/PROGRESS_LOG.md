@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-11, Hazard cycles compress with room pressure (REQ-047 build log)
+
+- Branch: `feat/hazard-cycle-scales-with-pressure`
+- PR: pending
+- Changed: ships the first hazard phase mutation from REQ-047. Hazard timeline now lives on a separate `hazardClockMsRef` clock that advances at `delta * hazardClockRate(pressure)` per frame, where `pressure = roomPressureIntensity(roomStateMsRef.current)`. New pure helpers in `src/game/hazards.ts`: `HAZARD_MIN_CYCLE_SCALE = 0.6`, `hazardCycleScale(pressure)` (linear 1 → 0.6 ramp), and `hazardClockRate(pressure)` (inverse so the clock advances ~1.67x at peak pressure). The cycle config is unchanged so warning : active : idle ratios stay preserved; only the wall-clock period between cycles compresses. `roomStateMsRef` stays on real time so lighting and the moving cover oscillator are not knocked off-tempo. `startRun` resets the new clock to 0.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm test` (735 / 735, +10 new for cycle scaling), `npm run lint` (0 errors, 9 pre-existing warnings), `npm run build`.
+- Assumptions: Recommended default scales only the cycle period, not the warning or active windows, so the player keeps the same telegraph duration; only the idle gap shrinks. Recommended default uses `roomPressureIntensity(roomStateMsRef.current)` as the pressure source (the 0..1 ramp over 0..180 s) rather than the spawn-director enemy-count pressure so the hazard ramp is decoupled from wave surges.
+- GDD coverage: REQ-047 stays `partial`. Door jam-open / door smoke burst, hazard floor-trap + center-zone + corner-pickup-trap + wall-vent variants, and cover phase mutations remain.
+- Followups: door jam-open phase, door smoke burst, hazard floor-trap variant, hazard center-zone variant, hazard corner-pickup-trap variant, hazard wall-vent variant.
+
 ## 2026-05-11, Crate destruction grants score and floater (REQ-059 build log)
 
 - Branch: `feat/crate-destruction-score-floater`
