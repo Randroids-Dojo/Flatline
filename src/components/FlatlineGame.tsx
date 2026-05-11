@@ -75,6 +75,7 @@ import {
 } from '@/game/hudJitter'
 import { ARENA_COVER_RECTS, clampOutsideRects, segmentBlockedByRects, type CoverRect } from '@/game/coverCollision'
 import { BREAKABLE_CRATE_HP, collapsePelletCoverHits, renumberMapAfterSplice, spliceRectAt } from '@/game/breakableCover'
+import { MOVING_COVER_HEIGHT_M, MOVING_COVER_HALF_L, MOVING_COVER_HALF_W, movingCoverRectAt } from '@/game/movingCover'
 import { updatePlayerPosition } from '@/game/movement'
 import { muzzleFlashStyle } from '@/game/muzzleFlash'
 import { healthPickupAmount, healthPickupTier } from '@/game/healthPickupTier'
@@ -498,6 +499,13 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   // Original mesh refs survive across runs so startRun can rebuild the
   // active map and restore mesh visibility for the next run.
   const originalCrateMeshesRef = useRef<THREE.Mesh[]>([])
+  // REQ-059 moving cover. The mesh lives across runs; the rect is at
+  // index `movingCoverRectIndexRef.current` of `coverRectsRef.current`
+  // and gets overwritten in place each frame. The index ref shifts
+  // down by one whenever a breakable rect below it is spliced out.
+  const movingCoverMeshRef = useRef<THREE.Mesh | null>(null)
+  const movingCoverRectIndexRef = useRef<number>(8)
+  const movingCoverElapsedMsRef = useRef<number>(0)
   const [creditsEarnedThisRun, setCreditsEarnedThisRun] = useState<number>(0)
   const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
   const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>(() => createPracticeSettings())
@@ -645,6 +653,11 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     coverRectsRef.current = spliceRectAt(coverRectsRef.current, rectIndex)
     breakableMeshesRef.current = renumberMapAfterSplice(breakableMeshesRef.current, rectIndex)
     breakableHpRef.current = renumberMapAfterSplice(breakableHpRef.current, rectIndex)
+    // The moving cover rect lives at a known index in coverRectsRef; if
+    // the splice removed a rect below it, that index just shifted down.
+    if (rectIndex < movingCoverRectIndexRef.current) {
+      movingCoverRectIndexRef.current -= 1
+    }
     playCue(110, settingsRef.current.audio)
   }, [])
 
@@ -870,6 +883,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     for (const mesh of restoredMeshes) {
       mesh.visible = true
     }
+    // Reset the moving cover so each run starts from the same beat.
+    movingCoverElapsedMsRef.current = 0
+    movingCoverRectIndexRef.current = 8
     setRageActive(false)
     setRageTint(0)
     scoreTokenStateRef.current = null
@@ -1234,6 +1250,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       [4, BREAKABLE_CRATE_HP],
       [5, BREAKABLE_CRATE_HP]
     ])
+    movingCoverMeshRef.current = roomVisuals.movingCover
+    movingCoverRectIndexRef.current = 8
 
     const enemySlots: EnemyRenderSlot[] = []
 
@@ -1366,6 +1384,21 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       setWeaponReady((current) => current === selectedWeaponReady ? current : selectedWeaponReady)
 
       if (runningRef.current && !pausedRef.current) {
+        // REQ-059 moving cover: advance the elapsed timer and write the
+        // new rect into coverRectsRef BEFORE player movement / enemy AI
+        // clamp so the slab is up-to-date for every collision read this
+        // frame. The mesh position mirrors the rect for visual sync.
+        movingCoverElapsedMsRef.current += delta * 1000
+        const movingRect = movingCoverRectAt(movingCoverElapsedMsRef.current)
+        const moverIndex = movingCoverRectIndexRef.current
+        if (moverIndex >= 0 && moverIndex < coverRectsRef.current.length) {
+          coverRectsRef.current[moverIndex] = movingRect
+        }
+        const moverMesh = movingCoverMeshRef.current
+        if (moverMesh) {
+          moverMesh.position.set(movingRect.x, MOVING_COVER_HEIGHT_M / 2, movingRect.z)
+        }
+
         const touchLook = touchLookVectorRef.current
 
         if (touchLook.x !== 0 || touchLook.y !== 0) {
@@ -3200,11 +3233,30 @@ function createRoom() {
   addDoorVisual(group, doorSignals, 'east', { x: 9.78, y: 1.12, z: 0 }, new THREE.BoxGeometry(0.08, 1.8, 2.25), doorMaterial)
   addDoorVisual(group, doorSignals, 'west', { x: -9.78, y: 1.12, z: 0 }, new THREE.BoxGeometry(0.08, 1.8, 2.25), doorMaterial)
 
+  // REQ-059 moving cover slab. Dimensions and starting position match
+  // the seed rect appended to ARENA_COVER_RECTS; FlatlineGame's
+  // animate loop drives both the mesh `position.x` and the matching
+  // CoverRect every frame.
+  const movingCoverMaterial = new THREE.MeshStandardMaterial({
+    color: '#3a3d40',
+    roughness: 0.72,
+    metalness: 0.22
+  })
+  const movingCover = new THREE.Mesh(
+    new THREE.BoxGeometry(MOVING_COVER_HALF_W * 2, MOVING_COVER_HEIGHT_M, MOVING_COVER_HALF_L * 2),
+    movingCoverMaterial
+  )
+  movingCover.position.set(-3.5, MOVING_COVER_HEIGHT_M / 2, 4)
+  movingCover.castShadow = true
+  movingCover.receiveShadow = true
+  group.add(movingCover)
+
   return {
     group,
     doorSignals,
     pickup: { altar, halo: pickupHalo, restY: altarRestY },
-    breakableCrateMeshes
+    breakableCrateMeshes,
+    movingCover
   }
 }
 

@@ -33,7 +33,12 @@ export const ARENA_COVER_RECTS: readonly CoverRect[] = [
   // Partition by the west pillar pair.
   { x: -3.5, z: 0.15, halfW: 0.45, halfL: 0.2 },
   // Broken-wall fragment by the east pillar pair.
-  { x: 3.5, z: 0.15, halfW: 0.8, halfL: 0.3 }
+  { x: 3.5, z: 0.15, halfW: 0.8, halfL: 0.3 },
+  // REQ-059 moving cover element. The rect is the *seed* position
+  // (start of the east-west sweep at the west endpoint); FlatlineGame
+  // overwrites this entry every frame from `movingCoverRectAt` so the
+  // collision rect tracks the visual mesh.
+  { x: -3.5, z: 4, halfW: 0.5, halfL: 0.2 }
 ]
 
 // Push the (x, z) point out of every rect that overlaps a circle of
