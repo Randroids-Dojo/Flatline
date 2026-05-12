@@ -43,6 +43,16 @@ import {
   scoreTokenPickupIds,
   shouldDropScoreToken
 } from '@/game/scoreTokenDrop'
+import {
+  AMMO_DROP_TTL_MS,
+  ammoDropBobY,
+  ammoDropBoomstickAmount,
+  ammoDropInkblasterAmount,
+  ammoDropPalette,
+  ammoDropPickupIds,
+  rollAmmoDrop,
+  type AmmoDropKind
+} from '@/game/ammoDrop'
 import { weaponFireCue, type WeaponFireCueStyle } from '@/game/weaponFireCue'
 import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
@@ -308,6 +318,20 @@ type ScoreTokenDropEntry = {
   mesh: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>
 }
 
+type AmmoDropEntry = {
+  id: string
+  kind: AmmoDropKind
+  position: { x: number; y: number; z: number }
+  ageMs: number
+  // The pickup is a small group: an emissive body box, a thin accent
+  // strip, and a floor halo so the box reads against any lighting
+  // phase. Disposed atomically when the drop is collected or expires.
+  group: THREE.Group
+  body: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
+  accent: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
+  halo: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
+}
+
 type InkProjectile = {
   group: THREE.Group
   core: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
@@ -389,6 +413,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const enemyDeathPopsRef = useRef<EnemyDeathPop[]>([])
   const scoreTokenDropsRef = useRef<ScoreTokenDropEntry[]>([])
   const scoreTokenDropSeqRef = useRef<number>(0)
+  const ammoDropsRef = useRef<AmmoDropEntry[]>([])
+  const ammoDropSeqRef = useRef<number>(0)
   // Snapshot of enemy ids that were already dead at the start of the
   // last animate frame. The post-update phase scans for enemies that
   // are dead now but were not in this snapshot to spawn the death-pop
@@ -983,6 +1009,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     clearScoreTokenDrops(runtimeRef.current, scoreTokenDropsRef.current)
     scoreTokenDropsRef.current = []
     scoreTokenDropSeqRef.current = 0
+    clearAmmoDrops(runtimeRef.current, ammoDropsRef.current)
+    ammoDropsRef.current = []
+    ammoDropSeqRef.current = 0
     previouslyDeadEnemyIdsRef.current = new Set()
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
     clearSpitterProjectiles(runtimeRef.current, spitterProjectilesRef.current)
@@ -2031,6 +2060,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                   candidate.position
                 )
               }
+              const ammoKind = rollAmmoDrop(candidate.type, Math.random())
+              if (ammoKind !== null) {
+                ammoDropSeqRef.current += 1
+                spawnAmmoDrop(
+                  runtime,
+                  ammoDropsRef.current,
+                  `ammo-drop-${ammoDropSeqRef.current}`,
+                  ammoKind,
+                  candidate.position
+                )
+              }
             }
           }
           previouslyDeadEnemyIdsRef.current = stillDead
@@ -2186,6 +2226,51 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         }
       }
 
+      tickAmmoDropEntries(runtime, ammoDropsRef.current, delta * 1000)
+
+      const ammoPickups = ammoDropPickupIds(ammoDropsRef.current, positionRef.current)
+      if (ammoPickups.length > 0) {
+        const pickedSet = new Set(ammoPickups)
+        const remaining: AmmoDropEntry[] = []
+        let boomstickAdd = 0
+        let inkblasterAdd = 0
+        let sawShell = false
+        let sawCell = false
+
+        for (const entry of ammoDropsRef.current) {
+          if (pickedSet.has(entry.id)) {
+            runtime.shotGroup.remove(entry.group)
+            entry.body.geometry.dispose()
+            entry.body.material.dispose()
+            entry.accent.geometry.dispose()
+            entry.accent.material.dispose()
+            entry.halo.geometry.dispose()
+            entry.halo.material.dispose()
+            boomstickAdd += ammoDropBoomstickAmount(entry.kind)
+            inkblasterAdd += ammoDropInkblasterAmount(entry.kind)
+            if (entry.kind === 'shell-small' || entry.kind === 'shell-large') sawShell = true
+            if (entry.kind === 'cell-small' || entry.kind === 'cell-large') sawCell = true
+          } else {
+            remaining.push(entry)
+          }
+        }
+
+        ammoDropsRef.current = remaining
+
+        if (boomstickAdd > 0 || inkblasterAdd > 0) {
+          const ammoBonus = effectiveMaxAmmoBonus(walletRef.current.tiers)
+          weaponAmmoRef.current = collectWeaponAmmo(
+            weaponAmmoRef.current,
+            boomstickAdd,
+            inkblasterAdd,
+            ammoBonus
+          )
+          setWeaponAmmo(weaponAmmoRef.current)
+          if (sawShell) playPickupCue(pickupCue('ammo-shell'), settingsRef.current.audio)
+          if (sawCell) playPickupCue(pickupCue('ammo-cell'), settingsRef.current.audio)
+        }
+      }
+
 
       // Feel pass: scan alive enemies for one inside the soft crosshair
       // cone. The state setter is gated against the previous value so
@@ -2319,6 +2404,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       clearEnemyDeathPops(runtimeRef.current, enemyDeathPopsRef.current)
       clearScoreTokenDrops(runtimeRef.current, scoreTokenDropsRef.current)
       scoreTokenDropsRef.current = []
+      clearAmmoDrops(runtimeRef.current, ammoDropsRef.current)
+      ammoDropsRef.current = []
       clearInkProjectiles(runtimeRef.current, inkProjectiles)
       clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
       stopMusicLayer(musicLayerRef.current)
@@ -3776,6 +3863,134 @@ function clearScoreTokenDrops(runtime: RuntimeRefs | null, drops: ScoreTokenDrop
     runtime?.shotGroup.remove(drop.mesh)
     drop.mesh.geometry.dispose()
     drop.mesh.material.dispose()
+  }
+}
+
+// Doom-style ammo pickup: small emissive box (the body), a thin
+// accent strip on the upper face, and a soft additive halo on the
+// floor so the pickup sits visibly against any lighting phase.
+// Large variants get bigger geometry + a stronger glow so the player
+// reads the rarity by size.
+function spawnAmmoDrop(
+  runtime: RuntimeRefs,
+  drops: AmmoDropEntry[],
+  id: string,
+  kind: AmmoDropKind,
+  position: { x: number; y: number; z: number }
+) {
+  const palette = ammoDropPalette(kind)
+  const isLarge = kind === 'shell-large' || kind === 'cell-large'
+  const w = isLarge ? 0.34 : 0.22
+  const h = isLarge ? 0.22 : 0.16
+  const d = isLarge ? 0.26 : 0.18
+
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshStandardMaterial({
+      color: palette.body,
+      emissive: palette.glow,
+      emissiveIntensity: isLarge ? 0.55 : 0.4,
+      metalness: 0.2,
+      roughness: 0.45
+    })
+  )
+  body.castShadow = false
+  body.receiveShadow = false
+
+  const accent = new THREE.Mesh(
+    new THREE.BoxGeometry(w * 0.96, h * 0.16, d * 0.6),
+    new THREE.MeshStandardMaterial({
+      color: palette.accent,
+      emissive: palette.accent,
+      emissiveIntensity: 0.7,
+      metalness: 0.1,
+      roughness: 0.3
+    })
+  )
+  accent.position.y = h * 0.5 + h * 0.08
+
+  const halo = new THREE.Mesh(
+    new THREE.RingGeometry(isLarge ? 0.32 : 0.24, isLarge ? 0.48 : 0.36, 24),
+    new THREE.MeshBasicMaterial({
+      color: palette.glow,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide
+    })
+  )
+  halo.rotation.x = -Math.PI / 2
+  halo.position.y = -h * 0.45
+
+  const group = new THREE.Group()
+  group.add(body)
+  group.add(accent)
+  group.add(halo)
+  group.position.set(position.x, ammoDropBobY(0), position.z)
+  group.renderOrder = 6
+
+  runtime.shotGroup.add(group)
+
+  drops.push({
+    id,
+    kind,
+    position: { x: position.x, y: position.y, z: position.z },
+    ageMs: 0,
+    group,
+    body,
+    accent,
+    halo
+  })
+}
+
+function tickAmmoDropEntries(runtime: RuntimeRefs, drops: AmmoDropEntry[], deltaMs: number) {
+  for (let index = drops.length - 1; index >= 0; index -= 1) {
+    const drop = drops[index]
+    drop.ageMs += deltaMs
+
+    if (drop.ageMs >= AMMO_DROP_TTL_MS) {
+      runtime.shotGroup.remove(drop.group)
+      drop.body.geometry.dispose()
+      drop.body.material.dispose()
+      drop.accent.geometry.dispose()
+      drop.accent.material.dispose()
+      drop.halo.geometry.dispose()
+      drop.halo.material.dispose()
+      drops.splice(index, 1)
+      continue
+    }
+
+    drop.group.position.y = ammoDropBobY(drop.ageMs)
+    drop.group.rotation.y += deltaMs * 0.0025
+    // Fade the last 600 ms so the box reads as "running out" before
+    // it vanishes (matches the score-token fade contract).
+    const ttlRemaining = Math.max(0, AMMO_DROP_TTL_MS - drop.ageMs)
+    const fade = Math.min(1, ttlRemaining / 600)
+    drop.body.material.opacity = 0.85 + 0.15 * fade
+    drop.body.material.transparent = true
+    drop.accent.material.opacity = 0.95 * fade + 0.05
+    drop.accent.material.transparent = true
+    const haloPulse = 0.55 + 0.2 * Math.sin((drop.ageMs / 1000) * 2 * Math.PI * 2.4)
+    drop.halo.material.opacity = haloPulse * fade
+  }
+}
+
+function clearAmmoDrops(runtime: RuntimeRefs | null, drops: AmmoDropEntry[]) {
+  while (drops.length > 0) {
+    const drop = drops.pop()
+
+    if (!drop) {
+      return
+    }
+
+    runtime?.shotGroup.remove(drop.group)
+    drop.body.geometry.dispose()
+    drop.body.material.dispose()
+    drop.accent.geometry.dispose()
+    drop.accent.material.dispose()
+    drop.halo.geometry.dispose()
+    drop.halo.material.dispose()
   }
 }
 
