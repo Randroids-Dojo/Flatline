@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-12, Doom-style ammo pickup drops (REQ-034 build log)
+
+- Branch: `feat/doom-style-ammo-pickups`
+- PR: #169
+- Changed: ammo now drops as visible Doom-style pickups when enemies die. Four kinds in two families: shell-small / shell-large (red body, yellow accent, warm glow, +1 / +3 boomstick rounds) and cell-small / cell-large (blue body, cyan accent, cool glow, +1 / +2 inkblaster rounds). Drop chance varies by enemy type so a grunt mostly drops shells, a spitter mostly drops cells, a brute occasionally drops the large box. Each pickup renders as a body box + accent strip + floor halo group, bobs at 1.5 Hz, spins around Y, fades the last 0.6 s before its 6.5 s TTL, and collects on player overlap (radius 0.95 m). Two new pickup cue styles play on collect: shell (520 Hz / 720 Hz square) and cell (660 Hz / 990 Hz triangle).
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm test` (774 / 774, +20 new for ammoDrop), `npm run lint` (0 errors, 3 pre-existing warnings), `npm run build`.
+- Assumptions: Recommended default keeps the central altar refill behavior unchanged so the existing supply loop stays untouched; the new drops are additive loot. Recommended default sums per-enemy drop chance to under 1 so most kills still drop nothing, which keeps the floor uncluttered. Weapons are all pre-unlocked in this game so "weapon pickups" map to the large-variant of the matching ammo box (the visual + amount distinguish a rare loot drop from a common one).
+- GDD coverage: REQ-034 stays `done` (audit already passed; this slice adds visible drops without changing existing refill rules).
+- Followups: visual review of pickup color contrast under the darkness lighting phase; consider weapon-specific assets if the box geometry feels too primitive.
+
 ## 2026-05-11, HUD redesigned into proper game-HUD regions (REQ-039 build log)
 
 - Branch: `feat/hud-redesign`

@@ -29,7 +29,7 @@
  * but below the player-damage stings so collecting supplies feels
  * confirming without overpowering the in-progress combat audio.
  */
-export type PickupKind = 'supply'
+export type PickupKind = 'supply' | 'ammo-shell' | 'ammo-cell'
 
 export type PickupCueStyle = {
   firstFrequency: number
@@ -49,8 +49,35 @@ const supplyStyle: PickupCueStyle = {
   gain: 0.04
 }
 
+// Ammo shells: warmer, lower than the supply sparkle so the player
+// hears "weapon refill" rather than "supplies." Square wave gives a
+// faintly mechanical click that suits a shell box landing.
+const ammoShellStyle: PickupCueStyle = {
+  firstFrequency: 520,
+  secondFrequency: 720,
+  waveform: 'square',
+  firstDurationMs: 90,
+  secondDurationMs: 70,
+  gain: 0.035
+}
+
+// Energy cells: brighter and faster, with a triangle wave so the cue
+// reads as electronic rather than mechanical.
+const ammoCellStyle: PickupCueStyle = {
+  firstFrequency: 660,
+  secondFrequency: 990,
+  waveform: 'triangle',
+  firstDurationMs: 80,
+  secondDurationMs: 70,
+  gain: 0.035
+}
+
 export function pickupCue(kind: PickupKind): PickupCueStyle {
   switch (kind) {
+    case 'ammo-shell':
+      return ammoShellStyle
+    case 'ammo-cell':
+      return ammoCellStyle
     case 'supply':
     default:
       return supplyStyle
