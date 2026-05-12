@@ -31,7 +31,6 @@ test('starts a walk and shoot run', async ({ page }, testInfo) => {
   await expect(page.getByTestId('combo-pill')).toContainText('0')
   await expect(page.getByTestId('weapon-ready')).toContainText('Ready')
   await expect(page.getByTestId('weapon-sprite')).toHaveClass(/weapon-peashooter/)
-  await expect(page.getByTestId('billboard-debug')).toContainText('front')
   await expect(page.getByTestId('status-line')).toContainText('WASD')
 
   // Doom-feel HUD pills render at run start. dash-ready and wave-pill
@@ -45,7 +44,6 @@ test('starts a walk and shoot run', async ({ page }, testInfo) => {
 
   await page.mouse.click(960, 540)
   await expect(page.getByTestId('status-line')).toContainText(/hurt|dropped/)
-  await expect(page.getByText('Hits').locator('..')).toContainText('1')
   await page.keyboard.press('Digit2')
   await expect(page.getByTestId('hud').getByText('Boomstick')).toBeVisible()
   await expect(page.getByTestId('weapon-sprite')).toHaveClass(/weapon-boomstick/)
@@ -126,7 +124,7 @@ test('practice route exposes tuning controls without leaderboard submission', as
   await page.getByLabel('Freeze room').check()
   await page.getByRole('button', { name: 'Start run' }).click()
   await expect(page.getByTestId('hud').getByText('Inkblaster')).toBeVisible()
-  await expect(page.getByTestId('hud').getByText('Brute')).toBeVisible()
+  await expect(page.getByTestId('status-line')).toContainText('Practice run started.')
   await expect(page.getByTestId('billboard-debug')).toBeHidden()
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('flatline:force-death')))
   await expect(page.getByTestId('run-summary')).toBeVisible()

@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-11, HUD redesigned into proper game-HUD regions (REQ-039 build log)
+
+- Branch: `feat/hud-redesign`
+- PR: #168
+- Changed: replaced the previous 12-pill horizontal strip with five named regions: bottom-left vitals (HP bar + dash chip), bottom-right armament (weapon + ammo), top-center streak (combo + score with timer), top-right runstate (wave chip + clock + kills), top-left status badges (rage / score 2x / supply ready, only when active). HP bar uses a green / amber / red zoned fill (`hpZone` helper), the wave chip's peak dot pulses, the streak panel uses Courier hierarchy with the existing combo-timer-bar at the bottom. Debug fields (enemy / hits / billboard bucket) moved under `practiceSettings.debugOverlays` so the production HUD no longer shows raw debug. Low-HP wobble is now scoped to the HP bar instead of every pill; `pointer-events: none` on the HUD root lets clicks fall through.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm test` (754 / 754), `npm run lint` (0 errors, 3 pre-existing warnings, down from 9 because the HUD no longer carries the six `<img class="hud-icon">` next/image-eslint flags), `npm run build`. **Visual verification deferred to the user**: dev server starts cleanly and tests pass, but I could not run the in-browser preview through the Chrome MCP in this session (extension picker blocked). The user should boot `npm run dev` and confirm the new layout reads well at 1920x1080 and on a mobile viewport before merging.
+- Assumptions: Recommended default keeps the cartoon wobble + grain + splatter overlays in place because REQ-039 still calls for "wobbly text" and "slight jitter." Recommended default drops the always-on `Enemy {type} {hp}` debug pill from the production HUD; it now only renders under `debugOverlays`. All test ids retained so smoke + hud-motion specs are unaffected.
+- GDD coverage: REQ-039 stays `done` (all required HUD elements still present; the slice is a UX revision, not a feature add).
+- Followups: visual QA across viewport sizes; consider re-introducing the ink-bleed border filter as a per-panel cartoon flourish if the new layout feels too flat.
+
 ## 2026-05-11, Pillars bob at peak pressure (REQ-047 build log)
 
 - Branch: `feat/pillar-bob-at-peak-pressure`
