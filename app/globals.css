@@ -174,12 +174,12 @@ button {
 
 .hud-debug {
   position: absolute;
-  top: 50%;
-  right: 14px;
-  transform: translateY(-50%);
+  top: 110px;
+  right: 18px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  max-width: 240px;
   padding: 6px 10px;
   background: var(--hud-panel);
   border: 1px dashed rgba(244, 241, 232, 0.25);
@@ -360,8 +360,9 @@ button {
 
 .hp-fill {
   position: absolute;
-  inset: 0;
-  width: 100%;
+  top: 0;
+  bottom: 0;
+  left: 0;
   background: linear-gradient(90deg, var(--hud-good) 0%, #5fbf9a 100%);
   transition: width 180ms ease-out, background 220ms ease-out;
 }
@@ -762,16 +763,6 @@ button {
 
 .weapon-inkblaster.weapon-cooldown {
   background-image: url("/assets/weapons/inkblaster-cooldown.png");
-}
-
-.weapon-hud-icon,
-.hud-icon {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  vertical-align: middle;
-  margin: 0 6px 0 4px;
-  image-rendering: pixelated;
 }
 
 .weapon.weapon-firing {
