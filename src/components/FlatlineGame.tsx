@@ -3884,6 +3884,9 @@ function spawnAmmoDrop(
   const h = isLarge ? 0.22 : 0.16
   const d = isLarge ? 0.26 : 0.18
 
+  // `transparent: true` is set here (not toggled in the per-frame
+  // tick) so opacity edits below don't force a shader recompile each
+  // time a drop crosses the fade threshold.
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(w, h, d),
     new THREE.MeshStandardMaterial({
@@ -3891,7 +3894,8 @@ function spawnAmmoDrop(
       emissive: palette.glow,
       emissiveIntensity: isLarge ? 0.55 : 0.4,
       metalness: 0.2,
-      roughness: 0.45
+      roughness: 0.45,
+      transparent: true
     })
   )
   body.castShadow = false
@@ -3904,7 +3908,8 @@ function spawnAmmoDrop(
       emissive: palette.accent,
       emissiveIntensity: 0.7,
       metalness: 0.1,
-      roughness: 0.3
+      roughness: 0.3,
+      transparent: true
     })
   )
   accent.position.y = h * 0.5 + h * 0.08
@@ -3968,9 +3973,7 @@ function tickAmmoDropEntries(runtime: RuntimeRefs, drops: AmmoDropEntry[], delta
     const ttlRemaining = Math.max(0, AMMO_DROP_TTL_MS - drop.ageMs)
     const fade = Math.min(1, ttlRemaining / 600)
     drop.body.material.opacity = 0.85 + 0.15 * fade
-    drop.body.material.transparent = true
     drop.accent.material.opacity = 0.95 * fade + 0.05
-    drop.accent.material.transparent = true
     const haloPulse = 0.55 + 0.2 * Math.sin((drop.ageMs / 1000) * 2 * Math.PI * 2.4)
     drop.halo.material.opacity = haloPulse * fade
   }

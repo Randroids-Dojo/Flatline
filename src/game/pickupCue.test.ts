@@ -1,5 +1,44 @@
 import { describe, expect, it } from 'vitest'
-import { pickupCue, pickupCueTotalDurationMs } from './pickupCue'
+import { pickupCue, pickupCueTotalDurationMs, type PickupKind } from './pickupCue'
+
+const ALL_KINDS: readonly PickupKind[] = ['supply', 'ammo-shell', 'ammo-cell']
+
+describe('pickupCue (all kinds)', () => {
+  it('every kind ascends in pitch so the cue reads as a good event, not a warning', () => {
+    for (const kind of ALL_KINDS) {
+      const cue = pickupCue(kind)
+      expect(cue.secondFrequency).toBeGreaterThan(cue.firstFrequency)
+    }
+  })
+
+  it('every kind keeps gain under the loudest player damage cue (0.05) so combat audio leads', () => {
+    for (const kind of ALL_KINDS) {
+      expect(pickupCue(kind).gain).toBeLessThan(0.05)
+    }
+  })
+
+  it('every kind fires within a sparkle-length window so back-to-back pickups do not stack', () => {
+    for (const kind of ALL_KINDS) {
+      const cue = pickupCue(kind)
+      expect(pickupCueTotalDurationMs(cue)).toBeLessThanOrEqual(320)
+    }
+  })
+
+  it('returns stable references for each kind so the audio scheduler can rely on identity', () => {
+    for (const kind of ALL_KINDS) {
+      expect(pickupCue(kind)).toBe(pickupCue(kind))
+    }
+  })
+
+  it('uses a distinct waveform per kind so shells, cells, and supply do not sound identical', () => {
+    const waveforms = new Set(ALL_KINDS.map((kind) => pickupCue(kind).waveform))
+    expect(waveforms.size).toBe(ALL_KINDS.length)
+  })
+
+  it('routes shell and cell kinds to distinct frequency centers so the player can tell shells from cells by ear', () => {
+    expect(pickupCue('ammo-shell').firstFrequency).not.toBe(pickupCue('ammo-cell').firstFrequency)
+  })
+})
 
 describe('pickupCue', () => {
   it('returns a cue with positive frequencies, gain, and per-tone durations', () => {
