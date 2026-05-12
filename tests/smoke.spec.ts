@@ -124,7 +124,7 @@ test('practice route exposes tuning controls without leaderboard submission', as
   await page.getByLabel('Freeze room').check()
   await page.getByRole('button', { name: 'Start run' }).click()
   await expect(page.getByTestId('hud').getByText('Inkblaster')).toBeVisible()
-  await expect(page.getByTestId('status-line')).toContainText(/Brute|Spitter/)
+  await expect(page.getByTestId('status-line')).toContainText('Practice run started.')
   await expect(page.getByTestId('billboard-debug')).toBeHidden()
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('flatline:force-death')))
   await expect(page.getByTestId('run-summary')).toBeVisible()
