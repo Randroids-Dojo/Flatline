@@ -69,8 +69,11 @@ button {
   --hud-panel-edge: rgba(244, 241, 232, 0.18);
 }
 
+/* No interactive descendants in the HUD today; if a future region
+   adds a button or link, opt that element in with pointer-events:
+   auto explicitly rather than re-opening the whole region. */
 .hud > * {
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 /* The low-HP wobble used to attach to every pill. Now it attaches to

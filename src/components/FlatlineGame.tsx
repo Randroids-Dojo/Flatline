@@ -574,6 +574,11 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   })
   const [status, setStatus] = useState('Start a run to lock the pointer and enter the room.')
   const isPractice = arenaMode === 'practice'
+  // Effective max HP for the HUD: tracks `wallet.tiers` (a React state)
+  // so the bar rescales when the player picks an HP upgrade mid-run.
+  // Distinct from `walletRef.current` (a ref) used in the game loop,
+  // because refs do not trigger re-renders.
+  const hudMaxHp = effectiveMaxHp(wallet.tiers)
 
   const damageEnemyById = useCallback(
     (enemyId: string, damage: number, hurtStatus: string, killStatus: string, hitDistance?: number) => {
@@ -2757,12 +2762,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             <div className="hp-bar">
               <div
                 className="hp-fill"
-                data-zone={hpZone(playerHealth)}
-                style={{ width: `${Math.max(0, Math.min(100, playerHealth))}%` }}
+                data-zone={hpZone(playerHealth, hudMaxHp)}
+                style={{
+                  width: `${Math.max(0, Math.min(100, (playerHealth / hudMaxHp) * 100))}%`
+                }}
               />
               <div className="hp-readout">
                 <span className="hp-value">{playerHealth}</span>
-                <span className="hp-label">HP</span>
+                <span className="hp-label">/{hudMaxHp}</span>
               </div>
             </div>
             <div
@@ -2802,7 +2809,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             </div>
           </div>
 
-          {practiceSettings.debugOverlays ? (
+          {isPractice && practiceSettings.debugOverlays ? (
             <div className="hud-debug" aria-label="Debug overlays">
               <span data-testid="billboard-debug">
                 Bucket {debug.bucket} {debug.angle} {debug.animation}
@@ -5001,9 +5008,13 @@ function formatTime(ms: number): string {
   return `${minutes}:${remainder}`
 }
 
-function hpZone(hp: number): 'good' | 'warning' | 'critical' {
-  if (hp >= 60) return 'good'
-  if (hp >= 30) return 'warning'
+function hpZone(hp: number, maxHp: number): 'good' | 'warning' | 'critical' {
+  if (!Number.isFinite(maxHp) || maxHp <= 0) {
+    return 'critical'
+  }
+  const ratio = hp / maxHp
+  if (ratio >= 0.6) return 'good'
+  if (ratio >= 0.3) return 'warning'
   return 'critical'
 }
 
