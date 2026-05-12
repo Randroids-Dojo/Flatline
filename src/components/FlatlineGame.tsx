@@ -2719,112 +2719,100 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             ['--hud-wobble-period' as string]: `${hudPillWobblePeriodMs()}ms`
           }}
         >
-          {/*
-            Cartoon-title-card ink-bleed filter for HUD pill borders. The
-            ::before pseudo-element on .hud-pill paints a 1px outline on
-            top of the pill and routes that outline through this filter
-            via filter: url(#hud-ink-bleed). Keeping the filter scoped to
-            the pseudo-element keeps the pill's text + icons crisp.
-          */}
-          <svg
-            width="0"
-            height="0"
-            aria-hidden="true"
-            style={{ position: 'absolute', overflow: 'hidden' }}
-          >
-            <defs>
-              <filter id="hud-ink-bleed">
-                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" />
-                <feDisplacementMap in="SourceGraphic" scale="2" />
-              </filter>
-            </defs>
-          </svg>
-          <div className="hud-pill">
-            Health
-            <img className="hud-icon" src="/assets/hud/health.png" alt="" aria-hidden="true" />
-            <strong>{playerHealth}</strong>
+          <div className="hud-status-row" aria-label="Active buffs">
+            {rageActive ? (
+              <span className="status-badge status-rage" data-testid="rage-pill">Rage</span>
+            ) : null}
+            {scoreTokenActiveState ? (
+              <span className="status-badge status-score" data-testid="score-token-pill">Score 2x</span>
+            ) : null}
+            {healthPickupReady ? (
+              <span className="status-badge status-supply">Supply Ready</span>
+            ) : null}
           </div>
-          <div className="hud-pill">
-            Weapon
-            <img className="weapon-hud-icon" src={`/assets/weapons/${selectedWeapon}-hud.png`} alt="" aria-hidden="true" />
-            <strong>{weaponConfigs[selectedWeapon].label}</strong>
-          </div>
-          <div className={`hud-pill weapon-ready-pill${weaponReady ? '' : ' weapon-recovering'}`} data-testid="weapon-ready">
-            Fire
-            <strong>{weaponReady ? 'Ready' : 'Recovering'}</strong>
-          </div>
-          <div className={`hud-pill dash-pill${dashReady ? '' : ' dash-cooling'}`} data-testid="dash-ready">
-            Dash
-            <strong>{dashReady ? 'Ready' : 'Cooling'}</strong>
-          </div>
-          {rageActive ? (
-            <div className="hud-pill rage-pill" data-testid="rage-pill">
-              Rage
-              <strong>Active</strong>
-            </div>
-          ) : null}
-          {scoreTokenActiveState ? (
-            <div className="hud-pill score-token-pill" data-testid="score-token-pill">
-              Score
-              <strong>2x</strong>
-            </div>
-          ) : null}
-          <div className={`hud-pill wave-pill wave-${wavePhase}`} data-testid="wave-pill">
-            Wave
-            <img className="hud-icon" src="/assets/hud/wave.png" alt="" aria-hidden="true" />
-            <strong>{wavePhase === 'lull' ? 'Lull' : wavePhase === 'surge' ? 'Surge' : 'Peak'}</strong>
-          </div>
+
           <div
-            className="hud-pill ammo-pill"
-            data-critical={isAmmoCritical(selectedWeapon, weaponAmmo) ? 'true' : 'false'}
-          >
-            Ammo
-            <strong>{weaponAmmoLabel(selectedWeapon, weaponAmmo)}</strong>
-          </div>
-          <div className="hud-pill">
-            Score
-            <img className="hud-icon" src="/assets/hud/score.png" alt="" aria-hidden="true" />
-            <strong>{score}</strong>
-          </div>
-          <div
-            className="hud-pill combo-pill"
+            className="hud-streak"
             data-testid="combo-pill"
             style={{ ['--combo-time-ratio' as string]: comboTimeRatio.toFixed(3) }}
           >
-            Combo
-            <img className="hud-icon" src="/assets/hud/combo.png" alt="" aria-hidden="true" />
-            <strong>{combo}</strong>
+            <div className="streak-line">
+              <span className="streak-x">x</span>
+              <span className="streak-value">{combo}</span>
+            </div>
+            <div className="streak-score">{score.toLocaleString()}</div>
             <span className="combo-timer-bar" data-testid="combo-timer-bar" aria-hidden="true" />
           </div>
-          <div className="hud-pill">
-            Kills
-            <img className="hud-icon" src="/assets/hud/kills.png" alt="" aria-hidden="true" />
-            <strong>{kills}</strong>
+
+          <div className="hud-runstate" aria-label="Run state">
+            <div className={`wave-chip wave-${wavePhase}`} data-testid="wave-pill">
+              <span className="wave-dot" aria-hidden="true" />
+              {wavePhase === 'lull' ? 'Lull' : wavePhase === 'surge' ? 'Surge' : 'Peak'}
+            </div>
+            <div className="run-clock">{formatTime(runMs)}</div>
+            <div className="run-kills">{kills} kills</div>
           </div>
-          <div className="hud-pill">
-            Time
-            <img className="hud-icon" src="/assets/hud/time.png" alt="" aria-hidden="true" />
-            <strong>{formatTime(runMs)}</strong>
+
+          <div className="hud-vitals" aria-label="Vitals">
+            <div className="hp-bar">
+              <div
+                className="hp-fill"
+                data-zone={hpZone(playerHealth)}
+                style={{ width: `${Math.max(0, Math.min(100, playerHealth))}%` }}
+              />
+              <div className="hp-readout">
+                <span className="hp-value">{playerHealth}</span>
+                <span className="hp-label">HP</span>
+              </div>
+            </div>
+            <div
+              className={`dash-chip${dashReady ? '' : ' dash-cooling'}`}
+              data-testid="dash-ready"
+            >
+              <span className="chip-glyph" aria-hidden="true">»»</span>
+              <span className="chip-label">Dash</span>
+              <span className="chip-state">{dashReady ? 'Ready' : 'Cooling'}</span>
+            </div>
           </div>
-          <div className="hud-pill">
-            Enemy
-            <strong>{enemyLabel(enemyType)} {enemyHealth}</strong>
+
+          <div className="hud-armament" aria-label="Weapon">
+            <img
+              className="armament-icon"
+              src={`/assets/weapons/${selectedWeapon}-hud.png`}
+              alt=""
+              aria-hidden="true"
+            />
+            <div className="armament-meta">
+              <span className="armament-name">{weaponConfigs[selectedWeapon].label}</span>
+              <span
+                className={`armament-state${weaponReady ? ' weapon-ready' : ' weapon-recovering'}`}
+                data-testid="weapon-ready"
+              >
+                {weaponReady ? 'Ready' : 'Recovering'}
+              </span>
+            </div>
+            <div
+              className="armament-ammo"
+              data-critical={isAmmoCritical(selectedWeapon, weaponAmmo) ? 'true' : 'false'}
+            >
+              <span className="ammo-value">
+                {weaponAmmoLabel(selectedWeapon, weaponAmmo)}
+              </span>
+              <span className="ammo-label">Ammo</span>
+            </div>
           </div>
-          <div className="hud-pill">
-            Hits
-            <strong>{hits}</strong>
-          </div>
+
           {practiceSettings.debugOverlays ? (
-            <div className="hud-pill debug-pill" data-testid="billboard-debug">
-              Bucket {debug.bucket}
-              <strong>{debug.angle}</strong>
-              <span>{debug.animation}</span>
+            <div className="hud-debug" aria-label="Debug overlays">
+              <span data-testid="billboard-debug">
+                Bucket {debug.bucket} {debug.angle} {debug.animation}
+              </span>
+              <span>
+                Enemy {enemyLabel(enemyType)} {enemyHealth}
+              </span>
+              <span>Hits {hits}</span>
             </div>
           ) : null}
-          <div className="hud-pill">
-            Supplies
-            <strong>{healthPickupReady ? 'Ready' : 'Wait'}</strong>
-          </div>
         </div>
       ) : (
         <section className="start-panel">
@@ -5011,6 +4999,12 @@ function formatTime(ms: number): string {
   const minutes = Math.floor(seconds / 60).toString()
   const remainder = (seconds % 60).toString().padStart(2, '0')
   return `${minutes}:${remainder}`
+}
+
+function hpZone(hp: number): 'good' | 'warning' | 'critical' {
+  if (hp >= 60) return 'good'
+  if (hp >= 30) return 'warning'
+  return 'critical'
 }
 
 function formatAccuracyPercent(ratio: number): string {
