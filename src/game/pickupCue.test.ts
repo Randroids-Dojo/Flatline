@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { pickupCue, pickupCueTotalDurationMs, type PickupKind } from './pickupCue'
 
-const ALL_KINDS: readonly PickupKind[] = ['supply', 'ammo-shell', 'ammo-cell']
+const ALL_KINDS: readonly PickupKind[] = ['supply', 'ammo-shell', 'ammo-cell', 'medkit']
 
 describe('pickupCue (all kinds)', () => {
   it('every kind ascends in pitch so the cue reads as a good event, not a warning', () => {
@@ -30,13 +30,14 @@ describe('pickupCue (all kinds)', () => {
     }
   })
 
-  it('uses a distinct waveform per kind so shells, cells, and supply do not sound identical', () => {
-    const waveforms = new Set(ALL_KINDS.map((kind) => pickupCue(kind).waveform))
-    expect(waveforms.size).toBe(ALL_KINDS.length)
+  it('routes each kind to a distinct first frequency so the player can tell pickups apart by pitch even when waveforms overlap', () => {
+    const firsts = new Set(ALL_KINDS.map((kind) => pickupCue(kind).firstFrequency))
+    expect(firsts.size).toBe(ALL_KINDS.length)
   })
 
-  it('routes shell and cell kinds to distinct frequency centers so the player can tell shells from cells by ear', () => {
-    expect(pickupCue('ammo-shell').firstFrequency).not.toBe(pickupCue('ammo-cell').firstFrequency)
+  it('uses at least three waveforms across the family so cues sound like different categories of event', () => {
+    const waveforms = new Set(ALL_KINDS.map((kind) => pickupCue(kind).waveform))
+    expect(waveforms.size).toBeGreaterThanOrEqual(3)
   })
 })
 

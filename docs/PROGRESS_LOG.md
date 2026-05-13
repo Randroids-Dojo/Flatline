@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-13, Doom-style health pickup drops (REQ-033 build log)
+
+- Branch: `feat/doom-style-health-drops`
+- PR: pending
+- Changed: medkits now drop as visible Doom-style pickups when enemies die, mirroring the ammo drop pattern. Two kinds matching the altar tier amounts: medkit-small (+10 HP, common) and medkit-large (+35 HP, brute-only). Drop chance is low (per-enemy totals under 0.16) so health stays rare. Each pickup renders as a cream body box with a red emissive cross (crossbar + crosspost arms) plus a soft floor halo; the medkit does NOT spin around Y because a rotating cross reads as unstable. Bob is slower than the ammo drops (0.9 Hz vs 1.5 Hz) so the box reads as heavier. Pickup clamps to `effectiveMaxHp(wallet.tiers)` so HP upgrades extend the cap. New pickup cue style `'medkit'` (720 / 1080 Hz sine, 220 ms total).
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm test` (797 / 797, +23 new for healthDrop), `npm run lint` (0 errors, 3 pre-existing warnings), `npm run build`.
+- Assumptions: Recommended default keeps the existing central altar tier behavior untouched; this slice is additive loot. Recommended default mirrors the altar amounts (10 / 35) so the player has one mental model for "how much HP does this give me." Recommended default only lets the brute drop the large medkit so killing a brute feels like a treasure event.
+- GDD coverage: REQ-033 stays `done` (audit already passed; this slice adds visible drops without changing existing altar rules).
+- Followups: balancing pass on drop chance after a real playtest, optional visual review under the darkness lighting phase.
+
 ## 2026-05-12, Doom-style ammo pickup drops (REQ-034 build log)
 
 - Branch: `feat/doom-style-ammo-pickups`

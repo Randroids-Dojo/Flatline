@@ -53,6 +53,15 @@ import {
   rollAmmoDrop,
   type AmmoDropKind
 } from '@/game/ammoDrop'
+import {
+  HEALTH_DROP_TTL_MS,
+  healthDropAmount,
+  healthDropBobY,
+  healthDropPalette,
+  healthDropPickupIds,
+  rollHealthDrop,
+  type HealthDropKind
+} from '@/game/healthDrop'
 import { weaponFireCue, type WeaponFireCueStyle } from '@/game/weaponFireCue'
 import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
@@ -332,6 +341,21 @@ type AmmoDropEntry = {
   halo: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
 }
 
+type HealthDropEntry = {
+  id: string
+  kind: HealthDropKind
+  position: { x: number; y: number; z: number }
+  ageMs: number
+  // White body + crossbar (horizontal arm) + crosspost (vertical
+  // arm) + floor halo. The cross silhouette reads at a distance even
+  // under the darkness lighting phase.
+  group: THREE.Group
+  body: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
+  crossbar: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
+  crosspost: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
+  halo: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
+}
+
 type InkProjectile = {
   group: THREE.Group
   core: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
@@ -415,6 +439,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const scoreTokenDropSeqRef = useRef<number>(0)
   const ammoDropsRef = useRef<AmmoDropEntry[]>([])
   const ammoDropSeqRef = useRef<number>(0)
+  const healthDropsRef = useRef<HealthDropEntry[]>([])
+  const healthDropSeqRef = useRef<number>(0)
   // Snapshot of enemy ids that were already dead at the start of the
   // last animate frame. The post-update phase scans for enemies that
   // are dead now but were not in this snapshot to spawn the death-pop
@@ -1012,6 +1038,9 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     clearAmmoDrops(runtimeRef.current, ammoDropsRef.current)
     ammoDropsRef.current = []
     ammoDropSeqRef.current = 0
+    clearHealthDrops(runtimeRef.current, healthDropsRef.current)
+    healthDropsRef.current = []
+    healthDropSeqRef.current = 0
     previouslyDeadEnemyIdsRef.current = new Set()
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
     clearSpitterProjectiles(runtimeRef.current, spitterProjectilesRef.current)
@@ -2071,6 +2100,17 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
                   candidate.position
                 )
               }
+              const healthKind = rollHealthDrop(candidate.type, Math.random())
+              if (healthKind !== null) {
+                healthDropSeqRef.current += 1
+                spawnHealthDrop(
+                  runtime,
+                  healthDropsRef.current,
+                  `health-drop-${healthDropSeqRef.current}`,
+                  healthKind,
+                  candidate.position
+                )
+              }
             }
           }
           previouslyDeadEnemyIdsRef.current = stillDead
@@ -2271,6 +2311,44 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
         }
       }
 
+      tickHealthDropEntries(runtime, healthDropsRef.current, delta * 1000)
+
+      const healthPickups = healthDropPickupIds(healthDropsRef.current, positionRef.current)
+      if (healthPickups.length > 0) {
+        const pickedSet = new Set(healthPickups)
+        const remaining: HealthDropEntry[] = []
+        let healAmount = 0
+
+        for (const entry of healthDropsRef.current) {
+          if (pickedSet.has(entry.id)) {
+            runtime.shotGroup.remove(entry.group)
+            entry.body.geometry.dispose()
+            entry.body.material.dispose()
+            entry.crossbar.geometry.dispose()
+            entry.crossbar.material.dispose()
+            entry.crosspost.geometry.dispose()
+            entry.crosspost.material.dispose()
+            entry.halo.geometry.dispose()
+            entry.halo.material.dispose()
+            healAmount += healthDropAmount(entry.kind)
+          } else {
+            remaining.push(entry)
+          }
+        }
+
+        healthDropsRef.current = remaining
+
+        if (healAmount > 0) {
+          const maxHpForRun = effectiveMaxHp(walletRef.current.tiers)
+          playerHealthRef.current = Math.min(
+            maxHpForRun,
+            playerHealthRef.current + healAmount
+          )
+          setPlayerHealth(playerHealthRef.current)
+          playPickupCue(pickupCue('medkit'), settingsRef.current.audio)
+        }
+      }
+
 
       // Feel pass: scan alive enemies for one inside the soft crosshair
       // cone. The state setter is gated against the previous value so
@@ -2406,6 +2484,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       scoreTokenDropsRef.current = []
       clearAmmoDrops(runtimeRef.current, ammoDropsRef.current)
       ammoDropsRef.current = []
+      clearHealthDrops(runtimeRef.current, healthDropsRef.current)
+      healthDropsRef.current = []
       clearInkProjectiles(runtimeRef.current, inkProjectiles)
       clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
       stopMusicLayer(musicLayerRef.current)
@@ -3992,6 +4072,150 @@ function clearAmmoDrops(runtime: RuntimeRefs | null, drops: AmmoDropEntry[]) {
     drop.body.material.dispose()
     drop.accent.geometry.dispose()
     drop.accent.material.dispose()
+    drop.halo.geometry.dispose()
+    drop.halo.material.dispose()
+  }
+}
+
+// Doom-style medkit pickup: a cream body box with a red cross (built
+// from two emissive bars laid across the upper face), plus a soft
+// additive floor halo. The cross silhouette stays legible against
+// the darkness lighting phase because the cross arms emit their own
+// light rather than relying on the overhead.
+function spawnHealthDrop(
+  runtime: RuntimeRefs,
+  drops: HealthDropEntry[],
+  id: string,
+  kind: HealthDropKind,
+  position: { x: number; y: number; z: number }
+) {
+  const palette = healthDropPalette(kind)
+  const isLarge = kind === 'medkit-large'
+  const w = isLarge ? 0.36 : 0.24
+  const h = isLarge ? 0.24 : 0.18
+  const d = isLarge ? 0.28 : 0.2
+
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshStandardMaterial({
+      color: palette.body,
+      emissive: palette.glow,
+      emissiveIntensity: isLarge ? 0.35 : 0.25,
+      metalness: 0.05,
+      roughness: 0.55,
+      transparent: true
+    })
+  )
+
+  const armLength = w * 0.78
+  const armThickness = isLarge ? 0.06 : 0.05
+  const crossMaterial = () =>
+    new THREE.MeshStandardMaterial({
+      color: palette.cross,
+      emissive: palette.cross,
+      emissiveIntensity: isLarge ? 0.95 : 0.8,
+      metalness: 0.1,
+      roughness: 0.4,
+      transparent: true
+    })
+
+  const crossbar = new THREE.Mesh(
+    new THREE.BoxGeometry(armLength, armThickness, armThickness * 1.3),
+    crossMaterial()
+  )
+  crossbar.position.y = h * 0.5 + armThickness * 0.4
+
+  const crosspost = new THREE.Mesh(
+    new THREE.BoxGeometry(armThickness, armThickness, armLength),
+    crossMaterial()
+  )
+  crosspost.position.y = h * 0.5 + armThickness * 0.4
+
+  const halo = new THREE.Mesh(
+    new THREE.RingGeometry(isLarge ? 0.34 : 0.26, isLarge ? 0.5 : 0.38, 24),
+    new THREE.MeshBasicMaterial({
+      color: palette.glow,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide
+    })
+  )
+  halo.rotation.x = -Math.PI / 2
+  halo.position.y = -h * 0.45
+
+  const group = new THREE.Group()
+  group.add(body)
+  group.add(crossbar)
+  group.add(crosspost)
+  group.add(halo)
+  group.position.set(position.x, healthDropBobY(0), position.z)
+  group.renderOrder = 6
+
+  runtime.shotGroup.add(group)
+
+  drops.push({
+    id,
+    kind,
+    position: { x: position.x, y: position.y, z: position.z },
+    ageMs: 0,
+    group,
+    body,
+    crossbar,
+    crosspost,
+    halo
+  })
+}
+
+function tickHealthDropEntries(runtime: RuntimeRefs, drops: HealthDropEntry[], deltaMs: number) {
+  for (let index = drops.length - 1; index >= 0; index -= 1) {
+    const drop = drops[index]
+    drop.ageMs += deltaMs
+
+    if (drop.ageMs >= HEALTH_DROP_TTL_MS) {
+      runtime.shotGroup.remove(drop.group)
+      drop.body.geometry.dispose()
+      drop.body.material.dispose()
+      drop.crossbar.geometry.dispose()
+      drop.crossbar.material.dispose()
+      drop.crosspost.geometry.dispose()
+      drop.crosspost.material.dispose()
+      drop.halo.geometry.dispose()
+      drop.halo.material.dispose()
+      drops.splice(index, 1)
+      continue
+    }
+
+    drop.group.position.y = healthDropBobY(drop.ageMs)
+    // Medkits do not spin around Y the way ammo boxes do; the cross
+    // is a directional silhouette, and a rotating cross reads as
+    // unstable rather than helpful.
+    const ttlRemaining = Math.max(0, HEALTH_DROP_TTL_MS - drop.ageMs)
+    const fade = Math.min(1, ttlRemaining / 600)
+    drop.body.material.opacity = 0.9 + 0.1 * fade
+    drop.crossbar.material.opacity = 0.95 * fade + 0.05
+    drop.crosspost.material.opacity = 0.95 * fade + 0.05
+    const haloPulse = 0.6 + 0.2 * Math.sin((drop.ageMs / 1000) * 2 * Math.PI * 1.6)
+    drop.halo.material.opacity = haloPulse * fade
+  }
+}
+
+function clearHealthDrops(runtime: RuntimeRefs | null, drops: HealthDropEntry[]) {
+  while (drops.length > 0) {
+    const drop = drops.pop()
+
+    if (!drop) {
+      return
+    }
+
+    runtime?.shotGroup.remove(drop.group)
+    drop.body.geometry.dispose()
+    drop.body.material.dispose()
+    drop.crossbar.geometry.dispose()
+    drop.crossbar.material.dispose()
+    drop.crosspost.geometry.dispose()
+    drop.crosspost.material.dispose()
     drop.halo.geometry.dispose()
     drop.halo.material.dispose()
   }
