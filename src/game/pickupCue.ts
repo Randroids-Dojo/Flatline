@@ -29,7 +29,7 @@
  * but below the player-damage stings so collecting supplies feels
  * confirming without overpowering the in-progress combat audio.
  */
-export type PickupKind = 'supply' | 'ammo-shell' | 'ammo-cell'
+export type PickupKind = 'supply' | 'ammo-shell' | 'ammo-cell' | 'medkit'
 
 export type PickupCueStyle = {
   firstFrequency: number
@@ -72,12 +72,27 @@ const ammoCellStyle: PickupCueStyle = {
   gain: 0.035
 }
 
+// Medkit pickup: warm sine "double chime" pitched lower than the
+// supply sparkle so it reads as restorative rather than alert. Same
+// waveform family as the supply cue (both restore the player) but
+// different frequency band so the player can tell them apart.
+const medkitStyle: PickupCueStyle = {
+  firstFrequency: 720,
+  secondFrequency: 1080,
+  waveform: 'sine',
+  firstDurationMs: 120,
+  secondDurationMs: 100,
+  gain: 0.045
+}
+
 export function pickupCue(kind: PickupKind): PickupCueStyle {
   switch (kind) {
     case 'ammo-shell':
       return ammoShellStyle
     case 'ammo-cell':
       return ammoCellStyle
+    case 'medkit':
+      return medkitStyle
     case 'supply':
     default:
       return supplyStyle
