@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-13, Enemy gibs on death (REQ-056 build log)
+
+- Branch: `feat/enemy-gibs-on-death`
+- PR: pending
+- Changed: enemy deaths now spray a per-type burst of physics-driven chunks on top of the existing death ring pop. 4 / 6 / 5 / 8 gibs for skitter / grunt / spitter / brute. Each gib launches at a random azimuth with speed in `[2.4, 4.2]` m/s and an upward bias (0.55 of speed) so it pops before arcing down under gravity (14 m/s²) with linear drag (1.6/s). A single bounce on the floor at `y = 0.04`, damping 0.35; gibs whose bounce energy falls below 0.6 m/s settle for the rest of the 1.4 s TTL. Unsettled gibs tumble around X/Y; meshes fade out the last 300 ms before TTL. A cap of 64 live gibs recycles the oldest first so a peak-pressure flurry cannot flood the scene.
+- Verification: dash check (clean), `git diff --check`, `npm run typecheck`, `npm test` (814 / 814, +17 new for enemyGibs), `npm run lint` (0 errors, 3 pre-existing warnings), `npm run build`.
+- Assumptions: Recommended default ties gib count to enemy type so the kill weight scales with the silhouette the player just dropped. Recommended default uses small (`0.07 m`) emissive boxes rather than a particle system because the rendering pipeline is already mesh-based; a particle pass is deferred until a real playtest shows the mesh approach is the bottleneck. Recommended default keeps the existing single death ring pop in place: the gibs are additive, not a replacement, so the kill keeps its readability if the player misses the ring.
+- GDD coverage: REQ-056 stays `partial`. Other feel-pass items still on the list (auto-aim assist, screen flash on heavy hits, etc.).
+- Followups: optional camera kick on enemy death, blood splatter decals on floor at kill position.
+
 ## 2026-05-13, Doom-style health pickup drops (REQ-033 build log)
 
 - Branch: `feat/doom-style-health-drops`

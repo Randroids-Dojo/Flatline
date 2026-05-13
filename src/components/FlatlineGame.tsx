@@ -62,6 +62,13 @@ import {
   rollHealthDrop,
   type HealthDropKind
 } from '@/game/healthDrop'
+import {
+  gibColorFor,
+  gibCountFor,
+  gibInitialVelocity,
+  tickGibPhysics,
+  type GibState
+} from '@/game/enemyGibs'
 import { weaponFireCue, type WeaponFireCueStyle } from '@/game/weaponFireCue'
 import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
@@ -341,6 +348,11 @@ type AmmoDropEntry = {
   halo: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
 }
 
+type GibEntry = {
+  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
+  state: GibState
+}
+
 type HealthDropEntry = {
   id: string
   kind: HealthDropKind
@@ -441,6 +453,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const ammoDropSeqRef = useRef<number>(0)
   const healthDropsRef = useRef<HealthDropEntry[]>([])
   const healthDropSeqRef = useRef<number>(0)
+  const gibsRef = useRef<GibEntry[]>([])
   // Snapshot of enemy ids that were already dead at the start of the
   // last animate frame. The post-update phase scans for enemies that
   // are dead now but were not in this snapshot to spawn the death-pop
@@ -1041,6 +1054,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     clearHealthDrops(runtimeRef.current, healthDropsRef.current)
     healthDropsRef.current = []
     healthDropSeqRef.current = 0
+    clearGibs(runtimeRef.current, gibsRef.current)
+    gibsRef.current = []
     previouslyDeadEnemyIdsRef.current = new Set()
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
     clearSpitterProjectiles(runtimeRef.current, spitterProjectilesRef.current)
@@ -2079,6 +2094,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             stillDead.add(candidate.id)
             if (!previouslyDead.has(candidate.id)) {
               spawnEnemyDeathPop(runtime, enemyDeathPopsRef.current, candidate.position)
+              spawnEnemyGibs(runtime, gibsRef.current, candidate.type, candidate.position)
               playEnemyDeathCue(enemyDeathCue(candidate.type), settingsRef.current.audio)
               if (shouldDropScoreToken(candidate.type, Math.random())) {
                 scoreTokenDropSeqRef.current += 1
@@ -2238,6 +2254,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       tickShotBolts(runtime, shotBolts, shotImpacts, delta * 1000)
       tickShotImpacts(runtime, shotImpacts, delta * 1000)
       tickEnemyDeathPops(runtime, enemyDeathPopsRef.current, delta * 1000)
+      tickGibs(runtime, gibsRef.current, delta * 1000)
       tickScoreTokenDrops(runtime, scoreTokenDropsRef.current, delta * 1000)
 
       const tokenPickups = scoreTokenPickupIds(scoreTokenDropsRef.current, positionRef.current)
@@ -2486,6 +2503,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       ammoDropsRef.current = []
       clearHealthDrops(runtimeRef.current, healthDropsRef.current)
       healthDropsRef.current = []
+      clearGibs(runtimeRef.current, gibsRef.current)
+      gibsRef.current = []
       clearInkProjectiles(runtimeRef.current, inkProjectiles)
       clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
       stopMusicLayer(musicLayerRef.current)
@@ -3885,6 +3904,115 @@ function enemyDeathPopsLimit(runtime: RuntimeRefs, pops: EnemyDeathPop[]) {
     runtime.shotGroup.remove(pop.mesh)
     pop.mesh.geometry.dispose()
     pop.mesh.material.dispose()
+  }
+}
+
+// Cap on total live gibs so a peak-of-peak kill flurry does not
+// dump hundreds of meshes into the scene. The oldest gib is
+// recycled first.
+const GIB_LIMIT = 64
+const GIB_SIZE_M = 0.07
+const GIB_SPEED_MIN = 2.4
+const GIB_SPEED_MAX = 4.2
+// Local mirror of GIB_TTL_MS from enemyGibs.ts so the renderer can
+// compute a fade without re-importing the constant.
+const GIB_TTL_MS_LOCAL = 1400
+
+function spawnEnemyGibs(
+  runtime: RuntimeRefs,
+  gibs: GibEntry[],
+  type: EnemyType,
+  position: { x: number; y: number; z: number }
+) {
+  const count = gibCountFor(type)
+  const color = gibColorFor(type)
+  const baseY = Math.max(GIB_SIZE_M, position.y - 0.4)
+
+  for (let i = 0; i < count; i += 1) {
+    if (gibs.length >= GIB_LIMIT) {
+      const oldest = gibs.shift()
+      if (oldest) {
+        runtime.shotGroup.remove(oldest.mesh)
+        oldest.mesh.geometry.dispose()
+        oldest.mesh.material.dispose()
+      }
+    }
+
+    const azimuth = Math.random() * Math.PI * 2
+    const speed = GIB_SPEED_MIN + Math.random() * (GIB_SPEED_MAX - GIB_SPEED_MIN)
+    const velocity = gibInitialVelocity(azimuth, speed)
+
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(GIB_SIZE_M, GIB_SIZE_M, GIB_SIZE_M),
+      new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 0.35,
+        metalness: 0.05,
+        roughness: 0.6,
+        transparent: true
+      })
+    )
+    mesh.position.set(position.x, baseY, position.z)
+    // Random initial rotation so the gibs do not look like a row of
+    // axis-aligned cubes.
+    mesh.rotation.set(
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2
+    )
+    mesh.renderOrder = 5
+    runtime.shotGroup.add(mesh)
+
+    gibs.push({
+      mesh,
+      state: {
+        position: { x: position.x, y: baseY, z: position.z },
+        velocity,
+        ageMs: 0,
+        settled: false
+      }
+    })
+  }
+}
+
+function tickGibs(runtime: RuntimeRefs, gibs: GibEntry[], deltaMs: number) {
+  for (let i = gibs.length - 1; i >= 0; i -= 1) {
+    const entry = gibs[i]
+    const next = tickGibPhysics(entry.state, deltaMs)
+
+    if (next === null) {
+      runtime.shotGroup.remove(entry.mesh)
+      entry.mesh.geometry.dispose()
+      entry.mesh.material.dispose()
+      gibs.splice(i, 1)
+      continue
+    }
+
+    entry.state = next
+    entry.mesh.position.set(next.position.x, next.position.y, next.position.z)
+    if (!next.settled) {
+      // Tumble unsettled gibs so the cubes do not look like static
+      // axis-aligned chunks.
+      entry.mesh.rotation.x += deltaMs * 0.008
+      entry.mesh.rotation.y += deltaMs * 0.006
+    }
+    // Fade out the last 300 ms so the chunk fades rather than
+    // disappearing in a frame.
+    const fade = Math.min(1, Math.max(0, (GIB_TTL_MS_LOCAL - next.ageMs) / 300))
+    entry.mesh.material.opacity = fade
+  }
+}
+
+function clearGibs(runtime: RuntimeRefs | null, gibs: GibEntry[]) {
+  while (gibs.length > 0) {
+    const entry = gibs.pop()
+    if (!entry) {
+      return
+    }
+    runtime?.shotGroup.remove(entry.mesh)
+    entry.mesh.geometry.dispose()
+    entry.mesh.material.dispose()
   }
 }
 
