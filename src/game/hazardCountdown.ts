@@ -29,6 +29,8 @@ import { hazardCycleConfigs, type HazardCycleConfig, type HazardKind } from './h
  *   - fallingLight: high sine click. Reads as something dropping from
  *     above; pitch sits well above the other two countdowns so a
  *     stacked warning never collapses into a single tone.
+ *   - centerSurge: rough sawtooth pulse. Reads as the altar area
+ *     becoming unsafe during high-pressure room mutations.
  */
 export type HazardCountdownStyle = {
   frequency: number
@@ -66,12 +68,23 @@ const fallingLightStyle: HazardCountdownStyle = {
   finalGain: 0.038
 }
 
+const centerSurgeStyle: HazardCountdownStyle = {
+  frequency: 260,
+  finalFrequency: 520,
+  waveform: 'sawtooth',
+  durationMs: 75,
+  gain: 0.026,
+  finalGain: 0.042
+}
+
 export function hazardCountdownCue(kind: HazardKind): HazardCountdownStyle {
   switch (kind) {
     case 'inkPool':
       return inkPoolStyle
     case 'fallingLight':
       return fallingLightStyle
+    case 'centerSurge':
+      return centerSurgeStyle
     case 'flameLane':
     default:
       return flameLaneStyle

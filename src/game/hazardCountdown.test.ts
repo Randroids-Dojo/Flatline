@@ -6,7 +6,7 @@ import {
 } from './hazardCountdown'
 import { hazardCycleConfigs, type HazardKind } from './hazards'
 
-const allKinds: readonly HazardKind[] = ['flameLane', 'inkPool', 'fallingLight']
+const allKinds: readonly HazardKind[] = ['flameLane', 'inkPool', 'fallingLight', 'centerSurge']
 
 describe('hazardCountdownCue', () => {
   it('returns positive frequency, gain, and duration for every hazard kind', () => {
@@ -36,7 +36,7 @@ describe('hazardCountdownCue', () => {
 
   it('uses distinct waveforms per hazard so stacked countdowns stay separable', () => {
     const waveforms = new Set(allKinds.map((kind) => hazardCountdownCue(kind).waveform))
-    expect(waveforms.size).toBe(3)
+    expect(waveforms.size).toBe(4)
   })
 
   it('keeps every tick short so the cue reads as a click, not a tone', () => {

@@ -107,7 +107,7 @@ import {
   type SpitterProjectile
 } from '@/game/spitterProjectile'
 import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
-import { hazardClockRate, hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
+import { CENTER_SURGE_PRESSURE_THRESHOLD, hazardClockRate, hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
 import { hitstopOnKill, hitstopScaleAtElapsedMs, hitstopStyle, type HitstopStyle } from '@/game/hitstop'
 import { knockbackDistance } from '@/game/knockback'
 import {
@@ -1691,10 +1691,14 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           hazardDamageCooldownRef.current = Math.max(0, hazardDamageCooldownRef.current - delta * 1000)
           enemyHazardCooldownRef.current = Math.max(0, enemyHazardCooldownRef.current - delta * 1000)
           const hazardRunMs = hazardClockMsRef.current + (dailyConfig?.hazardOffsetMs ?? 0)
-          const hazards = hazardStatesForRunMs(hazardRunMs)
+          const hazardPressure = roomPressureIntensity(roomStateMsRef.current)
+          const hazards = hazardStatesForRunMs(hazardRunMs, hazardPressure)
           applyHazardMeshes(runtime, hazards)
           if (prevHazardRunMsRef.current >= 0 && settingsRef.current.audio) {
             for (const config of hazardCycleConfigs) {
+              if (config.kind === 'centerSurge' && hazardPressure < CENTER_SURGE_PRESSURE_THRESHOLD) {
+                continue
+              }
               const ticks = hazardCountdownTicksBetween(config.kind, prevHazardRunMsRef.current, hazardRunMs)
 
               for (const tick of ticks) {
@@ -3642,10 +3646,18 @@ function createHazardMeshes(): Record<HazardKind, THREE.Mesh> {
   fallingLight.position.set(-2.4, 0.055, 2.1)
   fallingLight.rotation.x = -Math.PI / 2
 
+  const centerSurge = new THREE.Mesh(
+    new THREE.RingGeometry(1.18, 1.65, 40),
+    new THREE.MeshBasicMaterial({ color: '#f05a4f', transparent: true, opacity: 0 })
+  )
+  centerSurge.position.set(0, 0.06, 0)
+  centerSurge.rotation.x = -Math.PI / 2
+
   return {
     flameLane,
     inkPool,
-    fallingLight
+    fallingLight,
+    centerSurge
   }
 }
 
@@ -3723,6 +3735,10 @@ function scaleForHazardPhase(phase: HazardPhase): number {
 
 function colorForHazardPhase(kind: HazardKind, phase: HazardPhase): string {
   if (phase === 'active') {
+    if (kind === 'centerSurge') {
+      return '#ff3f4f'
+    }
+
     return kind === 'inkPool' ? '#5be7d6' : '#f05a4f'
   }
 
@@ -3732,6 +3748,10 @@ function colorForHazardPhase(kind: HazardKind, phase: HazardPhase): string {
 
   if (kind === 'inkPool') {
     return '#50d1c0'
+  }
+
+  if (kind === 'centerSurge') {
+    return '#f0c668'
   }
 
   return '#ffb04f'
@@ -5783,6 +5803,10 @@ function hazardLabel(kind: HazardKind): string {
 
   if (kind === 'inkPool') {
     return 'Ink pool'
+  }
+
+  if (kind === 'centerSurge') {
+    return 'Center surge'
   }
 
   return 'Falling light'

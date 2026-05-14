@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-14, Center zone hazard surge
+
+- Branch: `main` direct push
+- PR: direct push
+- Changed: the late-run center altar area now becomes a telegraphed hazard. `src/game/hazards.ts` adds a pressure-gated `centerSurge` hazard that stays idle before `CENTER_SURGE_PRESSURE_THRESHOLD = 0.72`, then cycles through a 2.0 s warning and 3.6 s active window around the center. Active surge deals 8 damage inside a 1.65 m radius, so the supply / score-token route becomes risky during high-pressure waves. `src/components/FlatlineGame.tsx` passes room pressure into the hazard state helper, renders the center surge ring, and suppresses its countdown audio until the pressure gate opens. `src/game/hazardCountdown.ts` adds a distinct sawtooth countdown cue for the new hazard.
+- Verification: dash check via `rg --pcre2 -n '[\x{2014}\x{2013}]'` (clean), `git diff --check`, `npm test -- src/game/hazards.test.ts src/game/hazardCountdown.test.ts` (35 / 35), `npm run typecheck`, `npm test` (843 / 843), `npm run lint` (0 errors, 3 pre-existing warnings), `npm run build`, `npm run test:e2e` (17 passed / 3 skipped).
+- Assumptions: Recommended default makes the center dangerous only after pressure 0.72 so early runs keep the supply altar approachable. Recommended default uses a ring at the altar instead of a full filled disk so the player can read the center as "about to become unsafe" without visually hiding pickups.
+- GDD coverage: REQ-047 stays `partial`; `docs/gdd/47-arena-mutations.md` gains a build-log entry for the center-zone hazard mutation.
+- Followups: none new.
+
 ## 2026-05-14, Moving cover visual sync fix
 
 - Branch: `main` direct push

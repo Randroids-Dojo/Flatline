@@ -1,6 +1,6 @@
 import type { Vec3 } from './types'
 
-export type HazardKind = 'flameLane' | 'inkPool' | 'fallingLight'
+export type HazardKind = 'flameLane' | 'inkPool' | 'fallingLight' | 'centerSurge'
 export type HazardPhase = 'idle' | 'warning' | 'active'
 
 export type HazardState = {
@@ -28,13 +28,18 @@ export type HazardCycleConfig = {
 export const hazardCycleConfigs: readonly HazardCycleConfig[] = [
   { kind: 'flameLane', cycleMs: 18000, warningMs: 2200, activeMs: 2600, offsetMs: 0 },
   { kind: 'inkPool', cycleMs: 26000, warningMs: 1800, activeMs: 4200, offsetMs: 7000 },
-  { kind: 'fallingLight', cycleMs: 32000, warningMs: 2400, activeMs: 900, offsetMs: 13000 }
+  { kind: 'fallingLight', cycleMs: 32000, warningMs: 2400, activeMs: 900, offsetMs: 13000 },
+  { kind: 'centerSurge', cycleMs: 24000, warningMs: 2000, activeMs: 3600, offsetMs: 11000 }
 ]
 
-export function hazardStatesForRunMs(runMs: number): HazardState[] {
+export const CENTER_SURGE_PRESSURE_THRESHOLD = 0.72
+
+export function hazardStatesForRunMs(runMs: number, pressure = 0): HazardState[] {
   return hazardCycleConfigs.map((config) => ({
     kind: config.kind,
-    phase: phaseInCycle(runMs + config.offsetMs, config.cycleMs, config.warningMs, config.activeMs)
+    phase: config.kind === 'centerSurge' && !centerSurgeEnabled(pressure)
+      ? 'idle'
+      : phaseInCycle(runMs + config.offsetMs, config.cycleMs, config.warningMs, config.activeMs)
   }))
 }
 
@@ -101,6 +106,10 @@ function isInsideHazard(position: Vec3, kind: HazardKind): boolean {
     return Math.hypot(position.x - 2.8, position.z + 1.8) <= 1.45
   }
 
+  if (kind === 'centerSurge') {
+    return Math.hypot(position.x, position.z) <= 1.65
+  }
+
   return Math.hypot(position.x + 2.4, position.z - 2.1) <= 1.1
 }
 
@@ -113,7 +122,15 @@ function damageForHazard(kind: HazardKind): number {
     return 10
   }
 
+  if (kind === 'centerSurge') {
+    return 8
+  }
+
   return 6
+}
+
+function centerSurgeEnabled(pressure: number): boolean {
+  return Number.isFinite(pressure) && pressure >= CENTER_SURGE_PRESSURE_THRESHOLD
 }
 
 function positiveModulo(value: number, modulus: number): number {

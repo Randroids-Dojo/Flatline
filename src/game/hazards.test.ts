@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CENTER_SURGE_PRESSURE_THRESHOLD,
   HAZARD_MIN_CYCLE_SCALE,
   hazardClockRate,
   hazardCycleScale,
@@ -25,6 +26,30 @@ describe('hazards', () => {
     expect(roomPressureIntensity(0)).toBe(0)
     expect(roomPressureIntensity(90000)).toBeCloseTo(0.5)
     expect(roomPressureIntensity(999999)).toBe(1)
+  })
+
+  it('keeps the center surge idle until late room pressure', () => {
+    expect(hazardStatesForRunMs(0, CENTER_SURGE_PRESSURE_THRESHOLD - 0.01)
+      .find((hazard) => hazard.kind === 'centerSurge')?.phase).toBe('idle')
+  })
+
+  it('warns and activates the center surge once late room pressure is reached', () => {
+    const warning = hazardStatesForRunMs(13000, CENTER_SURGE_PRESSURE_THRESHOLD)
+      .find((hazard) => hazard.kind === 'centerSurge')
+    const active = hazardStatesForRunMs(15100, CENTER_SURGE_PRESSURE_THRESHOLD)
+      .find((hazard) => hazard.kind === 'centerSurge')
+
+    expect(warning?.phase).toBe('warning')
+    expect(active?.phase).toBe('active')
+  })
+
+  it('damages the center only while the center surge is active', () => {
+    const inactive = hazardStatesForRunMs(15100, CENTER_SURGE_PRESSURE_THRESHOLD - 0.01)
+    const active = hazardStatesForRunMs(15100, CENTER_SURGE_PRESSURE_THRESHOLD)
+
+    expect(hazardDamageAtPosition({ x: 0, y: 1.7, z: 0 }, inactive)).toBe(0)
+    expect(hazardDamageAtPosition({ x: 0, y: 1.7, z: 0 }, active)).toBe(8)
+    expect(hazardDamageAtPosition({ x: 2, y: 1.7, z: 0 }, active)).toBe(0)
   })
 })
 
