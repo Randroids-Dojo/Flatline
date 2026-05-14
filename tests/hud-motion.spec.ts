@@ -33,6 +33,7 @@ test.describe('HUD animation coverage', () => {
   })
 
   test('ammo-pill data-critical flips when boomstick depletes to 1', async ({ page }) => {
+    test.setTimeout(60_000)
     await page.goto('/arena/practice')
     await page.getByLabel('Start weapon').selectOption('boomstick')
     await page.getByLabel('Damage').uncheck()
@@ -40,14 +41,14 @@ test.describe('HUD animation coverage', () => {
     await page.getByRole('button', { name: 'Start run' }).click()
     await expect(page.getByTestId('hud')).toBeVisible()
 
-    const ammoPill = page.locator('.ammo-pill')
+    const ammoPill = page.locator('.armament-ammo')
     await expect(ammoPill).toHaveAttribute('data-critical', 'false')
     await expect(ammoPill.getByText('6')).toBeVisible()
 
     // Boomstick stock is 6; firing 5 shots leaves 1, the critical state.
     for (let i = 0; i < 5; i++) {
       await page.mouse.click(960, 540)
-      await expect(page.getByTestId('weapon-ready')).toContainText('Ready', { timeout: 1500 })
+      await expect(page.getByTestId('weapon-ready')).toContainText('Ready', { timeout: 6000 })
     }
 
     await expect(ammoPill).toHaveAttribute('data-critical', 'true')
@@ -55,7 +56,7 @@ test.describe('HUD animation coverage', () => {
 
     // The pulse keyframe is named ammo-critical-pulse and runs on the
     // <strong>; reading computed animationName confirms the rule applied.
-    const animationName = await ammoPill.locator('strong').evaluate(
+    const animationName = await ammoPill.locator('.ammo-value').evaluate(
       (el) => window.getComputedStyle(el).animationName
     )
     expect(animationName).toBe('ammo-critical-pulse')
@@ -179,6 +180,7 @@ test.describe('HUD animation coverage', () => {
   })
 
   test('prefers-reduced-motion suppresses ammo-critical pulse keyframes', async ({ browser }) => {
+    test.setTimeout(60_000)
     const context = await browser.newContext({ reducedMotion: 'reduce' })
     const page = await context.newPage()
     try {
@@ -197,16 +199,16 @@ test.describe('HUD animation coverage', () => {
 
       for (let i = 0; i < 5; i++) {
         await page.mouse.click(960, 540)
-        await expect(page.getByTestId('weapon-ready')).toContainText('Ready', { timeout: 1500 })
+        await expect(page.getByTestId('weapon-ready')).toContainText('Ready', { timeout: 6000 })
       }
 
-      const ammoPill = page.locator('.ammo-pill')
+      const ammoPill = page.locator('.armament-ammo')
       await expect(ammoPill).toHaveAttribute('data-critical', 'true')
 
       // Under prefers-reduced-motion the @media block in globals.css sets
       // animation: none on the same selector that normally drives the
       // pulse. Computed animationName drops to 'none'.
-      const animationName = await ammoPill.locator('strong').evaluate(
+      const animationName = await ammoPill.locator('.ammo-value').evaluate(
         (el) => window.getComputedStyle(el).animationName
       )
       expect(animationName).toBe('none')

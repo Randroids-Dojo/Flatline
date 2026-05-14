@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-14, VibeKit 0.2.0 dependency bump
+
+- Branch: `chore/deps/vibekit-0.1.0-to-0.2.0`
+- PR: pending
+- Changed: bumped `@randroids-dojo/vibekit` from `v0.1.0` to `v0.2.0` in `package.json` and `package-lock.json`, and updated `docs/DEPENDENCY_LEDGER.md` so the watched pin matches. Upstream changelog from `v0.1.0...v0.2.0` adds the object-form RNG API (`split`, `serialize`, `deserialize`) and `server/kv` `KvLike` plus `adaptUpstashRedis`. No breaking changes were listed, and Flatline's current imports (`readStorage`, `writeStorage`, virtual joystick helpers, `getKv`, `incrementWithExpiry`) do not require code migration. Refreshed stale Playwright smoke and HUD-motion assertions for the current HUD class names, transient status-line behavior, and mobile timing so the dependency smoke suite can run against current app behavior.
+- Verification: dash check via `rg --pcre2 -n '[\x{2014}\x{2013}]'` (clean), `git diff --check`, `npm run typecheck`, `npm test` (814 / 814), `npm run lint` (0 errors, 3 pre-existing warnings), `npm run build`, `npm run test:e2e` (17 passed / 3 skipped). `npm audit --omit=dev` reports one high-severity Next.js advisory set, logged as F-024.
+- Assumptions: Recommended default treats this as a lockfile-only consumer bump because the upstream release is additive and current Flatline call sites do not use the new APIs.
+- GDD coverage: none. Dependency maintenance only.
+- Followups: F-024.
+
 ## 2026-05-13, Enemy gibs on death (REQ-056 build log)
 
 - Branch: `feat/enemy-gibs-on-death`

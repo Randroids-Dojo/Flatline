@@ -25,7 +25,13 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Blocks Release
 
-(none yet)
+### F-024: Upgrade Next.js for high-severity audit advisories
+
+- Priority: blocks-release
+- Context: The VibeKit 0.2.0 dependency slice ran `npm audit --omit=dev` on 2026-05-14 and found one high-severity production dependency issue in `next` 16.0.0-16.2.5, with multiple published advisories and `npm audit fix` available.
+- Blocker: none.
+- Unblock condition: run a dedicated Next.js dependency slice, read the upstream Next.js release notes and advisories, apply the minimal safe version bump, refresh `package-lock.json`, and run the full code-change verification suite plus smoke tests for app routes, API routes, image usage, and middleware-adjacent behavior.
+- PR / Dot reference: pending.
 
 ## Nice To Have
 
