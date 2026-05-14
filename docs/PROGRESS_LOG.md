@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-14, Moving cover visual sync fix
+
+- Branch: `main` direct push
+- PR: direct push
+- Changed: the moving cover mesh now stays aligned to the same `movingCoverRectAt(movingCoverElapsedMsRef.current)` position that drives collision. Removed a stale later `runtime.movingCover.position.x = Math.sin(...)` assignment that could desync the visible slab from the blocking rect after the frame's collision update had already run.
+- Verification: dash check via `rg --pcre2 -n '[\x{2014}\x{2013}]'` (clean), `git diff --check`, `npm test -- src/game/movingCover.test.ts` (18 / 18), `npm run typecheck`, `npm test` (840 / 840), `npm run lint` (0 errors, 3 pre-existing warnings), `npm run build`, `npm run test:e2e` (17 passed / 3 skipped).
+- Assumptions: Recommended default keeps `movingCoverRectAt` as the single source of truth for both collision and visuals because the GDD requirement is predictable moving cover, and visible geometry must match the blocking surface.
+- GDD coverage: REQ-059 stays `partial`; `docs/gdd/59-post-mvp-room-v1.md` gains a build-log entry for the sync fix.
+- Followups: none new.
+
 ## 2026-05-14, Door smoke burst on enemy spawn
 
 - Branch: `main` direct push

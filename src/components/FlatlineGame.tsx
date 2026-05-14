@@ -1720,8 +1720,6 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           runtime.overhead.color.set(
             lightingColorForPhase(lightingPhase(lightingPressure, playerHealthRef.current))
           )
-          runtime.movingCover.position.x = Math.sin(roomStateMsRef.current / 1800) * 2.2
-
           // Pillar bob at peak pressure. Each pillar gets a distinct
           // phase offset so the four bob out of sync; collision rects
           // for pillars are not changed (cover read stays the same).
