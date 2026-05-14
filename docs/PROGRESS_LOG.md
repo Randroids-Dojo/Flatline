@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-14, Next.js 16.2.6 security bump
+
+- Branch: `chore/deps/next-security-16.2.6`
+- PR: pending
+- Changed: bumped `next` from installed 16.2.4 to `^16.2.6` in `package.json` and refreshed `package-lock.json`, including `@next/env` and platform SWC optional packages. Official Next.js `v16.2.6` release notes say the release contains security fixes and backported bug fixes, and specifically addresses the advisories reported by `npm audit --omit=dev`. No app code migration was needed.
+- Verification: dash check via `rg --pcre2 -n '[\x{2014}\x{2013}]'` (clean), `git diff --check`, `npm run typecheck`, `npm test` (814 / 814), `npm run lint` (0 errors, 3 pre-existing warnings), `npm run build`, `npm audit --omit=dev` (0 vulnerabilities), `npm run test:e2e` (17 passed / 3 skipped).
+- Assumptions: Recommended default uses the minimal patched Next.js release because this is a security slice, not a framework feature upgrade.
+- GDD coverage: none. Dependency maintenance only.
+- Followups: F-024 resolved.
+
 ## 2026-05-14, VibeKit 0.2.0 dependency bump
 
 - Branch: `chore/deps/vibekit-0.1.0-to-0.2.0`

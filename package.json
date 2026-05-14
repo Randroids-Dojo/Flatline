@@ -16,7 +16,7 @@
   "dependencies": {
     "@randroids-dojo/vibekit": "github:Randroids-Dojo/VibeKit#v0.2.0",
     "@upstash/redis": "^1.37.0",
-    "next": "^16.0.0",
+    "next": "^16.2.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": "^0.181.0",
