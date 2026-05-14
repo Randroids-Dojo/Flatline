@@ -22,6 +22,15 @@ import { doorOpenCue, type DoorCueStyle } from '@/game/doorCue'
 import { DOOR_TOTAL_MS, doorPhaseAtElapsedMs, doorPhaseVisualAtElapsedMs } from '@/game/doorState'
 import { doorEnemyTint } from '@/game/doorEnemyTint'
 import {
+  DOOR_SMOKE_START_ALPHA,
+  doorSmokeAlphaScale,
+  doorSmokeDirectionFor,
+  doorSmokePosition,
+  doorSmokeScale,
+  tickDoorSmoke,
+  type DoorSmokeState
+} from '@/game/doorSmoke'
+import {
   applyDailySpawnOffset,
   createDailyArenaConfig,
   createDailySchedulePreview,
@@ -366,6 +375,11 @@ type BloodDecalEntry = {
   state: BloodDecalState
 }
 
+type DoorSmokeEntry = {
+  mesh: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>
+  state: DoorSmokeState
+}
+
 type HealthDropEntry = {
   id: string
   kind: HealthDropKind
@@ -468,6 +482,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const healthDropSeqRef = useRef<number>(0)
   const gibsRef = useRef<GibEntry[]>([])
   const bloodDecalsRef = useRef<BloodDecalEntry[]>([])
+  const doorSmokesRef = useRef<DoorSmokeEntry[]>([])
   // Snapshot of enemy ids that were already dead at the start of the
   // last animate frame. The post-update phase scans for enemies that
   // are dead now but were not in this snapshot to spawn the death-pop
@@ -1072,6 +1087,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     gibsRef.current = []
     clearBloodDecals(runtimeRef.current, bloodDecalsRef.current)
     bloodDecalsRef.current = []
+    clearDoorSmokes(runtimeRef.current, doorSmokesRef.current)
+    doorSmokesRef.current = []
     previouslyDeadEnemyIdsRef.current = new Set()
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
     clearSpitterProjectiles(runtimeRef.current, spitterProjectilesRef.current)
@@ -2219,6 +2236,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             enemiesRef.current = [...enemiesRef.current, newEnemy]
             doorSignalTimersRef.current[directorTick.spawn.door.id] = 0
             doorSpawnTypesRef.current[directorTick.spawn.door.id] = newEnemy.type
+            spawnDoorSmoke(runtime, doorSmokesRef.current, directorTick.spawn.door.id, directorTick.spawn.door.position)
             playDoorOpenCue(doorOpenCue(), settingsRef.current.audio)
             setEnemyHealth(newEnemy.health)
             setEnemyType(newEnemy.type)
@@ -2273,6 +2291,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       tickEnemyDeathPops(runtime, enemyDeathPopsRef.current, delta * 1000)
       tickGibs(runtime, gibsRef.current, delta * 1000)
       tickBloodDecals(runtime, bloodDecalsRef.current, delta * 1000)
+      tickDoorSmokes(runtime, doorSmokesRef.current, delta * 1000)
       tickScoreTokenDrops(runtime, scoreTokenDropsRef.current, delta * 1000)
 
       const tokenPickups = scoreTokenPickupIds(scoreTokenDropsRef.current, positionRef.current)
@@ -2525,6 +2544,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       gibsRef.current = []
       clearBloodDecals(runtimeRef.current, bloodDecalsRef.current)
       bloodDecalsRef.current = []
+      clearDoorSmokes(runtimeRef.current, doorSmokesRef.current)
+      doorSmokesRef.current = []
       clearInkProjectiles(runtimeRef.current, inkProjectiles)
       clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
       stopMusicLayer(musicLayerRef.current)
@@ -4108,6 +4129,103 @@ function tickBloodDecals(runtime: RuntimeRefs, decals: BloodDecalEntry[], deltaM
 function clearBloodDecals(runtime: RuntimeRefs | null, decals: BloodDecalEntry[]) {
   while (decals.length > 0) {
     const entry = decals.pop()
+    if (!entry) {
+      return
+    }
+    runtime?.shotGroup.remove(entry.mesh)
+    entry.mesh.geometry.dispose()
+    entry.mesh.material.dispose()
+  }
+}
+
+const DOOR_SMOKE_LIMIT = 28
+const DOOR_SMOKE_PUFFS_PER_SPAWN = 5
+
+function spawnDoorSmoke(
+  runtime: RuntimeRefs,
+  smokes: DoorSmokeEntry[],
+  doorId: string,
+  position: { x: number; y: number; z: number }
+) {
+  const direction = doorSmokeDirectionFor(doorId)
+  const side = { x: -direction.z, y: 0, z: direction.x }
+
+  for (let i = 0; i < DOOR_SMOKE_PUFFS_PER_SPAWN; i += 1) {
+    while (smokes.length >= DOOR_SMOKE_LIMIT) {
+      const oldest = smokes.shift()
+      if (!oldest) {
+        break
+      }
+      runtime.shotGroup.remove(oldest.mesh)
+      oldest.mesh.geometry.dispose()
+      oldest.mesh.material.dispose()
+    }
+
+    const sideOffset = (i - (DOOR_SMOKE_PUFFS_PER_SPAWN - 1) / 2) * 0.22
+    const depthOffset = 0.08 + Math.random() * 0.22
+    const heightOffset = (Math.random() - 0.5) * 0.18
+    const size = 0.28 + Math.random() * 0.18
+    const state: DoorSmokeState = {
+      ageMs: Math.random() * 90,
+      origin: {
+        x: position.x + direction.x * depthOffset,
+        y: Math.max(0.45, position.y - 0.35),
+        z: position.z + direction.z * depthOffset
+      },
+      direction,
+      lateral: {
+        x: side.x * sideOffset,
+        y: heightOffset,
+        z: side.z * sideOffset
+      },
+      size
+    }
+    const mesh = new THREE.Mesh(
+      new THREE.CircleGeometry(1, 18),
+      new THREE.MeshBasicMaterial({
+        color: '#c8c1ae',
+        transparent: true,
+        opacity: DOOR_SMOKE_START_ALPHA,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      })
+    )
+    const smokePosition = doorSmokePosition(state)
+    mesh.position.set(smokePosition.x, smokePosition.y, smokePosition.z)
+    mesh.quaternion.copy(runtime.camera.quaternion)
+    mesh.scale.setScalar(doorSmokeScale(state))
+    mesh.renderOrder = 4
+    runtime.shotGroup.add(mesh)
+
+    smokes.push({ mesh, state })
+  }
+}
+
+function tickDoorSmokes(runtime: RuntimeRefs, smokes: DoorSmokeEntry[], deltaMs: number) {
+  for (let i = smokes.length - 1; i >= 0; i -= 1) {
+    const entry = smokes[i]
+    const next = tickDoorSmoke(entry.state, deltaMs)
+
+    if (next === null) {
+      runtime.shotGroup.remove(entry.mesh)
+      entry.mesh.geometry.dispose()
+      entry.mesh.material.dispose()
+      smokes.splice(i, 1)
+      continue
+    }
+
+    entry.state = next
+    const position = doorSmokePosition(next)
+    entry.mesh.position.set(position.x, position.y, position.z)
+    entry.mesh.quaternion.copy(runtime.camera.quaternion)
+    entry.mesh.scale.setScalar(doorSmokeScale(next))
+    entry.mesh.material.opacity = DOOR_SMOKE_START_ALPHA * doorSmokeAlphaScale(next.ageMs)
+  }
+}
+
+function clearDoorSmokes(runtime: RuntimeRefs | null, smokes: DoorSmokeEntry[]) {
+  while (smokes.length > 0) {
+    const entry = smokes.pop()
     if (!entry) {
       return
     }

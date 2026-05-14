@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-14, Door smoke burst on enemy spawn
+
+- Branch: `main` direct push
+- PR: direct push
+- Changed: spawn doors now burst with a short smoke puff group when an enemy enters. New pure helper `src/game/doorSmoke.ts` owns the cardinal inward direction, 650 ms TTL, 420 ms final fade, upward rise, inward drift, expanding scale, and immutable tick behavior. `src/components/FlatlineGame.tsx` spawns five camera-facing smoke circles at the active door on the same frame as the door glow and enemy-type tint, caps live smoke meshes at 28, and clears them on run reset and unmount.
+- Verification: dash check via `rg --pcre2 -n '[\x{2014}\x{2013}]'` (clean), `git diff --check`, `npm run typecheck`, `npm test -- src/game/doorSmoke.test.ts` (9 / 9), `npm test` (840 / 840), `npm run lint` (0 errors, 3 pre-existing warnings), `npm run build`, `npm run test:e2e` (17 passed / 3 skipped).
+- Assumptions: Recommended default uses simple camera-facing circles instead of a particle texture atlas so the slice stays inside the existing transient mesh pipeline. Recommended default starts smoke at the spawn threshold and drifts it inward so it points the player toward the threat without adding new gameplay blocking.
+- GDD coverage: REQ-047 stays `partial`; `docs/gdd/47-arena-mutations.md` gains a build-log entry and `docs/GDD_COVERAGE.json` gains door-smoke refs.
+- Followups: none new.
+
 ## 2026-05-14, Next.js 16.2.6 security bump
 
 - Branch: `chore/deps/next-security-16.2.6`
