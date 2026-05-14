@@ -38,6 +38,16 @@ Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in 
 - GDD coverage: none. Dependency maintenance only.
 - Followups: F-024.
 
+## 2026-05-14, Enemy death blood decals (REQ-056 build log)
+
+- Branch: `main` direct push
+- PR: direct push
+- Changed: enemy deaths now leave a short-lived blood or ink decal on the floor at the corpse position, alongside the death pop ring and gibs. New pure helper `src/game/bloodDecal.ts` owns per-type radius, base alpha, color, 25 s TTL, final 3 s fade, and immutable tick behavior. `src/components/FlatlineGame.tsx` adds a capped `bloodDecalsRef` pool of `CircleGeometry` floor meshes, randomizes decal rotation, recycles the oldest at 32 live stains, fades opacity every frame, and clears decals on run reset, run finish, and unmount.
+- Verification: dash check via `rg --pcre2 -n '[\x{2014}\x{2013}]'` (clean), `git diff --check`, `npm run typecheck`, `npm test -- src/game/bloodDecal.test.ts` (17 / 17), `npm test` (831 / 831), `npm run lint` (0 errors, 3 pre-existing warnings), `npm run build`, `npm run test:e2e` (17 passed / 3 skipped).
+- Assumptions: Recommended default uses one simple circular stain per kill rather than a particle decal atlas so the slice stays inside the existing mesh renderer. Recommended default keeps decals visible for 25 s so the room records recent violence without permanently cluttering the floor. Recommended default caps live decals at 32 so peak waves cannot fill the arena with opaque stains.
+- GDD coverage: REQ-056 stays `partial`; `docs/gdd/56-post-mvp-feel-pass.md` gains a build-log entry and `docs/GDD_COVERAGE.json` gains the blood-decal refs plus the prior enemy-gibs refs that were missing from the row.
+- Followups: none new.
+
 ## 2026-05-13, Enemy gibs on death (REQ-056 build log)
 
 - Branch: `feat/enemy-gibs-on-death`

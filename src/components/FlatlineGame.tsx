@@ -69,6 +69,14 @@ import {
   tickGibPhysics,
   type GibState
 } from '@/game/enemyGibs'
+import {
+  bloodDecalAlphaScale,
+  bloodDecalBaseAlphaFor,
+  bloodDecalColorFor,
+  bloodDecalRadiusFor,
+  tickBloodDecal,
+  type BloodDecalState
+} from '@/game/bloodDecal'
 import { weaponFireCue, type WeaponFireCueStyle } from '@/game/weaponFireCue'
 import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
 import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
@@ -353,6 +361,11 @@ type GibEntry = {
   state: GibState
 }
 
+type BloodDecalEntry = {
+  mesh: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>
+  state: BloodDecalState
+}
+
 type HealthDropEntry = {
   id: string
   kind: HealthDropKind
@@ -454,6 +467,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
   const healthDropsRef = useRef<HealthDropEntry[]>([])
   const healthDropSeqRef = useRef<number>(0)
   const gibsRef = useRef<GibEntry[]>([])
+  const bloodDecalsRef = useRef<BloodDecalEntry[]>([])
   // Snapshot of enemy ids that were already dead at the start of the
   // last animate frame. The post-update phase scans for enemies that
   // are dead now but were not in this snapshot to spawn the death-pop
@@ -1056,6 +1070,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     healthDropSeqRef.current = 0
     clearGibs(runtimeRef.current, gibsRef.current)
     gibsRef.current = []
+    clearBloodDecals(runtimeRef.current, bloodDecalsRef.current)
+    bloodDecalsRef.current = []
     previouslyDeadEnemyIdsRef.current = new Set()
     clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
     clearSpitterProjectiles(runtimeRef.current, spitterProjectilesRef.current)
@@ -2095,6 +2111,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             if (!previouslyDead.has(candidate.id)) {
               spawnEnemyDeathPop(runtime, enemyDeathPopsRef.current, candidate.position)
               spawnEnemyGibs(runtime, gibsRef.current, candidate.type, candidate.position)
+              spawnBloodDecal(runtime, bloodDecalsRef.current, candidate.type, candidate.position)
               playEnemyDeathCue(enemyDeathCue(candidate.type), settingsRef.current.audio)
               if (shouldDropScoreToken(candidate.type, Math.random())) {
                 scoreTokenDropSeqRef.current += 1
@@ -2255,6 +2272,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       tickShotImpacts(runtime, shotImpacts, delta * 1000)
       tickEnemyDeathPops(runtime, enemyDeathPopsRef.current, delta * 1000)
       tickGibs(runtime, gibsRef.current, delta * 1000)
+      tickBloodDecals(runtime, bloodDecalsRef.current, delta * 1000)
       tickScoreTokenDrops(runtime, scoreTokenDropsRef.current, delta * 1000)
 
       const tokenPickups = scoreTokenPickupIds(scoreTokenDropsRef.current, positionRef.current)
@@ -2505,6 +2523,8 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
       healthDropsRef.current = []
       clearGibs(runtimeRef.current, gibsRef.current)
       gibsRef.current = []
+      clearBloodDecals(runtimeRef.current, bloodDecalsRef.current)
+      bloodDecalsRef.current = []
       clearInkProjectiles(runtimeRef.current, inkProjectiles)
       clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
       stopMusicLayer(musicLayerRef.current)
@@ -4007,6 +4027,87 @@ function tickGibs(runtime: RuntimeRefs, gibs: GibEntry[], deltaMs: number) {
 function clearGibs(runtime: RuntimeRefs | null, gibs: GibEntry[]) {
   while (gibs.length > 0) {
     const entry = gibs.pop()
+    if (!entry) {
+      return
+    }
+    runtime?.shotGroup.remove(entry.mesh)
+    entry.mesh.geometry.dispose()
+    entry.mesh.material.dispose()
+  }
+}
+
+// Blood decals on the floor at enemy death positions. Cap the
+// live count so a peak wave cannot turn the floor into a single
+// solid stain; the oldest decal recycles first.
+const BLOOD_DECAL_LIMIT = 32
+const BLOOD_DECAL_Y = 0.02
+
+function spawnBloodDecal(
+  runtime: RuntimeRefs,
+  decals: BloodDecalEntry[],
+  type: EnemyType,
+  position: { x: number; y: number; z: number }
+) {
+  if (decals.length >= BLOOD_DECAL_LIMIT) {
+    const oldest = decals.shift()
+    if (oldest) {
+      runtime.shotGroup.remove(oldest.mesh)
+      oldest.mesh.geometry.dispose()
+      oldest.mesh.material.dispose()
+    }
+  }
+
+  const radius = bloodDecalRadiusFor(type)
+  const baseAlpha = bloodDecalBaseAlphaFor(type)
+  const color = bloodDecalColorFor(type)
+
+  const mesh = new THREE.Mesh(
+    new THREE.CircleGeometry(radius, 24),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: baseAlpha,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    })
+  )
+  mesh.position.set(position.x, BLOOD_DECAL_Y, position.z)
+  mesh.rotation.x = -Math.PI / 2
+  // Slight per-decal rotation so a cluster of stains does not look
+  // like a row of identical disks.
+  mesh.rotation.z = Math.random() * Math.PI * 2
+  // renderOrder below the gibs and ammo halos so newer floor
+  // elements draw over the older decals.
+  mesh.renderOrder = 3
+  runtime.shotGroup.add(mesh)
+
+  decals.push({
+    mesh,
+    state: { ageMs: 0, radius, baseAlpha }
+  })
+}
+
+function tickBloodDecals(runtime: RuntimeRefs, decals: BloodDecalEntry[], deltaMs: number) {
+  for (let i = decals.length - 1; i >= 0; i -= 1) {
+    const entry = decals[i]
+    const next = tickBloodDecal(entry.state, deltaMs)
+
+    if (next === null) {
+      runtime.shotGroup.remove(entry.mesh)
+      entry.mesh.geometry.dispose()
+      entry.mesh.material.dispose()
+      decals.splice(i, 1)
+      continue
+    }
+
+    entry.state = next
+    entry.mesh.material.opacity = next.baseAlpha * bloodDecalAlphaScale(next.ageMs)
+  }
+}
+
+function clearBloodDecals(runtime: RuntimeRefs | null, decals: BloodDecalEntry[]) {
+  while (decals.length > 0) {
+    const entry = decals.pop()
     if (!entry) {
       return
     }
