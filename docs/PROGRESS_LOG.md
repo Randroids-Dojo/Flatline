@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-05-17, Endless roguelike spawn escalation
+
+- Branch: `feat/endless-roguelike-spawns`
+- PR: pending
+- Changed: the spawn director no longer flattens after five minutes. `targetPressureForRunMs` now starts at 4, reaches 10 at 300 s, and keeps adding one pressure point per minute afterward. `maxActiveEnemiesForRunMs` raises the on-screen cap from 8 to 10 to 12, then grows to `MAX_ACTIVE_ENEMIES = 16`. New `minActiveEnemiesForRunMs` forces a live-enemy floor of 5 / 6 / 8 / 10 as the run ages. `FlatlineGame.tsx` now enforces that floor with a direct top-up that creates all missing enemies immediately, ignores pressure while below the floor, and keeps those floor spawns silent so weapon / damage status is not overwritten. Local leaderboard and wallet state now initialize to server-safe defaults and load from `localStorage` after mount, fixing the title-screen hydration mismatch when a best score exists.
+- Verification: dash check via `rg --pcre2 -n '[\x{2014}\x{2013}]' . -g '!node_modules/**' -g '!.git/**' -g '!.next/**'` (clean), `git diff --check`, `npm test -- src/game/spawnDirector.test.ts src/lib/leaderboard.test.ts` (17 / 17), `npm run typecheck`, `npm test` (849 / 849), `npm run lint` (0 errors, 3 pre-existing warnings), `npm run build`, `npm run test:e2e` (16 passed / 1 flaky cooldown timing failure / 3 skipped under 8-worker load), isolated rerun of the failed case with `npx playwright test tests/hud-motion.spec.ts -g "prefers-reduced-motion suppresses ammo-critical pulse keyframes" --project=chromium` (1 / 1), isolated smoke with `npx playwright test tests/smoke.spec.ts -g "starts a walk and shoot run" --project=chromium` (1 / 1).
+- Assumptions: Recommended default keeps an active enemy ceiling of 16 so the roguelike-style endless ramp adds sustained pressure without allowing unbounded simultaneous billboards in the current renderer. Recommended default uses a count floor and faster fill cadence in addition to pressure so early and mid-run combat reads as a crowd, not two expensive enemies.
+- GDD coverage: REQ-032 stays `done`; `docs/gdd/32-spawn-director.md` gains a build-log entry for endless spawn escalation and `docs/GDD_COVERAGE.json` gains the runtime hookup refs.
+- Followups: none new.
+
 ## 2026-05-14, Center zone hazard surge
 
 - Branch: `main` direct push

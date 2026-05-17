@@ -149,7 +149,19 @@ import { isAmmoCritical, justHitLastAmmo } from '@/game/ammoWarning'
 import { isEnemyOnCrosshair } from '@/game/crosshairLock'
 import { combinedLightingIntensityScale, lightingColorForPhase, lightingPhase } from '@/game/lightingPhase'
 import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
-import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
+import {
+  MAX_ACTIVE_ENEMIES,
+  createDirectorState,
+  maxActiveEnemiesForRunMs,
+  minActiveEnemiesForRunMs,
+  missingActiveEnemiesForFloor,
+  mvpSpawnDoors,
+  selectSpawnDoor,
+  targetPressureForRunMs,
+  tickDirector,
+  type SpawnDoor,
+  type DirectorState
+} from '@/game/spawnDirector'
 import { encounterWaveSignal, lullStartedBetween, peakStartedBetween } from '@/game/encounterWave'
 import {
   MUSIC_BASS_HZ,
@@ -275,7 +287,7 @@ const weaponIdsForSelect = [...weaponIds]
 const enemyTypesForSelect: EnemyType[] = ['grunt', 'skitter', 'brute', 'spitter']
 const enemyAtlasTypes: EnemyType[] = ['grunt', 'skitter', 'brute', 'spitter']
 
-const MAX_ENEMIES = 8
+const MAX_ENEMY_RENDER_SLOTS = MAX_ACTIVE_ENEMIES
 
 // Q-008 recommended default: cross-faction (infighting) damage is 50% of
 // player-facing damage. Hazard ticks against enemies and spitter projectile
@@ -611,16 +623,19 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
     look: createJoystick()
   }))
   const [summary, setSummary] = useState<RunSummary | null>(null)
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
-    typeof window === 'undefined' ? [] : readLeaderboard(window.localStorage)
-  )
-  const [wallet, setWallet] = useState<UpgradeWallet>(() =>
-    typeof window === 'undefined' ? createUpgradeWallet() : readUpgradeWallet(window.localStorage)
-  )
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [wallet, setWallet] = useState<UpgradeWallet>(() => createUpgradeWallet())
   const walletRef = useRef<UpgradeWallet>(wallet)
   useEffect(() => {
     walletRef.current = wallet
   }, [wallet])
+  useEffect(() => {
+    const nextLeaderboard = readLeaderboard(window.localStorage)
+    const nextWallet = readUpgradeWallet(window.localStorage)
+    walletRef.current = nextWallet
+    setLeaderboard(nextLeaderboard)
+    setWallet(nextWallet)
+  }, [])
   const playerIdRef = useRef<string | null>(null)
   // Runtime cover collision rects. Cloned from the static seed list and
   // mutated as breakables are destroyed during a run; reset on every
@@ -1434,7 +1449,7 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
 
     const enemySlots: EnemyRenderSlot[] = []
 
-    for (let i = 0; i < MAX_ENEMIES; i += 1) {
+    for (let i = 0; i < MAX_ENEMY_RENDER_SLOTS; i += 1) {
       const material = new THREE.MeshBasicMaterial({
         color: '#ffffff',
         transparent: true,
@@ -2167,9 +2182,15 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           }
           previouslyDeadEnemyIdsRef.current = stillDead
 
+          const aliveCountForSpawn = enemiesRef.current.reduce(
+            (acc, candidate) => (candidate.state === 'dead' ? acc : acc + 1),
+            0
+          )
+          const activeEnemyFloor = minActiveEnemiesForRunMs(directorRef.current.runMs)
           const activePressure = enemiesRef.current.reduce((acc, candidate) => {
             return candidate.state === 'dead' ? acc : acc + enemyConfigs[candidate.type].pressureCost
           }, 0)
+          const pressureForDirector = aliveCountForSpawn < activeEnemyFloor ? Number.POSITIVE_INFINITY : activePressure
           const musicLayer = musicLayerRef.current
 
           if (musicLayer !== null) {
@@ -2199,10 +2220,12 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
           const directorTick = tickDirector(
             directorRef.current,
             0,
-            activePressure,
+            pressureForDirector,
             positionRef.current,
             undefined,
-            { cadenceScale: (dailyCadenceScale(dailyConfig) / practiceSettingsRef.current.spawnRate) }
+            {
+              cadenceScale: (dailyCadenceScale(dailyConfig) / practiceSettingsRef.current.spawnRate)
+            }
           )
           directorRef.current = directorTick.state
 
@@ -2222,27 +2245,53 @@ export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'sta
             (candidate) => candidate.state === 'dead' && candidate.animationTimeMs < 800
           )
 
-          if (directorTick.spawn && aliveCount < MAX_ENEMIES && !hasFreshKill) {
+          const activeEnemyCap = maxActiveEnemiesForRunMs(directorRef.current.runMs)
+          let liveEnemiesAfterSpawn = aliveCount
+          const spawnEnemyAtDoor = (door: SpawnDoor, advanceDirector: boolean, announce: boolean) => {
             const nextType = practiceEnemyTypeForSpawn(
               applyDailySpawnOffset(directorRef.current.spawnCount, dailyConfig),
               practiceSettingsRef.current,
               isPractice
             )
+            if (advanceDirector) {
+              directorRef.current = {
+                ...directorRef.current,
+                spawnCount: directorRef.current.spawnCount + 1,
+                lastSpawnMs: directorRef.current.runMs
+              }
+            }
             enemySpawnSeqRef.current += 1
             const newEnemy = createEnemy(
               nextType,
               `${nextType}-${enemySpawnSeqRef.current}`,
-              directorTick.spawn.door.position,
+              door.position,
               positionRef.current
             )
             enemiesRef.current = [...enemiesRef.current, newEnemy]
-            doorSignalTimersRef.current[directorTick.spawn.door.id] = 0
-            doorSpawnTypesRef.current[directorTick.spawn.door.id] = newEnemy.type
-            spawnDoorSmoke(runtime, doorSmokesRef.current, directorTick.spawn.door.id, directorTick.spawn.door.position)
+            doorSignalTimersRef.current[door.id] = 0
+            doorSpawnTypesRef.current[door.id] = newEnemy.type
+            spawnDoorSmoke(runtime, doorSmokesRef.current, door.id, door.position)
             playDoorOpenCue(doorOpenCue(), settingsRef.current.audio)
             setEnemyHealth(newEnemy.health)
             setEnemyType(newEnemy.type)
-            setStatus(`${enemyLabel(newEnemy.type)} entered from ${directorTick.spawn.door.id}.`)
+            if (announce) {
+              setStatus(`${enemyLabel(newEnemy.type)} entered from ${door.id}.`)
+            }
+            liveEnemiesAfterSpawn += 1
+          }
+
+          const floorSpawnCount = Math.min(
+            missingActiveEnemiesForFloor(directorRef.current.runMs, liveEnemiesAfterSpawn),
+            activeEnemyCap - liveEnemiesAfterSpawn
+          )
+
+          for (let i = 0; i < floorSpawnCount; i += 1) {
+            const door = selectSpawnDoor(mvpSpawnDoors, positionRef.current, directorRef.current.spawnCount)
+            spawnEnemyAtDoor(door, true, false)
+          }
+
+          if (floorSpawnCount === 0 && directorTick.spawn && liveEnemiesAfterSpawn < activeEnemyCap && !hasFreshKill) {
+            spawnEnemyAtDoor(directorTick.spawn.door, false, true)
           }
         }
       }

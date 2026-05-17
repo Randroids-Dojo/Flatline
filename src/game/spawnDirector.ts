@@ -21,7 +21,10 @@ export type SpawnDecision = {
 
 export type DirectorOptions = {
   cadenceScale?: number
+  fillMode?: boolean
 }
+
+export const MAX_ACTIVE_ENEMIES = 16
 
 export const mvpSpawnDoors: SpawnDoor[] = [
   { id: 'north', position: { x: 0, y: 1.05, z: 8.2 }, facingAngle: -Math.PI / 2 },
@@ -52,9 +55,12 @@ export function tickDirector(
   }
   const wave = encounterWaveSignal(next.runMs)
   const pressureTarget = targetPressureForRunMs(next.runMs) + wave.targetDelta
-  const cadenceMs = spawnCadenceForRunMs(next.runMs) * Math.max(0.25, options.cadenceScale ?? 1) * wave.cadenceScale
+  const cadenceMs =
+    (options.fillMode ? fillSpawnCadenceForRunMs(next.runMs) : spawnCadenceForRunMs(next.runMs)) *
+    Math.max(0.25, options.cadenceScale ?? 1) *
+    wave.cadenceScale
 
-  if (activePressure >= pressureTarget || next.runMs - next.lastSpawnMs < cadenceMs) {
+  if ((!options.fillMode && activePressure >= pressureTarget) || next.runMs - next.lastSpawnMs < cadenceMs) {
     return { state: next, spawn: null }
   }
 
@@ -72,41 +78,82 @@ export function tickDirector(
   }
 }
 
-// Aggressive escalation curve. Starts the player against two enemies
-// (so the arena never feels empty), ramps to four by the one-minute
-// mark, and asymptotes at eight. The encounter wave layer adds another
-// +1 / +2 during surge / peak phases on top of these. Tuned so the
-// game feels endless rather than turn-based.
+// Aggressive escalation curve. Starts the player against four enemies
+// worth of pressure, reaches six before the one-minute mark, then keeps
+// adding pressure every minute after five minutes. The
+// encounter wave layer adds another +1 / +2 during surge / peak phases
+// on top of these. Tuned so the game keeps escalating for long runs.
 export function targetPressureForRunMs(runMs: number): number {
   if (runMs < 15000) {
-    return 2
-  }
-
-  if (runMs < 45000) {
-    return 3
-  }
-
-  if (runMs < 90000) {
     return 4
   }
 
-  if (runMs < 150000) {
+  if (runMs < 45000) {
     return 5
   }
 
-  if (runMs < 210000) {
+  if (runMs < 90000) {
     return 6
   }
 
-  if (runMs < 300000) {
+  if (runMs < 150000) {
     return 7
   }
 
-  return 8
+  if (runMs < 210000) {
+    return 8
+  }
+
+  if (runMs < 300000) {
+    return 9
+  }
+
+  return 10 + Math.floor((runMs - 300000) / 60000)
+}
+
+export function maxActiveEnemiesForRunMs(runMs: number): number {
+  if (runMs < 75000) {
+    return 8
+  }
+
+  if (runMs < 150000) {
+    return 10
+  }
+
+  if (runMs < 300000) {
+    return 12
+  }
+
+  return Math.min(MAX_ACTIVE_ENEMIES, 12 + Math.floor((runMs - 300000) / 60000))
+}
+
+export function minActiveEnemiesForRunMs(runMs: number): number {
+  if (runMs < 30000) {
+    return 5
+  }
+
+  if (runMs < 75000) {
+    return 6
+  }
+
+  if (runMs < 150000) {
+    return 8
+  }
+
+  return Math.min(10, maxActiveEnemiesForRunMs(runMs))
+}
+
+export function missingActiveEnemiesForFloor(runMs: number, activeEnemies: number): number {
+  const target = Math.min(minActiveEnemiesForRunMs(runMs), maxActiveEnemiesForRunMs(runMs))
+  return Math.max(0, target - activeEnemies)
 }
 
 export function spawnCadenceForRunMs(runMs: number): number {
   return Math.max(900, 2600 - Math.floor(runMs / 1000) * 120)
+}
+
+export function fillSpawnCadenceForRunMs(runMs: number): number {
+  return Math.max(350, Math.floor(spawnCadenceForRunMs(runMs) * 0.35))
 }
 
 export function selectSpawnDoor(doors: SpawnDoor[], playerPosition: Vec3, spawnCount: number): SpawnDoor {
