@@ -8,4 +8,4 @@ E2e test hooks: `flatline:force-death`, `flatline:grant-cheddar`, and `flatline:
 
 ### Build log
 
-- 2026-07-07: all screens and the pause path. Files: `src/components/FlatlineGame.tsx`, `src/components/OfficeScreen.tsx`. PR #pending.
+- 2026-07-07: all screens and the pause path. Files: `src/components/FlatlineGame.tsx`, `src/components/OfficeScreen.tsx`. PR #172.

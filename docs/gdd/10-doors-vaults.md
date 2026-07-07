@@ -8,4 +8,4 @@ Vault doors are locked variants (bank-wheel texture) ringing a treasure room. Op
 
 ### Build log
 
-- 2026-07-07: door state machine, locked vaults, key consumption, tests. Files: `src/game/doors.ts`, `src/game/doors.test.ts`, `src/art/textures.ts`. PR #pending.
+- 2026-07-07: door state machine, locked vaults, key consumption, tests. Files: `src/game/doors.ts`, `src/game/doors.test.ts`, `src/art/textures.ts`. PR #172.

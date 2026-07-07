@@ -10,4 +10,4 @@ Not yet measured: long-session memory (textures are not disposed on run restart)
 
 ### Build log
 
-- 2026-07-07: initial budget and levers. Files: `src/components/FlatlineGame.tsx`. PR #pending.
+- 2026-07-07: initial budget and levers. Files: `src/components/FlatlineGame.tsx`. PR #172.

@@ -16,4 +16,4 @@ Environment rendering: instanced wall cubes with Lambert shading under a hemisph
 
 ### Build log
 
-- 2026-07-07: complete procedural art layer. Files: `src/art/ink.ts`, `src/art/textures.ts`, `src/art/sprites.ts`, `src/art/viewmodel.ts`, `src/art/mugshot.ts`. PR #pending.
+- 2026-07-07: complete procedural art layer. Files: `src/art/ink.ts`, `src/art/textures.ts`, `src/art/sprites.ts`, `src/art/viewmodel.ts`, `src/art/mugshot.ts`. PR #172.

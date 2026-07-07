@@ -9,4 +9,4 @@
 
 ### Build log
 
-- 2026-07-07: pillars established in the reboot implementation. Files: `src/game/*`, `src/art/ink.ts`. PR #pending.
+- 2026-07-07: pillars established in the reboot implementation. Files: `src/game/*`, `src/art/ink.ts`. PR #172.

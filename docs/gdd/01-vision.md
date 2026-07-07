@@ -10,4 +10,4 @@ What it is NOT: a story game, a mobile-first game, a multiplayer game, or a fait
 
 ### Build log
 
-- 2026-07-07: full reboot shipped: new game replacing the arena shooter. Files: `src/game/*`, `src/art/*`, `src/components/FlatlineGame.tsx`. PR #pending.
+- 2026-07-07: full reboot shipped: new game replacing the arena shooter. Files: `src/game/*`, `src/art/*`, `src/components/FlatlineGame.tsx`. PR #172.

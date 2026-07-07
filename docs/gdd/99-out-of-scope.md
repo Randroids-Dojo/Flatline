@@ -14,4 +14,4 @@ Cut lines for the reboot. Adding any of these requires explicit user approval.
 
 ### Build log
 
-- 2026-07-07: scope fence established for the reboot. PR #pending.
+- 2026-07-07: scope fence established for the reboot. PR #172.

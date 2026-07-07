@@ -14,4 +14,4 @@ Enemy kills also roll a luck-scaled supply drop (cheese or bullets, 18% base plu
 
 ### Build log
 
-- 2026-07-07: pickup effects, drop rolls, and tests. Files: `src/game/pickups.ts`, `src/game/pickups.test.ts`. PR #pending.
+- 2026-07-07: pickup effects, drop rolls, and tests. Files: `src/game/pickups.ts`, `src/game/pickups.test.ts`. PR #172.

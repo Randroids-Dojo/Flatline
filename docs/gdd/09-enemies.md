@@ -18,4 +18,4 @@ Spawn mix by ring: torpedoes everywhere; capos and shivs from ring 1; bruisers r
 
 ### Build log
 
-- 2026-07-07: bestiary, AI state machine, infight retargeting, tests. Files: `src/game/enemies.ts`, `src/game/enemies.test.ts`, `src/art/sprites.ts`. PR #pending.
+- 2026-07-07: bestiary, AI state machine, infight retargeting, tests. Files: `src/game/enemies.ts`, `src/game/enemies.test.ts`, `src/art/sprites.ts`. PR #172.

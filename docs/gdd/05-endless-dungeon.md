@@ -16,4 +16,4 @@ Meshes are built lazily per chunk (instanced wall boxes plus floor and ceiling p
 
 ### Build log
 
-- 2026-07-07: chunked generator with gateways, vaults, spawns, and reachability tests. Files: `src/game/dungeon.ts`, `src/game/dungeon.test.ts`. PR #pending.
+- 2026-07-07: chunked generator with gateways, vaults, spawns, and reachability tests. Files: `src/game/dungeon.ts`, `src/game/dungeon.test.ts`. PR #172.

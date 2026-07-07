@@ -20,4 +20,4 @@ Hitscan spread uses Doom's triangular twin-random distribution at 5.6 degrees.
 
 ### Build log
 
-- 2026-07-07: full arsenal with Doom-table stats and tests. Files: `src/game/weapons.ts`, `src/game/weapons.test.ts`, `src/art/viewmodel.ts`. PR #pending.
+- 2026-07-07: full arsenal with Doom-table stats and tests. Files: `src/game/weapons.ts`, `src/game/weapons.test.ts`, `src/art/viewmodel.ts`. PR #172.

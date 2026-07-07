@@ -8,4 +8,4 @@ Not yet done: audio degradation tied to the film preset (the reference game degr
 
 ### Build log
 
-- 2026-07-07: synthesized sfx and crackle-plus-bass ambience. Files: `src/audio/sfx.ts`. PR #pending.
+- 2026-07-07: synthesized sfx and crackle-plus-bass ambience. Files: `src/audio/sfx.ts`. PR #172.

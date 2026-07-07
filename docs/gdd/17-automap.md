@@ -6,4 +6,4 @@ Hold Tab for a Doom-style overlay map of explored cells (cells within 3 of the p
 
 ### Build log
 
-- 2026-07-07: hold-Tab automap with explored-cell tracking. Files: `src/components/FlatlineGame.tsx` (drawAutomap). PR #pending.
+- 2026-07-07: hold-Tab automap with explored-cell tracking. Files: `src/components/FlatlineGame.tsx` (drawAutomap). PR #172.

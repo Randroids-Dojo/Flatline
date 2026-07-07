@@ -16,4 +16,4 @@ Pacing anchors from RL2 research: early runs earn roughly 150 to 600; first-row 
 
 ### Build log
 
-- 2026-07-07: board, armory, rent, run lifecycle, schema, tests. Files: `src/game/meta.ts`, `src/game/meta.test.ts`, `src/components/OfficeScreen.tsx`. PR #pending.
+- 2026-07-07: board, armory, rent, run lifecycle, schema, tests. Files: `src/game/meta.ts`, `src/game/meta.test.ts`, `src/components/OfficeScreen.tsx`. PR #172.

@@ -14,4 +14,4 @@ Motion QA rule 10 coverage: e2e asserts the overlay pixels actually change over 
 
 ### Build log
 
-- 2026-07-07: grain, scratches, vignette, presets, and motion tests. Files: `src/art/film.ts`, `tests/film-motion.spec.ts`. PR #pending.
+- 2026-07-07: grain, scratches, vignette, presets, and motion tests. Files: `src/art/film.ts`, `tests/film-motion.spec.ts`. PR #172.

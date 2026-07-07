@@ -10,4 +10,4 @@ All art and audio are generated at runtime in the browser (canvas 2D drawing, We
 
 ### Build log
 
-- 2026-07-07: reboot removed the API routes and Upstash usage; single static route remains. Files: `app/page.tsx`, `app/layout.tsx`. PR #pending.
+- 2026-07-07: reboot removed the API routes and Upstash usage; single static route remains. Files: `app/page.tsx`, `app/layout.tsx`. PR #172.

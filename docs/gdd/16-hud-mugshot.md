@@ -10,4 +10,4 @@ Overlays: center crosshair, damage flash (dark ink vignette scaled by Doom's dam
 
 ### Build log
 
-- 2026-07-07: status bar, reactive mugshot, flashes, viewmodel bob. Files: `src/components/FlatlineGame.tsx`, `src/art/mugshot.ts`, `app/globals.css`. PR #pending.
+- 2026-07-07: status bar, reactive mugshot, flashes, viewmodel bob. Files: `src/components/FlatlineGame.tsx`, `src/art/mugshot.ts`, `app/globals.css`. PR #172.

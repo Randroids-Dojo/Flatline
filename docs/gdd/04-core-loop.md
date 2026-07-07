@@ -10,4 +10,4 @@ Session to session: permanent board ranks and weapon tiers persist in localStora
 
 ### Build log
 
-- 2026-07-07: full loop shipped. Files: `src/components/FlatlineGame.tsx`, `src/components/OfficeScreen.tsx`, `src/game/meta.ts`. PR #pending.
+- 2026-07-07: full loop shipped. Files: `src/components/FlatlineGame.tsx`, `src/components/OfficeScreen.tsx`, `src/game/meta.ts`. PR #172.

@@ -14,4 +14,4 @@ Monster infighting: an enemy hurt by another enemy retargets its attacker; same-
 
 ### Build log
 
-- 2026-07-07: raycast, projectile, splash, and armor systems with tests. Files: `src/game/raycast.ts`, `src/game/projectiles.ts`, `src/game/combat.ts`, and matching `.test.ts` files. PR #pending.
+- 2026-07-07: raycast, projectile, splash, and armor systems with tests. Files: `src/game/raycast.ts`, `src/game/projectiles.ts`, `src/game/combat.ts`, and matching `.test.ts` files. PR #172.

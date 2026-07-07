@@ -15,4 +15,4 @@ Bought at The Fence after unlocking it on the board. Each applies to the next ru
 
 ### Build log
 
-- 2026-07-07: relic definitions, purchase flow, and run-config effects. Files: `src/game/meta.ts`, `src/game/meta.test.ts`. PR #pending.
+- 2026-07-07: relic definitions, purchase flow, and run-config effects. Files: `src/game/meta.ts`, `src/game/meta.test.ts`. PR #172.

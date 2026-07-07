@@ -11,4 +11,4 @@ Run state is never persisted; refreshing mid-run is a death without the summary 
 
 ### Build log
 
-- 2026-07-07: schema and load/save flow. Files: `src/game/meta.ts` (metaSchema), `src/components/FlatlineGame.tsx`, `src/lib/storage.ts`. PR #pending.
+- 2026-07-07: schema and load/save flow. Files: `src/game/meta.ts` (metaSchema), `src/components/FlatlineGame.tsx`, `src/lib/storage.ts`. PR #172.

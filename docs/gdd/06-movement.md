@@ -10,4 +10,4 @@ Collision is circle vs cell grid with independent axis sliding and sub-stepping 
 
 ### Build log
 
-- 2026-07-07: momentum, friction, sliding collision, and tests. Files: `src/game/movement.ts`, `src/game/collision.ts`, `src/game/movement.test.ts`, `src/game/collision.test.ts`. PR #pending.
+- 2026-07-07: momentum, friction, sliding collision, and tests. Files: `src/game/movement.ts`, `src/game/collision.ts`, `src/game/movement.test.ts`, `src/game/collision.test.ts`. PR #172.
