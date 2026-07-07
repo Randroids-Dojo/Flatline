@@ -39,7 +39,8 @@ export function castRay(solidAt: SolidAt, origin: Vec2, angle: number, maxDistan
       : (dirZ > 0 ? (gz + 1) * CELL_M - origin.z : origin.z - gz * CELL_M) / Math.abs(dirZ)
 
   let distance = 0
-  let side: 'x' | 'z' = 'x'
+  // Definite assignment: the loop body always sets side before any read.
+  let side!: 'x' | 'z'
 
   while (distance <= maxDistance) {
     if (tMaxX < tMaxZ) {
