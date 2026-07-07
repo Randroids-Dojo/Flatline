@@ -1,593 +1,1168 @@
 {
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Rows whose status is partial or done should carry implementationRefs. testRefs are required when there is executable behavior to test (e.g. game logic, routes); they may be empty for doc-only requirements (risk registers, scope fences, design intent files). followupRefs link to F-NNN entries in docs/FOLLOWUPS.md.",
-  "updatedAt": "2026-05-14T04:00",
+  "updatedAt": "2026-07-07T05:00",
   "_comment_3": "REQ-056 build log notes per-shot impact-ring feedback shipped on 2026-05-03 in feat/shot-impact-burst. REQ-039 build log notes the HUD damage-direction indicator shipped on 2026-05-03 in feat/damage-direction-indicator. REQ-045 / REQ-056 / REQ-026 build logs note the foreground muzzle flash overlay shipped on 2026-05-03 in feat/muzzle-flash-overlay. REQ-056 / REQ-026 build logs note the weapon recoil sprite kick shipped on 2026-05-03 in feat/weapon-recoil-kick. REQ-046 / REQ-056 build logs note the enemy hurt flash on damage shipped on 2026-05-03 in feat/enemy-hurt-flash. REQ-036 build log notes pickup bounce + glow pulse + halo ring shipped on 2026-05-03 in feat/pickup-readability-bounce. REQ-040 build log notes distinct per-enemy-type windup audio cues shipped on 2026-05-04 in feat/enemy-windup-audio-cues. REQ-040 / REQ-056 build logs note the player damage audio sting shipped on 2026-05-04 in feat/player-damage-audio-sting. REQ-040 build log notes the hazard countdown click shipped on 2026-05-04 in feat/hazard-countdown-click. REQ-061 build log notes the close-range / weapon-variety / no-damage-streak / accuracy scoring bonuses shipped on 2026-05-04 in feat/scoring-v2-bonuses. REQ-020 build log notes the south curtain and west pipe organ landmarks shipped on 2026-05-04 in feat/arena-landmarks-curtain-organ. REQ-039 build log notes the cartoon-title-card HUD treatment (pill wobble + film grain + ink splatter frame) shipped on 2026-05-04 in feat/hud-cartoon-title-card. REQ-047 / REQ-059 / REQ-040 build logs note the door state machine v1 (opening / open / cooling phases + door spawn audio cue) shipped on 2026-05-04 in feat/door-state-machine.",
   "rows": [
     {
       "id": "REQ-001",
       "requirement": "Vision: arcade-style single-room first-person shooter for the web with hand-drawn billboard enemies.",
       "gddRef": "docs/gdd/01-vision.md",
-      "status": "done",
-      "implementationRefs": ["app/page.tsx", "src/components/FlatlineGame.tsx"],
-      "testRefs": ["tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "app/page.tsx",
+        "src/components/FlatlineGame.tsx"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-002",
       "requirement": "Design pillars: instant violence, one room many states, 2D in 3D, fast runs.",
       "gddRef": "docs/gdd/02-design-pillars.md",
-      "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx"],
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx"
+      ],
       "testRefs": [],
-      "followupRefs": []
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-003",
       "requirement": "Target platform: desktop web first, mobile / gamepad / PWA secondary.",
       "gddRef": "docs/gdd/03-target-platform.md",
-      "status": "done",
-      "implementationRefs": ["app/page.tsx", "src/game/virtualJoystick.ts"],
-      "testRefs": ["src/game/virtualJoystick.test.ts", "tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "app/page.tsx",
+        "src/game/virtualJoystick.ts"
+      ],
+      "testRefs": [
+        "src/game/virtualJoystick.test.ts",
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-004",
       "requirement": "Technical base: Next.js + React + Three.js + TypeScript + Vitest + Playwright + Upstash Redis.",
       "gddRef": "docs/gdd/04-technical-base.md",
-      "status": "done",
-      "implementationRefs": ["package.json", "next.config.ts", "playwright.config.ts", "vitest.config.ts", "tsconfig.json"],
-      "testRefs": ["tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "package.json",
+        "next.config.ts",
+        "playwright.config.ts",
+        "vitest.config.ts",
+        "tsconfig.json"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-005",
       "requirement": "Core game loop: open, title, countdown, spawn, kill, dodge, die, summary, restart.",
       "gddRef": "docs/gdd/05-core-loop.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx"],
-      "testRefs": ["tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-006",
       "requirement": "Endless mode: survive in single room with multi-axis scoring.",
       "gddRef": "docs/gdd/06-mode-endless.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/scoring.ts", "src/game/spawnDirector.ts"],
-      "testRefs": ["src/game/scoring.test.ts", "src/game/spawnDirector.test.ts", "tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game/scoring.ts",
+        "src/game/spawnDirector.ts"
+      ],
+      "testRefs": [
+        "src/game/scoring.test.ts",
+        "src/game/spawnDirector.test.ts",
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-007",
       "requirement": "Daily mode: deterministic seed shared across players, daily-scoped leaderboard.",
       "gddRef": "docs/gdd/07-mode-daily.md",
-      "status": "done",
-      "implementationRefs": ["app/arena/daily/page.tsx", "src/game/dailyArena.ts", "src/lib/dailySeed.ts", "src/lib/dailyStreak.ts"],
-      "testRefs": ["src/game/dailyArena.test.ts", "src/lib/dailySeed.test.ts", "src/lib/dailyStreak.test.ts", "tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "app/arena/daily/page.tsx",
+        "src/game/dailyArena.ts",
+        "src/lib/dailySeed.ts",
+        "src/lib/dailyStreak.ts"
+      ],
+      "testRefs": [
+        "src/game/dailyArena.test.ts",
+        "src/lib/dailySeed.test.ts",
+        "src/lib/dailyStreak.test.ts",
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-008",
       "requirement": "Practice mode: tuning controls, no leaderboard submission.",
       "gddRef": "docs/gdd/08-mode-practice.md",
-      "status": "done",
-      "implementationRefs": ["app/arena/practice/page.tsx", "src/game/spawnDirector.ts"],
-      "testRefs": ["src/game/spawnDirector.test.ts", "tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "app/arena/practice/page.tsx",
+        "src/game/spawnDirector.ts"
+      ],
+      "testRefs": [
+        "src/game/spawnDirector.test.ts",
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-009",
       "requirement": "First-person camera: FOV 75, height 1.7, mouse look, weapon foreground sprite.",
       "gddRef": "docs/gdd/09-camera.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx"],
-      "testRefs": ["tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-010",
       "requirement": "Movement: WASD + mouse aim, fast acceleration, low friction; mobile virtual joystick + look pad.",
       "gddRef": "docs/gdd/10-movement.md",
-      "status": "done",
-      "implementationRefs": ["src/game/movement.ts", "src/game/virtualJoystick.ts", "src/game/dash.ts", "src/components/FlatlineGame.tsx", "app/globals.css"],
-      "testRefs": ["src/game/movement.test.ts", "src/game/virtualJoystick.test.ts", "src/game/dash.test.ts", "tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/movement.ts",
+        "src/game/virtualJoystick.ts",
+        "src/game/dash.ts",
+        "src/components/FlatlineGame.tsx",
+        "app/globals.css"
+      ],
+      "testRefs": [
+        "src/game/movement.test.ts",
+        "src/game/virtualJoystick.test.ts",
+        "src/game/dash.test.ts",
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-011",
       "requirement": "Billboard perspective: flat plane always faces camera; sprite chosen from player relative angle.",
       "gddRef": "docs/gdd/11-billboard-perspective.md",
-      "status": "done",
-      "implementationRefs": ["src/game/billboard.ts", "src/game/spriteAtlas.ts"],
-      "testRefs": ["src/game/billboard.test.ts", "src/game/spriteAtlas.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/billboard.ts",
+        "src/game/spriteAtlas.ts"
+      ],
+      "testRefs": [
+        "src/game/billboard.test.ts",
+        "src/game/spriteAtlas.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-012",
       "requirement": "Art direction: mostly grayscale with teal interactable accent and red danger color (Q-001).",
       "gddRef": "docs/gdd/12-art-direction.md",
-      "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "public/assets/enemies", "public/assets/weapons"],
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "public/assets/enemies",
+        "public/assets/weapons"
+      ],
       "testRefs": [],
-      "followupRefs": []
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-013",
       "requirement": "Character art: 8-direction animation engine with 5-angle mirroring shortcut allowed (Q-002).",
       "gddRef": "docs/gdd/13-character-art-angles.md",
-      "status": "done",
-      "implementationRefs": ["src/game/billboard.ts", "public/assets/enemies/grunt", "public/assets/enemies/skitter", "public/assets/enemies/brute", "public/assets/enemies/spitter", "scripts/generate-grunt-atlas.mjs", "scripts/generate-enemy-variant-atlases.mjs"],
-      "testRefs": ["src/game/billboard.test.ts", "src/game/spriteAtlas.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/billboard.ts",
+        "public/assets/enemies/grunt",
+        "public/assets/enemies/skitter",
+        "public/assets/enemies/brute",
+        "public/assets/enemies/spitter",
+        "scripts/generate-grunt-atlas.mjs",
+        "scripts/generate-enemy-variant-atlases.mjs"
+      ],
+      "testRefs": [
+        "src/game/billboard.test.ts",
+        "src/game/spriteAtlas.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-014",
       "requirement": "Animation frame budget: per-asset cap on angles, frames per anim, animations.",
       "gddRef": "docs/gdd/14-frame-budget.md",
-      "status": "done",
-      "implementationRefs": ["public/assets/enemies/grunt/grunt.atlas.json", "public/assets/enemies/skitter/skitter.atlas.json", "public/assets/enemies/brute/brute.atlas.json", "public/assets/enemies/spitter/spitter.atlas.json", "scripts/generate-grunt-atlas.mjs", "scripts/generate-enemy-variant-atlases.mjs"],
-      "testRefs": ["src/game/spriteAtlas.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "public/assets/enemies/grunt/grunt.atlas.json",
+        "public/assets/enemies/skitter/skitter.atlas.json",
+        "public/assets/enemies/brute/brute.atlas.json",
+        "public/assets/enemies/spitter/spitter.atlas.json",
+        "scripts/generate-grunt-atlas.mjs",
+        "scripts/generate-enemy-variant-atlases.mjs"
+      ],
+      "testRefs": [
+        "src/game/spriteAtlas.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-015",
       "requirement": "Enemy entity model: Enemy struct with id, type, position, velocity, health, state, facing, animation, cooldown.",
       "gddRef": "docs/gdd/15-enemy-entity-model.md",
-      "status": "done",
-      "implementationRefs": ["src/game/enemies.ts"],
-      "testRefs": ["src/game/enemies.test.ts"],
-      "followupRefs": ["F-016"]
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/enemies.ts"
+      ],
+      "testRefs": [
+        "src/game/enemies.test.ts"
+      ],
+      "followupRefs": [
+        "F-016"
+      ],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-016",
       "requirement": "Billboard rendering: plane camera-facing, sprite enemy-facing-aware.",
       "gddRef": "docs/gdd/16-billboard-rendering.md",
-      "status": "done",
-      "implementationRefs": ["src/game/billboard.ts"],
-      "testRefs": ["src/game/billboard.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/billboard.ts"
+      ],
+      "testRefs": [
+        "src/game/billboard.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-017",
       "requirement": "Angle bucket selection: 8-bucket math from relative player angle.",
       "gddRef": "docs/gdd/17-angle-bucket-selection.md",
-      "status": "done",
-      "implementationRefs": ["src/game/billboard.ts"],
-      "testRefs": ["src/game/billboard.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/billboard.ts"
+      ],
+      "testRefs": [
+        "src/game/billboard.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-018",
       "requirement": "Sprite atlas format: per-enemy PNG + atlas.json with frames and clips.",
       "gddRef": "docs/gdd/18-sprite-atlas.md",
-      "status": "done",
-      "implementationRefs": ["src/game/spriteAtlas.ts", "public/assets/enemies/grunt/grunt.atlas.json", "public/assets/enemies/skitter/skitter.atlas.json", "public/assets/enemies/brute/brute.atlas.json"],
-      "testRefs": ["src/game/spriteAtlas.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/spriteAtlas.ts",
+        "public/assets/enemies/grunt/grunt.atlas.json",
+        "public/assets/enemies/skitter/skitter.atlas.json",
+        "public/assets/enemies/brute/brute.atlas.json"
+      ],
+      "testRefs": [
+        "src/game/spriteAtlas.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-019",
       "requirement": "Arena shape: rectangular room, central pillars, 4 enemy doors, 4 corner pickup zones, center risk zone.",
       "gddRef": "docs/gdd/19-arena-shape.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx"],
-      "testRefs": ["tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-020",
       "requirement": "Arena landmarks: distinct visual feature per cardinal wall (clock, furnace, curtain, organ).",
       "gddRef": "docs/gdd/20-arena-landmarks.md",
-      "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/arenaLandmarks.ts"],
-      "testRefs": ["src/game/arenaLandmarks.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game/arenaLandmarks.ts"
+      ],
+      "testRefs": [
+        "src/game/arenaLandmarks.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-021",
       "requirement": "Arena cover: pillars, broken walls, low crates, hanging props, moving partitions; enemies path around cover.",
       "gddRef": "docs/gdd/21-arena-cover.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "scripts/generate-cover-billboards.mjs", "public/assets/cover", "src/game/coverCollision.ts", "src/game/enemies.ts", "src/game/spitterProjectile.ts"],
-      "testRefs": ["src/game/coverCollision.test.ts"],
-      "followupRefs": ["F-020"]
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "scripts/generate-cover-billboards.mjs",
+        "public/assets/cover",
+        "src/game/coverCollision.ts",
+        "src/game/enemies.ts",
+        "src/game/spitterProjectile.ts"
+      ],
+      "testRefs": [
+        "src/game/coverCollision.test.ts"
+      ],
+      "followupRefs": [
+        "F-020"
+      ],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-022",
       "requirement": "Arena hazards: 3 telegraphed types (flame vent, ink pool, falling light) with audio sting.",
       "gddRef": "docs/gdd/22-arena-hazards.md",
-      "status": "done",
-      "implementationRefs": ["src/game/hazards.ts"],
-      "testRefs": ["src/game/hazards.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/hazards.ts"
+      ],
+      "testRefs": [
+        "src/game/hazards.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-023",
       "requirement": "Weapon Peashooter: infinite ammo hitscan pistol, low damage, fast firing, good accuracy.",
       "gddRef": "docs/gdd/23-weapon-peashooter.md",
-      "status": "done",
-      "implementationRefs": ["src/game/weapons.ts", "src/game/shooting.ts"],
-      "testRefs": ["src/game/weapons.test.ts", "src/game/shooting.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/weapons.ts",
+        "src/game/shooting.ts"
+      ],
+      "testRefs": [
+        "src/game/weapons.test.ts",
+        "src/game/shooting.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-024",
       "requirement": "Weapon Boomstick: limited-ammo shotgun, wide spread, knockback, group damage.",
       "gddRef": "docs/gdd/24-weapon-boomstick.md",
-      "status": "done",
-      "implementationRefs": ["src/game/weapons.ts", "src/game/shooting.ts", "src/game/knockback.ts", "src/components/FlatlineGame.tsx"],
-      "testRefs": ["src/game/weapons.test.ts", "src/game/shooting.test.ts", "src/game/knockback.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/weapons.ts",
+        "src/game/shooting.ts",
+        "src/game/knockback.ts",
+        "src/components/FlatlineGame.tsx"
+      ],
+      "testRefs": [
+        "src/game/weapons.test.ts",
+        "src/game/shooting.test.ts",
+        "src/game/knockback.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-025",
       "requirement": "Weapon Inkblaster: slow projectile splash damage, area denial.",
       "gddRef": "docs/gdd/25-weapon-inkblaster.md",
-      "status": "done",
-      "implementationRefs": ["src/game/weapons.ts", "src/game/shooting.ts"],
-      "testRefs": ["src/game/weapons.test.ts", "src/game/shooting.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/weapons.ts",
+        "src/game/shooting.ts"
+      ],
+      "testRefs": [
+        "src/game/weapons.test.ts",
+        "src/game/shooting.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-026",
       "requirement": "Weapon presentation: 2D foreground sprites with idle, fire, cooldown, pickup, HUD icon frames.",
       "gddRef": "docs/gdd/26-weapon-presentation.md",
-      "status": "done",
-      "implementationRefs": ["public/assets/weapons", "scripts/generate-weapon-sprites.mjs", "src/components/FlatlineGame.tsx", "src/game/muzzleFlash.ts", "src/game/weaponRecoil.ts", "app/globals.css"],
-      "testRefs": ["src/game/muzzleFlash.test.ts", "src/game/weaponRecoil.test.ts"],
-      "followupRefs": ["F-018"]
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "public/assets/weapons",
+        "scripts/generate-weapon-sprites.mjs",
+        "src/components/FlatlineGame.tsx",
+        "src/game/muzzleFlash.ts",
+        "src/game/weaponRecoil.ts",
+        "app/globals.css"
+      ],
+      "testRefs": [
+        "src/game/muzzleFlash.test.ts",
+        "src/game/weaponRecoil.test.ts"
+      ],
+      "followupRefs": [
+        "F-018"
+      ],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-027",
       "requirement": "Weapon: no reloads in MVP (Q-005 decision).",
       "gddRef": "docs/gdd/27-weapon-no-reloads.md",
-      "status": "done",
-      "implementationRefs": ["src/game/weapons.ts"],
-      "testRefs": ["src/game/weapons.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/weapons.ts"
+      ],
+      "testRefs": [
+        "src/game/weapons.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-028",
       "requirement": "Enemy Grunt: melee chaser, dies quickly, teaches movement and shooting.",
       "gddRef": "docs/gdd/28-enemy-grunt.md",
-      "status": "done",
-      "implementationRefs": ["src/game/enemies.ts", "public/assets/enemies/grunt/grunt.png", "public/assets/enemies/grunt/grunt.atlas.json"],
-      "testRefs": ["src/game/enemies.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/enemies.ts",
+        "public/assets/enemies/grunt/grunt.png",
+        "public/assets/enemies/grunt/grunt.atlas.json"
+      ],
+      "testRefs": [
+        "src/game/enemies.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-029",
       "requirement": "Enemy Skitter: fast low-health pressure enemy that forces tracking.",
       "gddRef": "docs/gdd/29-enemy-skitter.md",
-      "status": "done",
-      "implementationRefs": ["src/game/enemies.ts", "public/assets/enemies/skitter/skitter.png", "public/assets/enemies/skitter/skitter.atlas.json"],
-      "testRefs": ["src/game/enemies.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/enemies.ts",
+        "public/assets/enemies/skitter/skitter.png",
+        "public/assets/enemies/skitter/skitter.atlas.json"
+      ],
+      "testRefs": [
+        "src/game/enemies.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-030",
       "requirement": "Enemy Brute: slow high-health blocker that creates pathing pressure.",
       "gddRef": "docs/gdd/30-enemy-brute.md",
-      "status": "done",
-      "implementationRefs": ["src/game/enemies.ts", "public/assets/enemies/brute/brute.png", "public/assets/enemies/brute/brute.atlas.json"],
-      "testRefs": ["src/game/enemies.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/enemies.ts",
+        "public/assets/enemies/brute/brute.png",
+        "public/assets/enemies/brute/brute.atlas.json"
+      ],
+      "testRefs": [
+        "src/game/enemies.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-031",
       "requirement": "Enemy Spitter: ranged enemy that fires slow projectile.",
       "gddRef": "docs/gdd/31-enemy-spitter.md",
-      "status": "done",
-      "implementationRefs": ["src/game/enemies.ts", "src/game/spitterProjectile.ts", "src/components/FlatlineGame.tsx", "scripts/generate-enemy-variant-atlases.mjs", "public/assets/enemies/spitter"],
-      "testRefs": ["src/game/enemies.test.ts", "src/game/spitterProjectile.test.ts", "src/game/spriteAtlas.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/enemies.ts",
+        "src/game/spitterProjectile.ts",
+        "src/components/FlatlineGame.tsx",
+        "scripts/generate-enemy-variant-atlases.mjs",
+        "public/assets/enemies/spitter"
+      ],
+      "testRefs": [
+        "src/game/enemies.test.ts",
+        "src/game/spitterProjectile.test.ts",
+        "src/game/spriteAtlas.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-032",
       "requirement": "Spawn director: pressure-budget ramp; avoids unfair spawns; encourages movement.",
       "gddRef": "docs/gdd/32-spawn-director.md",
-      "status": "done",
-      "implementationRefs": ["src/game/spawnDirector.ts", "src/game/encounterWave.ts"],
-      "testRefs": ["src/game/spawnDirector.test.ts", "src/game/encounterWave.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/spawnDirector.ts",
+        "src/game/encounterWave.ts"
+      ],
+      "testRefs": [
+        "src/game/spawnDirector.test.ts",
+        "src/game/encounterWave.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-033",
       "requirement": "Pickup Health: small (10) common and large (35) rare in dangerous locations.",
       "gddRef": "docs/gdd/33-pickup-health.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/healthPickupTier.ts"],
-      "testRefs": ["src/game/healthPickupTier.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game/healthPickupTier.ts"
+      ],
+      "testRefs": [
+        "src/game/healthPickupTier.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-034",
       "requirement": "Pickup Ammo: shells (Boomstick) and ink cells (Inkblaster); pistol stays infinite.",
       "gddRef": "docs/gdd/34-pickup-ammo.md",
-      "status": "done",
-      "implementationRefs": ["src/game/weapons.ts", "src/components/FlatlineGame.tsx"],
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/weapons.ts",
+        "src/components/FlatlineGame.tsx"
+      ],
       "testRefs": [],
-      "followupRefs": []
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-035",
       "requirement": "Pickup score tokens: optional aggressive-play reward (post-MVP).",
       "gddRef": "docs/gdd/35-pickup-score.md",
-      "status": "done",
-      "implementationRefs": ["src/game/scoreToken.ts", "src/game/scoreTokenDrop.ts", "src/game/scoring.ts", "src/components/FlatlineGame.tsx"],
-      "testRefs": ["src/game/scoreToken.test.ts", "src/game/scoreTokenDrop.test.ts", "src/game/scoring.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/scoreToken.ts",
+        "src/game/scoreTokenDrop.ts",
+        "src/game/scoring.ts",
+        "src/components/FlatlineGame.tsx"
+      ],
+      "testRefs": [
+        "src/game/scoreToken.test.ts",
+        "src/game/scoreTokenDrop.test.ts",
+        "src/game/scoring.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-036",
       "requirement": "Pickup readability: bounce, glow, rim light, loop sound, consistent zones.",
       "gddRef": "docs/gdd/36-pickup-readability.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/pickupReadability.ts", "src/game/pickupLoopCue.ts"],
-      "testRefs": ["src/game/pickupReadability.test.ts", "src/game/pickupLoopCue.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game/pickupReadability.ts",
+        "src/game/pickupLoopCue.ts"
+      ],
+      "testRefs": [
+        "src/game/pickupReadability.test.ts",
+        "src/game/pickupLoopCue.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-037",
       "requirement": "Scoring formula: kill + survival + combo + accuracy + close-call + hazard-kill bonuses; combo break rules.",
       "gddRef": "docs/gdd/37-scoring-formula.md",
-      "status": "done",
-      "implementationRefs": ["src/game/scoring.ts"],
-      "testRefs": ["src/game/scoring.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/scoring.ts"
+      ],
+      "testRefs": [
+        "src/game/scoring.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-038",
       "requirement": "End-of-run summary: score, time, kills, accuracy, combo, weapon, damage, PB compare, leaderboard rank.",
       "gddRef": "docs/gdd/38-run-summary.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/lib/sharedLeaderboard.ts", "src/lib/leaderboard.ts"],
-      "testRefs": ["src/lib/leaderboard.test.ts", "src/lib/sharedLeaderboard.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/lib/sharedLeaderboard.ts",
+        "src/lib/leaderboard.ts"
+      ],
+      "testRefs": [
+        "src/lib/leaderboard.test.ts",
+        "src/lib/sharedLeaderboard.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-039",
       "requirement": "HUD: health, ammo, weapon, score, combo, timer, damage-direction indicator, crosshair; cartoon-title-card visual style.",
       "gddRef": "docs/gdd/39-hud.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/damageDirection.ts", "src/game/hudJitter.ts", "scripts/generate-hud-icons.mjs", "public/assets/hud", "app/globals.css"],
-      "testRefs": ["tests/smoke.spec.ts", "tests/hud-motion.spec.ts", "src/game/damageDirection.test.ts", "src/game/hudJitter.test.ts"],
-      "followupRefs": ["F-017", "F-019", "F-022"]
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game/damageDirection.ts",
+        "src/game/hudJitter.ts",
+        "scripts/generate-hud-icons.mjs",
+        "public/assets/hud",
+        "app/globals.css"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts",
+        "tests/hud-motion.spec.ts",
+        "src/game/damageDirection.test.ts",
+        "src/game/hudJitter.test.ts"
+      ],
+      "followupRefs": [
+        "F-017",
+        "F-019",
+        "F-022"
+      ],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-040",
       "requirement": "Audio: adaptive music intensity, required SFX list, audio readability cues for grayscale art.",
       "gddRef": "docs/gdd/40-audio.md",
-      "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/enemyWindupCue.ts", "src/game/enemyDeathCue.ts", "src/game/enemyHurtCue.ts", "src/game/weaponFireCue.ts", "src/game/playerDamageCue.ts", "src/game/hazardCountdown.ts", "src/game/pickupCue.ts", "src/game/pickupLoopCue.ts", "src/game/doorCue.ts", "src/game/musicIntensity.ts", "src/game/scoreMilestone.ts", "src/game/personalBest.ts", "src/game/comboMilestone.ts", "src/game/comboIncreaseCue.ts", "src/game/ammoWarning.ts", "src/game/runEndCue.ts"],
-      "testRefs": ["src/game/enemyWindupCue.test.ts", "src/game/enemyDeathCue.test.ts", "src/game/enemyHurtCue.test.ts", "src/game/weaponFireCue.test.ts", "src/game/playerDamageCue.test.ts", "src/game/hazardCountdown.test.ts", "src/game/pickupCue.test.ts", "src/game/pickupLoopCue.test.ts", "src/game/doorCue.test.ts", "src/game/musicIntensity.test.ts", "src/game/scoreMilestone.test.ts", "src/game/personalBest.test.ts", "src/game/comboMilestone.test.ts", "src/game/comboIncreaseCue.test.ts", "src/game/ammoWarning.test.ts", "src/game/runEndCue.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game/enemyWindupCue.ts",
+        "src/game/enemyDeathCue.ts",
+        "src/game/enemyHurtCue.ts",
+        "src/game/weaponFireCue.ts",
+        "src/game/playerDamageCue.ts",
+        "src/game/hazardCountdown.ts",
+        "src/game/pickupCue.ts",
+        "src/game/pickupLoopCue.ts",
+        "src/game/doorCue.ts",
+        "src/game/musicIntensity.ts",
+        "src/game/scoreMilestone.ts",
+        "src/game/personalBest.ts",
+        "src/game/comboMilestone.ts",
+        "src/game/comboIncreaseCue.ts",
+        "src/game/ammoWarning.ts",
+        "src/game/runEndCue.ts"
+      ],
+      "testRefs": [
+        "src/game/enemyWindupCue.test.ts",
+        "src/game/enemyDeathCue.test.ts",
+        "src/game/enemyHurtCue.test.ts",
+        "src/game/weaponFireCue.test.ts",
+        "src/game/playerDamageCue.test.ts",
+        "src/game/hazardCountdown.test.ts",
+        "src/game/pickupCue.test.ts",
+        "src/game/pickupLoopCue.test.ts",
+        "src/game/doorCue.test.ts",
+        "src/game/musicIntensity.test.ts",
+        "src/game/scoreMilestone.test.ts",
+        "src/game/personalBest.test.ts",
+        "src/game/comboMilestone.test.ts",
+        "src/game/comboIncreaseCue.test.ts",
+        "src/game/ammoWarning.test.ts",
+        "src/game/runEndCue.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-041",
       "requirement": "Routes: /, /arena/daily, /arena/practice, /api/leaderboard (GET fetch + POST submit).",
       "gddRef": "docs/gdd/41-routes.md",
-      "status": "done",
-      "implementationRefs": ["app/page.tsx", "app/arena/daily/page.tsx", "app/arena/practice/page.tsx", "app/api/leaderboard/route.ts"],
-      "testRefs": ["tests/smoke.spec.ts", "tests/api.leaderboard.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "app/page.tsx",
+        "app/arena/daily/page.tsx",
+        "app/arena/practice/page.tsx",
+        "app/api/leaderboard/route.ts"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts",
+        "tests/api.leaderboard.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-042",
       "requirement": "Source layout: components/ for React, game/ for pure simulation, lib/ for shared infra.",
       "gddRef": "docs/gdd/42-source-layout.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game", "src/lib"],
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game",
+        "src/lib"
+      ],
       "testRefs": [],
-      "followupRefs": []
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-043",
       "requirement": "Game loop architecture: React lifecycle + Three.js render + pure tick(); shared GameState shape.",
       "gddRef": "docs/gdd/43-game-loop-architecture.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game"],
-      "testRefs": ["src/game/movement.test.ts", "src/game/scoring.test.ts", "src/game/spawnDirector.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game"
+      ],
+      "testRefs": [
+        "src/game/movement.test.ts",
+        "src/game/scoring.test.ts",
+        "src/game/spawnDirector.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-044",
       "requirement": "Collision: 2D circles for player and enemies, line-segment walls, no vertical gameplay in MVP.",
       "gddRef": "docs/gdd/44-collision.md",
-      "status": "done",
-      "implementationRefs": ["src/game/movement.ts", "src/game/shooting.ts"],
-      "testRefs": ["src/game/movement.test.ts", "src/game/shooting.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/movement.ts",
+        "src/game/shooting.ts"
+      ],
+      "testRefs": [
+        "src/game/movement.test.ts",
+        "src/game/shooting.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-045",
       "requirement": "Shooting: hitscan raycast for pistol/shotgun, projectile ticks for inkblaster, impact effects.",
       "gddRef": "docs/gdd/45-shooting.md",
-      "status": "done",
-      "implementationRefs": ["src/game/shooting.ts", "src/game/muzzleFlash.ts", "src/components/FlatlineGame.tsx", "app/globals.css"],
-      "testRefs": ["src/game/shooting.test.ts", "src/game/muzzleFlash.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/shooting.ts",
+        "src/game/muzzleFlash.ts",
+        "src/components/FlatlineGame.tsx",
+        "app/globals.css"
+      ],
+      "testRefs": [
+        "src/game/shooting.test.ts",
+        "src/game/muzzleFlash.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-046",
       "requirement": "Per-frame render: animation lookup, angle bucket, frame index, UV swap, plane rotation, scale, hurt flash.",
       "gddRef": "docs/gdd/46-billboard-rendering-details.md",
-      "status": "done",
-      "implementationRefs": ["src/game/billboard.ts", "src/game/spriteAtlas.ts", "src/game/enemyHurtFlash.ts", "src/components/FlatlineGame.tsx"],
-      "testRefs": ["src/game/billboard.test.ts", "src/game/spriteAtlas.test.ts", "src/game/enemyHurtFlash.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/billboard.ts",
+        "src/game/spriteAtlas.ts",
+        "src/game/enemyHurtFlash.ts",
+        "src/components/FlatlineGame.tsx"
+      ],
+      "testRefs": [
+        "src/game/billboard.test.ts",
+        "src/game/spriteAtlas.test.ts",
+        "src/game/enemyHurtFlash.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-047",
       "requirement": "Arena mutations: lighting, door, hazard, cover phases that change with pressure.",
       "gddRef": "docs/gdd/47-arena-mutations.md",
-      "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/spawnDirector.ts", "src/game/doorState.ts", "src/game/doorCue.ts", "src/game/doorEnemyTint.ts", "src/game/doorSmoke.ts", "src/game/lightingPhase.ts"],
-      "testRefs": ["src/game/doorState.test.ts", "src/game/doorCue.test.ts", "src/game/doorEnemyTint.test.ts", "src/game/doorSmoke.test.ts", "src/game/lightingPhase.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game/spawnDirector.ts",
+        "src/game/doorState.ts",
+        "src/game/doorCue.ts",
+        "src/game/doorEnemyTint.ts",
+        "src/game/doorSmoke.ts",
+        "src/game/lightingPhase.ts"
+      ],
+      "testRefs": [
+        "src/game/doorState.test.ts",
+        "src/game/doorCue.test.ts",
+        "src/game/doorEnemyTint.test.ts",
+        "src/game/doorSmoke.test.ts",
+        "src/game/lightingPhase.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-048",
       "requirement": "MVP scope: must-have list and can-fake list both satisfied.",
       "gddRef": "docs/gdd/48-mvp-scope.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game", "src/lib", "app"],
-      "testRefs": ["tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game",
+        "src/lib",
+        "app"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-049",
       "requirement": "Vertical slices 1-5: walk-and-shoot, billboard enemy, AI, spawn director, polish.",
       "gddRef": "docs/gdd/49-vertical-slices.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game", "src/lib", "app"],
-      "testRefs": ["tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game",
+        "src/lib",
+        "app"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-050",
       "requirement": "Testing strategy: vitest unit tests for pure logic; playwright smoke for critical flows.",
       "gddRef": "docs/gdd/50-testing-strategy.md",
-      "status": "done",
-      "implementationRefs": ["vitest.config.ts", "playwright.config.ts"],
-      "testRefs": ["src/game/movement.test.ts", "src/game/scoring.test.ts", "src/game/spawnDirector.test.ts", "src/game/billboard.test.ts", "src/game/enemies.test.ts", "src/game/hazards.test.ts", "src/game/weapons.test.ts", "src/game/shooting.test.ts", "src/game/spriteAtlas.test.ts", "src/lib/leaderboard.test.ts", "src/lib/sharedLeaderboard.test.ts", "src/lib/dailySeed.test.ts", "src/game/dailyArena.test.ts", "src/game/virtualJoystick.test.ts", "tests/smoke.spec.ts", "tests/api.leaderboard.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "vitest.config.ts",
+        "playwright.config.ts"
+      ],
+      "testRefs": [
+        "src/game/movement.test.ts",
+        "src/game/scoring.test.ts",
+        "src/game/spawnDirector.test.ts",
+        "src/game/billboard.test.ts",
+        "src/game/enemies.test.ts",
+        "src/game/hazards.test.ts",
+        "src/game/weapons.test.ts",
+        "src/game/shooting.test.ts",
+        "src/game/spriteAtlas.test.ts",
+        "src/lib/leaderboard.test.ts",
+        "src/lib/sharedLeaderboard.test.ts",
+        "src/lib/dailySeed.test.ts",
+        "src/game/dailyArena.test.ts",
+        "src/game/virtualJoystick.test.ts",
+        "tests/smoke.spec.ts",
+        "tests/api.leaderboard.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-051",
       "requirement": "Performance budget: 60 FPS desktop, 30 FPS low-end; soft cap 25, hard cap 40 enemies; React HUD throttled.",
       "gddRef": "docs/gdd/51-performance-budget.md",
-      "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx"],
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx"
+      ],
       "testRefs": [],
-      "followupRefs": []
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-052",
       "requirement": "Data model: RunSubmission, LeaderboardEntry, ArenaConfig schemas with zod validation.",
       "gddRef": "docs/gdd/52-data-model.md",
-      "status": "done",
-      "implementationRefs": ["src/lib/sharedLeaderboard.ts", "app/api/leaderboard/route.ts"],
-      "testRefs": ["src/lib/sharedLeaderboard.test.ts", "tests/api.leaderboard.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/lib/sharedLeaderboard.ts",
+        "app/api/leaderboard/route.ts"
+      ],
+      "testRefs": [
+        "src/lib/sharedLeaderboard.test.ts",
+        "tests/api.leaderboard.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-053",
       "requirement": "Asset pipeline: enemy concept -> turnaround -> animate front -> validate -> animate other angles -> atlas pack.",
       "gddRef": "docs/gdd/53-asset-pipeline.md",
-      "status": "done",
-      "implementationRefs": ["docs/ART_PIPELINE.md", "scripts/generate-grunt-atlas.mjs", "scripts/generate-enemy-variant-atlases.mjs", "scripts/generate-weapon-sprites.mjs"],
-      "testRefs": ["src/game/spriteAtlas.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "docs/ART_PIPELINE.md",
+        "scripts/generate-grunt-atlas.mjs",
+        "scripts/generate-enemy-variant-atlases.mjs",
+        "scripts/generate-weapon-sprites.mjs"
+      ],
+      "testRefs": [
+        "src/game/spriteAtlas.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-054",
       "requirement": "Risks register: art cost, readability, performance, controls; documented mitigations.",
       "gddRef": "docs/gdd/54-risks.md",
-      "status": "done",
-      "implementationRefs": ["docs/gdd/54-risks.md"],
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "docs/gdd/54-risks.md"
+      ],
       "testRefs": [],
-      "followupRefs": []
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-055",
       "requirement": "Recommended first build: smallest fun version with one room, one weapon, one enemy.",
       "gddRef": "docs/gdd/55-recommended-first-build.md",
-      "status": "done",
-      "implementationRefs": ["src/components/FlatlineGame.tsx"],
-      "testRefs": ["tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-056",
       "requirement": "Post-MVP feel pass: WASD aligns to camera, every shot has readable feedback, first enemy centered.",
       "gddRef": "docs/gdd/56-post-mvp-feel-pass.md",
-      "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/movement.ts", "src/game/shooting.ts", "src/game/muzzleFlash.ts", "src/game/weaponRecoil.ts", "src/game/enemyHurtFlash.ts", "src/game/playerDamageCue.ts", "src/game/cameraKick.ts", "src/game/knockback.ts", "src/game/hitstop.ts", "src/game/rageBuff.ts", "src/game/enemyGibs.ts", "src/game/bloodDecal.ts", "app/globals.css"],
-      "testRefs": ["src/game/movement.test.ts", "src/game/shooting.test.ts", "src/game/muzzleFlash.test.ts", "src/game/weaponRecoil.test.ts", "src/game/enemyHurtFlash.test.ts", "src/game/playerDamageCue.test.ts", "src/game/cameraKick.test.ts", "src/game/knockback.test.ts", "src/game/hitstop.test.ts", "src/game/rageBuff.test.ts", "src/game/enemyGibs.test.ts", "src/game/bloodDecal.test.ts"],
-      "followupRefs": ["F-017"]
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game/movement.ts",
+        "src/game/shooting.ts",
+        "src/game/muzzleFlash.ts",
+        "src/game/weaponRecoil.ts",
+        "src/game/enemyHurtFlash.ts",
+        "src/game/playerDamageCue.ts",
+        "src/game/cameraKick.ts",
+        "src/game/knockback.ts",
+        "src/game/hitstop.ts",
+        "src/game/rageBuff.ts",
+        "src/game/enemyGibs.ts",
+        "src/game/bloodDecal.ts",
+        "app/globals.css"
+      ],
+      "testRefs": [
+        "src/game/movement.test.ts",
+        "src/game/shooting.test.ts",
+        "src/game/muzzleFlash.test.ts",
+        "src/game/weaponRecoil.test.ts",
+        "src/game/enemyHurtFlash.test.ts",
+        "src/game/playerDamageCue.test.ts",
+        "src/game/cameraKick.test.ts",
+        "src/game/knockback.test.ts",
+        "src/game/hitstop.test.ts",
+        "src/game/rageBuff.test.ts",
+        "src/game/enemyGibs.test.ts",
+        "src/game/bloodDecal.test.ts"
+      ],
+      "followupRefs": [
+        "F-017"
+      ],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-057",
       "requirement": "Post-MVP weapons V1: Peashooter + Boomstick + Inkblaster shipped with role-distinct feel.",
       "gddRef": "docs/gdd/57-post-mvp-weapons-v1.md",
-      "status": "done",
-      "implementationRefs": ["src/game/weapons.ts", "src/game/shooting.ts"],
-      "testRefs": ["src/game/weapons.test.ts", "src/game/shooting.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/weapons.ts",
+        "src/game/shooting.ts"
+      ],
+      "testRefs": [
+        "src/game/weapons.test.ts",
+        "src/game/shooting.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-058",
       "requirement": "Post-MVP enemies V1: Grunt + Skitter + Brute shipped with distinct silhouettes and timing.",
       "gddRef": "docs/gdd/58-post-mvp-enemies-v1.md",
-      "status": "done",
-      "implementationRefs": ["src/game/enemies.ts", "public/assets/enemies/grunt", "public/assets/enemies/skitter", "public/assets/enemies/brute"],
-      "testRefs": ["src/game/enemies.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/enemies.ts",
+        "public/assets/enemies/grunt",
+        "public/assets/enemies/skitter",
+        "public/assets/enemies/brute"
+      ],
+      "testRefs": [
+        "src/game/enemies.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-059",
       "requirement": "Post-MVP room V1: door state machine, moving cover, breakable props, named landmarks.",
       "gddRef": "docs/gdd/59-post-mvp-room-v1.md",
-      "status": "partial",
-      "implementationRefs": ["src/components/FlatlineGame.tsx", "src/game/doorState.ts", "src/game/doorCue.ts", "src/game/arenaLandmarks.ts", "src/game/breakableCover.ts", "src/game/coverCollision.ts", "src/game/enemies.ts", "src/game/movingCover.ts"],
-      "testRefs": ["src/game/doorState.test.ts", "src/game/doorCue.test.ts", "src/game/arenaLandmarks.test.ts", "src/game/breakableCover.test.ts", "src/game/coverCollision.test.ts", "src/game/movingCover.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game/doorState.ts",
+        "src/game/doorCue.ts",
+        "src/game/arenaLandmarks.ts",
+        "src/game/breakableCover.ts",
+        "src/game/coverCollision.ts",
+        "src/game/enemies.ts",
+        "src/game/movingCover.ts"
+      ],
+      "testRefs": [
+        "src/game/doorState.test.ts",
+        "src/game/doorCue.test.ts",
+        "src/game/arenaLandmarks.test.ts",
+        "src/game/breakableCover.test.ts",
+        "src/game/coverCollision.test.ts",
+        "src/game/movingCover.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-060",
       "requirement": "Post-MVP hazards V1: flame vent + ink pool + falling light, telegraphed and pressure-scaled.",
       "gddRef": "docs/gdd/60-post-mvp-hazards-v1.md",
-      "status": "done",
-      "implementationRefs": ["src/game/hazards.ts"],
-      "testRefs": ["src/game/hazards.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/hazards.ts"
+      ],
+      "testRefs": [
+        "src/game/hazards.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-061",
       "requirement": "Post-MVP scoring V2: close-range bonus, weapon variety bonus, no-damage streak bonus, leaderboard columns.",
       "gddRef": "docs/gdd/61-post-mvp-scoring-v2.md",
-      "status": "done",
-      "implementationRefs": ["src/game/scoring.ts", "src/components/FlatlineGame.tsx", "app/globals.css"],
-      "testRefs": ["src/game/scoring.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/scoring.ts",
+        "src/components/FlatlineGame.tsx",
+        "app/globals.css"
+      ],
+      "testRefs": [
+        "src/game/scoring.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-062",
       "requirement": "Post-MVP daily V2: deterministic seed across spawns, pickups, hazards; daily-only leaderboard.",
       "gddRef": "docs/gdd/62-post-mvp-daily-v2.md",
-      "status": "done",
-      "implementationRefs": ["src/game/dailyArena.ts", "src/lib/dailySeed.ts", "app/arena/daily/page.tsx", "app/api/leaderboard/route.ts"],
-      "testRefs": ["src/game/dailyArena.test.ts", "src/lib/dailySeed.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/dailyArena.ts",
+        "src/lib/dailySeed.ts",
+        "app/arena/daily/page.tsx",
+        "app/api/leaderboard/route.ts"
+      ],
+      "testRefs": [
+        "src/game/dailyArena.test.ts",
+        "src/lib/dailySeed.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-063",
       "requirement": "Post-MVP practice mode: enemy/spawn/damage/ammo controls, debug overlays, room state freeze.",
       "gddRef": "docs/gdd/63-post-mvp-practice.md",
-      "status": "done",
-      "implementationRefs": ["app/arena/practice/page.tsx", "src/game/spawnDirector.ts"],
-      "testRefs": ["src/game/spawnDirector.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "app/arena/practice/page.tsx",
+        "src/game/spawnDirector.ts"
+      ],
+      "testRefs": [
+        "src/game/spawnDirector.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-064",
       "requirement": "Post-MVP completion: 3 weapons, 3 enemies, 3 hazards, daily + all-time boards, practice, intentional feel.",
       "gddRef": "docs/gdd/64-post-mvp-completion.md",
-      "status": "partial",
-      "implementationRefs": ["src/game", "src/lib", "app"],
-      "testRefs": ["tests/smoke.spec.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game",
+        "src/lib",
+        "app"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-066",
       "requirement": "Post-MVP meta-progression: kill-banked credits + permanent tier upgrades (max HP, starting ammo, weapon damage, move speed) compounding across runs.",
       "gddRef": "docs/gdd/66-post-mvp-meta-progression.md",
-      "status": "done",
-      "implementationRefs": ["src/game/upgradeTree.ts", "src/lib/upgradeWallet.ts", "src/game/weapons.ts", "src/components/FlatlineGame.tsx", "app/globals.css", "src/lib/playerId.ts", "src/lib/sharedUpgradeWallet.ts", "app/api/upgrade-wallet/route.ts"],
-      "testRefs": ["src/game/upgradeTree.test.ts", "src/lib/upgradeWallet.test.ts", "src/lib/playerId.test.ts", "src/lib/sharedUpgradeWallet.test.ts", "tests/api.upgrade-wallet.test.ts"],
-      "followupRefs": []
+      "status": "out_of_scope",
+      "implementationRefs": [
+        "src/game/upgradeTree.ts",
+        "src/lib/upgradeWallet.ts",
+        "src/game/weapons.ts",
+        "src/components/FlatlineGame.tsx",
+        "app/globals.css",
+        "src/lib/playerId.ts",
+        "src/lib/sharedUpgradeWallet.ts",
+        "app/api/upgrade-wallet/route.ts"
+      ],
+      "testRefs": [
+        "src/game/upgradeTree.test.ts",
+        "src/lib/upgradeWallet.test.ts",
+        "src/lib/playerId.test.ts",
+        "src/lib/sharedUpgradeWallet.test.ts",
+        "tests/api.upgrade-wallet.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
     },
     {
       "id": "REQ-065",
@@ -596,7 +1171,324 @@
       "status": "out_of_scope",
       "implementationRefs": [],
       "testRefs": [],
+      "followupRefs": [],
+      "note": "2026-07-07 reboot: the arena game this row specified was replaced wholesale by the endless-dungeon reboot. GDD ref archived under docs/_archive/2026-07-07-pre-reboot/."
+    },
+    {
+      "id": "REQ-100",
+      "requirement": "Vision: Doom-mechanics FPS in a rubber-hose noir look with an endless dungeon and death-driven meta progression.",
+      "gddRef": "docs/gdd/01-vision.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-101",
+      "requirement": "Design pillars: doom in the fingers, every frame a cel, death pays the rent, the city never ends.",
+      "gddRef": "docs/gdd/02-design-pillars.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/game",
+        "src/art"
+      ],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-102",
+      "requirement": "Platform: desktop web pointer-lock FPS on Next.js + Three.js + Vercel, no binary assets.",
+      "gddRef": "docs/gdd/03-platform-stack.md",
+      "status": "done",
+      "implementationRefs": [
+        "app/page.tsx",
+        "app/layout.tsx"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-103",
+      "requirement": "Core loop: run, die, bank earnings, spend at the office, run again with rent applied.",
+      "gddRef": "docs/gdd/04-core-loop.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/game/meta.ts"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts",
+        "src/game/meta.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-104",
+      "requirement": "Endless chunked dungeon generation with shared edge gateways, rooms, corridors, vaults, ring difficulty.",
+      "gddRef": "docs/gdd/05-endless-dungeon.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/game/dungeon.ts"
+      ],
+      "testRefs": [
+        "src/game/dungeon.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-105",
+      "requirement": "Doom momentum movement with friction 0.90625/tic, unnormalized diagonals, sliding grid collision.",
+      "gddRef": "docs/gdd/06-movement.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/game/movement.ts",
+        "src/game/collision.ts"
+      ],
+      "testRefs": [
+        "src/game/movement.test.ts",
+        "src/game/collision.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-106",
+      "requirement": "Seven-slot arsenal with Doom damage dice, cycle times, pellets, spread, and ammo economy.",
+      "gddRef": "docs/gdd/07-weapons.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/game/weapons.ts",
+        "src/art/viewmodel.ts"
+      ],
+      "testRefs": [
+        "src/game/weapons.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-107",
+      "requirement": "Combat: DDA hitscan, visible cartoon projectiles, Doom splash with crate chains, armor absorption.",
+      "gddRef": "docs/gdd/08-combat.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/game/raycast.ts",
+        "src/game/projectiles.ts",
+        "src/game/combat.ts"
+      ],
+      "testRefs": [
+        "src/game/raycast.test.ts",
+        "src/game/projectiles.test.ts",
+        "src/game/combat.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-108",
+      "requirement": "Five-goon bestiary with Doom HP/pain-chance/attack-gamble AI, infighting, ring-gated spawn mix.",
+      "gddRef": "docs/gdd/09-enemies.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/game/enemies.ts",
+        "src/art/sprites.ts"
+      ],
+      "testRefs": [
+        "src/game/enemies.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-109",
+      "requirement": "Doom doors (2.19 m/s, 4.3s hold, bounce-back) plus locked vaults with same-chunk keys.",
+      "gddRef": "docs/gdd/10-doors-vaults.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/game/doors.ts"
+      ],
+      "testRefs": [
+        "src/game/doors.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-110",
+      "requirement": "Doom item economy: cheese heals, vest/trench armor, ammo boxes, coin denominations, luck drops.",
+      "gddRef": "docs/gdd/11-pickups.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/game/pickups.ts"
+      ],
+      "testRefs": [
+        "src/game/pickups.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-111",
+      "requirement": "RL2 meta: fog-of-war Case Board, escalating costs, labor inflation, Armory tiers, the rent with banking.",
+      "gddRef": "docs/gdd/12-meta-progression.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/game/meta.ts",
+        "src/components/OfficeScreen.tsx"
+      ],
+      "testRefs": [
+        "src/game/meta.test.ts",
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-112",
+      "requirement": "Relics: eight one-run contraband items consumed on run start.",
+      "gddRef": "docs/gdd/13-relics.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/game/meta.ts"
+      ],
+      "testRefs": [
+        "src/game/meta.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-113",
+      "requirement": "Rubber-hose art: grayscale ink primitives, line boil, procedural textures, character rig, viewmodels.",
+      "gddRef": "docs/gdd/14-art-direction.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/art/ink.ts",
+        "src/art/textures.ts",
+        "src/art/sprites.ts",
+        "src/art/viewmodel.ts"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-114",
+      "requirement": "Film post pass: three presets, animated grain, scratches, vignette, diffusion filter.",
+      "gddRef": "docs/gdd/15-film-post.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/art/film.ts"
+      ],
+      "testRefs": [
+        "tests/film-motion.spec.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-115",
+      "requirement": "Doom status bar with reactive five-tier mugshot, damage and pickup flashes, weapon bob.",
+      "gddRef": "docs/gdd/16-hud-mugshot.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/art/mugshot.ts"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-116",
+      "requirement": "Hold-Tab automap of explored cells with upgradeable radius and relic pickup dots.",
+      "gddRef": "docs/gdd/17-automap.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx"
+      ],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-117",
+      "requirement": "Synthesized audio: gunshots, cartoon cues, vinyl-crackle swing ambience, mute.",
+      "gddRef": "docs/gdd/18-audio.md",
+      "status": "partial",
+      "implementationRefs": [
+        "src/audio/sfx.ts"
+      ],
+      "testRefs": [],
+      "followupRefs": [
+        "F-028"
+      ]
+    },
+    {
+      "id": "REQ-118",
+      "requirement": "Screen flow: title, run, death card, office, pause; e2e-drivable via test events.",
+      "gddRef": "docs/gdd/19-screen-flow.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx",
+        "src/components/OfficeScreen.tsx"
+      ],
+      "testRefs": [
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-119",
+      "requirement": "Persistence: zod-validated meta and film preset in localStorage.",
+      "gddRef": "docs/gdd/20-persistence.md",
+      "status": "done",
+      "implementationRefs": [
+        "src/game/meta.ts",
+        "src/lib/storage.ts"
+      ],
+      "testRefs": [
+        "src/game/meta.test.ts",
+        "tests/smoke.spec.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-120",
+      "requirement": "Testing: unit specs for every pure module plus full-loop and motion e2e.",
+      "gddRef": "docs/gdd/21-testing.md",
+      "status": "done",
+      "implementationRefs": [
+        "vitest.config.ts",
+        "playwright.config.ts"
+      ],
+      "testRefs": [
+        "src/game",
+        "tests"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-121",
+      "requirement": "Performance: instancing, lazy chunk meshes, AI sleep radius, capped decals, throttled overlays.",
+      "gddRef": "docs/gdd/22-performance.md",
+      "status": "partial",
+      "implementationRefs": [
+        "src/components/FlatlineGame.tsx"
+      ],
+      "testRefs": [],
+      "followupRefs": [
+        "F-026",
+        "F-027"
+      ]
+    },
+    {
+      "id": "REQ-122",
+      "requirement": "Scope fence for the reboot (cuts list).",
+      "gddRef": "docs/gdd/99-out-of-scope.md",
+      "status": "done",
+      "implementationRefs": [],
+      "testRefs": [],
       "followupRefs": []
     }
-  ]
+  ],
+  "_comment_4": "2026-07-07 reboot: REQ-001..REQ-066 covered the arena game and are out_of_scope; REQ-100+ cover the endless-dungeon reboot."
 }

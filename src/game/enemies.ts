@@ -1,646 +1,283 @@
-import { ARENA_COVER_RECTS, clampOutsideRects, type CoverRect } from './coverCollision'
-import {
-  SKITTER_DASH_DURATION_MS,
-  SKITTER_DASH_REARM_COOLDOWN_MS,
-  shouldStartSkitterDash,
-  skitterDashSpeedScale
-} from './skitterDash'
-import type { Vec3 } from './types'
+// Enemy definitions and AI. The bestiary mirrors Doom's early roster
+// (zombieman, shotgun guy, imp, pinky, baron) re-cast as 1930s cartoon
+// mobsters. Stats follow Doom's tables: HP, pain chance out of 255,
+// damage dice, and the distance-based attack gamble.
 
-export type EnemyState = 'chase' | 'attackWindup' | 'attackRelease' | 'hurt' | 'dead'
-export type EnemyType = 'grunt' | 'skitter' | 'brute' | 'spitter'
-export type EnemyAttackKind = 'melee' | 'ranged'
+import type { EnemyKind } from './dungeon'
+import { rollDice, type Rng } from './rng'
+import { angleTo, clamp, dist, type Vec2 } from './types'
 
-export type EnemyModel = {
-  id: string
-  type: EnemyType
-  position: Vec3
-  velocity: Vec3
-  radius: number
-  health: number
+export type EnemyDef = {
+  kind: EnemyKind
+  hp: number
+  speedM: number
+  radiusM: number
+  // Chance out of 255 that a hit interrupts into the pain state.
+  painChance: number
+  // Melee-only goons (the bruiser) have no ranged attack at all.
+  attack?:
+    | { type: 'hitscan'; pellets: number; dice: { count: number; sides: number; mult: number }; spreadRad: number }
+    | { type: 'projectile'; dice: { count: number; sides: number; mult: number }; speedM: number; radiusM: number }
+  melee?: { dice: { count: number; sides: number; mult: number }; rangeM: number }
+  windupSec: number
+  attackCooldownSec: number
+  // Cheddar coins dropped on death (each worth COIN_VALUE).
+  coinDrop: { min: number; max: number }
+  heightM: number
+}
+
+export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
+  torpedo: {
+    kind: 'torpedo',
+    hp: 20,
+    speedM: 2.2,
+    radiusM: 0.55,
+    painChance: 200,
+    // Monster hitscan spread is 4x the player's: +-22.4 degrees.
+    attack: { type: 'hitscan', pellets: 1, dice: { count: 1, sides: 5, mult: 3 }, spreadRad: 0.391 },
+    windupSec: 0.5,
+    attackCooldownSec: 1.4,
+    coinDrop: { min: 2, max: 4 },
+    heightM: 1.8
+  },
+  capo: {
+    kind: 'capo',
+    hp: 30,
+    speedM: 2.9,
+    radiusM: 0.55,
+    painChance: 170,
+    attack: { type: 'hitscan', pellets: 3, dice: { count: 1, sides: 5, mult: 3 }, spreadRad: 0.391 },
+    windupSec: 0.55,
+    attackCooldownSec: 1.8,
+    coinDrop: { min: 3, max: 6 },
+    heightM: 1.8
+  },
+  alleycat: {
+    kind: 'alleycat',
+    hp: 60,
+    speedM: 2.9,
+    radiusM: 0.55,
+    painChance: 200,
+    attack: { type: 'projectile', dice: { count: 1, sides: 8, mult: 3 }, speedM: 10.9, radiusM: 0.2 },
+    melee: { dice: { count: 1, sides: 8, mult: 3 }, rangeM: 1.4 },
+    windupSec: 0.55,
+    attackCooldownSec: 1.6,
+    coinDrop: { min: 3, max: 7 },
+    heightM: 1.9
+  },
+  bruiser: {
+    kind: 'bruiser',
+    hp: 150,
+    speedM: 4.6,
+    radiusM: 0.65,
+    painChance: 180,
+    melee: { dice: { count: 1, sides: 10, mult: 4 }, rangeM: 1.5 },
+    windupSec: 0.4,
+    attackCooldownSec: 1.1,
+    coinDrop: { min: 5, max: 9 },
+    heightM: 2
+  },
+  fatcat: {
+    kind: 'fatcat',
+    hp: 350,
+    speedM: 2.4,
+    radiusM: 0.8,
+    painChance: 50,
+    attack: { type: 'projectile', dice: { count: 1, sides: 6, mult: 8 }, speedM: 16.4, radiusM: 0.3 },
+    melee: { dice: { count: 1, sides: 8, mult: 10 }, rangeM: 1.7 },
+    windupSec: 0.6,
+    attackCooldownSec: 2,
+    coinDrop: { min: 12, max: 20 },
+    heightM: 2.4
+  }
+}
+
+export type EnemyState = 'idle' | 'chase' | 'windup' | 'pain' | 'dying' | 'dead'
+
+export type Enemy = {
+  id: number
+  kind: EnemyKind
+  pos: Vec2
+  hp: number
   state: EnemyState
-  facingAngle: number
-  animationTimeMs: number
-  attackCooldownMs: number
-  dashBurstMsRemaining: number
-  // F-016 v1: time remaining in a crossfire stagger window. While > 0 the
-  // enemy stops chasing the player and faces the source of the infighting
-  // damage. Decremented by tickEnemy.
-  crossfireStaggerMs: number
-  // F-016 v2: time remaining in the post-stagger pursuit window. While > 0
-  // and the source is alive, the enemy chases and attempts to attack the
-  // source instead of the player.
-  crossfirePursuitMs: number
-  // F-016 v2: id of the source enemy the victim is currently retargeted
-  // against. Cleared when pursuit expires or the source dies.
-  crossfirePursuitTargetId: string | null
+  stateTimer: number
+  // Direction the enemy is currently walking; resampled Doom-style.
+  moveAngle: number
+  wanderTimer: number
+  attackCooldown: number
+  // Set when hurt by another enemy: classic monster infighting.
+  infightTargetId: number | null
+  awake: boolean
+  deathTimer: number
 }
 
-// F-016 tuning. Probability is the chance per crossfire damage event
-// that the victim enters the retarget. Stagger duration is how long the
-// victim freezes player chase and faces the source. Pursuit duration is
-// how long after the stagger the victim chases and attacks the source.
-export const CROSSFIRE_STAGGER_PROBABILITY = 0.35
-export const CROSSFIRE_STAGGER_DURATION_MS = 700
-export const CROSSFIRE_PURSUIT_DURATION_MS = 1500
+let nextEnemyId = 1
 
-// F-016 v2: optional pursuit target description handed to tickEnemy.
-// When pursuit is active and an entry with the matching id is supplied,
-// the enemy chases and attacks this target instead of the player.
-export type PursuitTarget = {
-  id: string
-  position: Vec3
-  radius: number
-  health: number
-}
-
-export type PlayerCombatState = {
-  position: Vec3
-  radius: number
-  health: number
-}
-
-export type EnemyConfig = {
-  speed: number
-  attackRange: number
-  attackDamage: number
-  attackWindupMs: number
-  attackReleaseMs: number
-  attackCooldownMs: number
-  hurtDurationMs: number
-  contactPadding: number
-  maxHealth: number
-  pressureCost: number
-  scale: number
-  tint: string
-  attackKind?: EnemyAttackKind
-  projectileSpeed?: number
-}
-
-export type EnemyTickResult = {
-  enemy: EnemyModel
-  player: PlayerCombatState
-  events: EnemyEvent[]
+export function createEnemy(kind: EnemyKind, pos: Vec2): Enemy {
+  return {
+    id: nextEnemyId++,
+    kind,
+    pos: { ...pos },
+    hp: ENEMY_DEFS[kind].hp,
+    state: 'idle',
+    stateTimer: 0,
+    moveAngle: 0,
+    wanderTimer: 0,
+    attackCooldown: 1,
+    infightTargetId: null,
+    awake: false,
+    deathTimer: 0
+  }
 }
 
 export type EnemyEvent =
-  | { type: 'enemyAttackStarted'; enemyId: string; enemyType: EnemyType }
-  | { type: 'enemyAttackHit'; enemyId: string; damage: number }
-  | { type: 'enemyAttackMissed'; enemyId: string }
-  | { type: 'enemyRecovered'; enemyId: string }
-  | {
-      // F-016 v2: emitted when a pursuing enemy lands its primary attack
-      // on the source enemy it was retargeted against. The consumer
-      // applies the damage WITHOUT crediting the player, so retargeted
-      // kills do not show up in score / kill streak / accuracy paths.
-      type: 'enemyAttackEnemy'
-      sourceId: string
-      sourceType: EnemyType
-      targetEnemyId: string
-      damage: number
-    }
-  | {
-      type: 'enemyProjectileFired'
-      enemyId: string
-      enemyType: EnemyType
-      origin: Vec3
-      direction: Vec3
-      speed: number
-      damage: number
-    }
-  | {
-      // Emitted when a melee swing release overlaps another enemy in the
-      // swing arc. The consumer scales by its infighting damage rule and
-      // applies the damage without crediting the player.
-      type: 'enemyMeleeArcCrossfire'
-      sourceId: string
-      sourceType: EnemyType
-      targetEnemyId: string
-      damage: number
-    }
+  | { type: 'meleeHit'; damage: number }
+  | { type: 'hitscan'; pellets: number; dice: { count: number; sides: number; mult: number }; spreadRad: number }
+  | { type: 'projectile'; dice: { count: number; sides: number; mult: number }; speedM: number; radiusM: number; angle: number }
 
-export type NearbyEnemy = {
-  id: string
-  position: Vec3
-  radius: number
+export type EnemyTickInput = {
+  dt: number
+  target: Vec2
+  canSeeTarget: boolean
+  rng: Rng
 }
 
-export const gruntConfig: EnemyConfig = {
-  speed: 2.15,
-  attackRange: 1.25,
-  attackDamage: 10,
-  attackWindupMs: 420,
-  attackReleaseMs: 180,
-  attackCooldownMs: 760,
-  hurtDurationMs: 180,
-  contactPadding: 0.08,
-  maxHealth: 3,
-  pressureCost: 1,
-  scale: 1,
-  tint: '#ffffff'
+// Doom's attack gamble (P_CheckMissileRange): d = dist_mu - 64, minus 128
+// more for melee-capable monsters, clamped to 200; attack iff a 0-255 roll
+// is >= d. Distances converted at 32 map units per meter.
+export function attackChance(distanceM: number, hasMelee: boolean): number {
+  let d = distanceM * 32 - 64
+  if (hasMelee) {
+    d -= 128
+  }
+  d = clamp(d, 0, 200)
+  return (256 - d) / 256
 }
 
-export const enemyConfigs: Record<EnemyType, EnemyConfig> = {
-  grunt: gruntConfig,
-  skitter: {
-    speed: 3.45,
-    attackRange: 0.95,
-    attackDamage: 6,
-    attackWindupMs: 260,
-    attackReleaseMs: 140,
-    attackCooldownMs: 520,
-    hurtDurationMs: 120,
-    contactPadding: 0.06,
-    maxHealth: 1,
-    pressureCost: 0.75,
-    scale: 0.72,
-    tint: '#c9fff6'
-  },
-  brute: {
-    speed: 1.28,
-    attackRange: 1.45,
-    attackDamage: 18,
-    attackWindupMs: 620,
-    attackReleaseMs: 240,
-    attackCooldownMs: 980,
-    hurtDurationMs: 260,
-    contactPadding: 0.12,
-    maxHealth: 6,
-    pressureCost: 1.75,
-    scale: 1.35,
-    tint: '#f7d0c9'
-  },
-  spitter: {
-    speed: 1.6,
-    attackRange: 7.5,
-    attackDamage: 8,
-    attackWindupMs: 720,
-    attackReleaseMs: 200,
-    attackCooldownMs: 1400,
-    hurtDurationMs: 200,
-    contactPadding: 0.08,
-    maxHealth: 2,
-    pressureCost: 1.25,
-    scale: 0.85,
-    tint: '#a8e07a',
-    attackKind: 'ranged',
-    projectileSpeed: 8
-  }
-}
-
-export function createEnemy(type: EnemyType, id: string, position: Vec3, playerPosition: Vec3): EnemyModel {
-  const config = enemyConfigs[type]
-
-  return {
-    id,
-    type,
-    position,
-    velocity: { x: 0, y: 0, z: 0 },
-    radius: 0.55 * config.scale,
-    health: config.maxHealth,
-    state: 'chase',
-    facingAngle: angleBetween(position, playerPosition),
-    animationTimeMs: 0,
-    attackCooldownMs: 0,
-    dashBurstMsRemaining: 0,
-    crossfireStaggerMs: 0,
-    crossfirePursuitMs: 0,
-    crossfirePursuitTargetId: null
-  }
-}
-
-// F-016. Pure helper: given a roll in [0, 1), returns the enemy
-// updated with a stagger window, a pursuit window, and a facing angle
-// pointing at the source of the crossfire damage if the roll lands
-// under CROSSFIRE_STAGGER_PROBABILITY. Dead enemies are returned
-// unchanged. The caller is responsible for supplying the roll so
-// production code can use Math.random() while tests inject
-// deterministic values.
-//
-// v2 behavior: also stores the source id and arms a pursuit window
-// (CROSSFIRE_PURSUIT_DURATION_MS) so tickEnemy can chase and attack the
-// source after the stagger ends. Existing v1 semantics (stagger + face)
-// are unchanged for callers that only care about the freeze.
-//
-// Cascade prevention: if the victim already has an active pursuit the
-// roll is skipped so an enemy cannot get yanked between sources by
-// successive crossfire hits.
-export function applyCrossfireRetarget(
-  enemy: EnemyModel,
-  source: { id: string; position: Vec3 },
-  roll: number
-): EnemyModel {
-  if (enemy.state === 'dead') {
-    return enemy
-  }
-
-  if (enemy.crossfirePursuitMs > 0) {
-    return enemy
-  }
-
-  if (roll >= CROSSFIRE_STAGGER_PROBABILITY) {
-    return enemy
-  }
-
-  return {
-    ...enemy,
-    crossfireStaggerMs: CROSSFIRE_STAGGER_DURATION_MS,
-    crossfirePursuitMs: CROSSFIRE_PURSUIT_DURATION_MS,
-    crossfirePursuitTargetId: source.id,
-    facingAngle: angleBetween(enemy.position, source.position)
-  }
-}
-
-
-// F-016 v1 alias. The v1 helper signature did not include the source
-// id; the v2 helper adds it. Existing callers and tests that imported
-// applyCrossfireStagger keep working through this alias, with the
-// caller-supplied source object simply needing an id field now.
-export const applyCrossfireStagger = applyCrossfireRetarget
-
-// Feel pass: returns true when the enemy is one hit from death AND
-// the enemy type can take more than one hit. Skitters (maxHealth: 1)
-// are always one-hit kills, so they would always satisfy the literal
-// "1 HP" check; the maxHealth filter excludes them so the tint only
-// fires for enemies the player has actually softened up. The render
-// branch in FlatlineGame.tsx uses this to paint a warm "finisher
-// ready" tint on the billboard.
-export function isFinisherReady(currentHealth: number, maxHealth: number): boolean {
-  return maxHealth > 1 && currentHealth === 1
-}
-
-// F-016 feel: how strongly to apply the stagger tint to the victim.
-// Linear from 1 (just armed) to 0 (window expired). Clamped at the
-// edges so a stale crossfireStaggerMs value above the duration does
-// not blow past the lerp factor and a value below 0 does not go
-// negative.
-export function crossfireStaggerIntensity(crossfireStaggerMs: number): number {
-  if (crossfireStaggerMs <= 0) {
-    return 0
-  }
-  if (crossfireStaggerMs >= CROSSFIRE_STAGGER_DURATION_MS) {
-    return 1
-  }
-  return crossfireStaggerMs / CROSSFIRE_STAGGER_DURATION_MS
-}
-
-export function createGrunt(id: string, position: Vec3, playerPosition: Vec3): EnemyModel {
-  return createEnemy('grunt', id, position, playerPosition)
-}
-
-export function enemyTypeForSpawn(spawnCount: number): EnemyType {
-  if (spawnCount > 0 && spawnCount % 7 === 0) {
-    return 'brute'
-  }
-
-  if (spawnCount > 0 && spawnCount % 5 === 0) {
-    return 'spitter'
-  }
-
-  if (spawnCount > 0 && spawnCount % 3 === 0) {
-    return 'skitter'
-  }
-
-  return 'grunt'
-}
-
-export function tickEnemy(
-  enemy: EnemyModel,
-  player: PlayerCombatState,
-  deltaMs: number,
-  config: EnemyConfig,
-  nearbyEnemies: readonly NearbyEnemy[] = [],
-  pursuitTarget?: PursuitTarget,
-  // Runtime override so destroyed breakable cover stops blocking AI motion.
-  coverRects: readonly CoverRect[] = ARENA_COVER_RECTS
-): EnemyTickResult {
-  if (enemy.state === 'dead') {
-    return { enemy, player, events: [] }
-  }
-
-  // F-016 v1: stagger consumes wall-clock time first. Animation, attack
-  // windup, attack release, attack cooldown, and dash burst progression
-  // only advance with the un-staggered remainder of the frame so a long
-  // frame cannot bypass the freeze, and a stagger applied mid-windup
-  // pauses the windup instead of letting it elapse.
-  const staggerConsumedMs = Math.min(enemy.crossfireStaggerMs, deltaMs)
-  const activeDeltaMs = deltaMs - staggerConsumedMs
-
+export function tickEnemy(enemy: Enemy, input: EnemyTickInput): EnemyEvent[] {
+  const def = ENEMY_DEFS[enemy.kind]
   const events: EnemyEvent[] = []
-  // F-016 v2: pursuit is "live" this tick when the pre-decrement
-  // counter is positive AND the caller supplied a matching live
-  // target. Gating on the PRE-decrement value matters when a long
-  // frame fully drains crossfirePursuitMs: the tick that drains it
-  // should still run as a pursuit tick (preserving the tail of the
-  // retarget window, including the final infighting attack), and
-  // the next tick will see the timer at 0 and revert to player chase.
-  const pursuitMatches =
-    enemy.crossfirePursuitMs > 0 &&
-    enemy.crossfirePursuitTargetId !== null &&
-    pursuitTarget !== undefined &&
-    pursuitTarget.id === enemy.crossfirePursuitTargetId &&
-    pursuitTarget.health > 0
-  const isPursuing = pursuitMatches
+  const { dt, target, canSeeTarget, rng } = input
+  const distance = dist(enemy.pos, target)
 
-  // activePursuitTargetId is the source id used during this tick (arc
-  // guard, attack routing). It stays set for the entire pursuing tick
-  // so the arc crossfire loop can correctly skip the pursuit target
-  // even on the long frame that drains the timer.
-  const activePursuitTargetId = isPursuing ? enemy.crossfirePursuitTargetId : null
+  enemy.stateTimer -= dt
+  enemy.attackCooldown -= dt
+  enemy.wanderTimer -= dt
 
-  // Stored next-state values. The id clears at end of tick when the
-  // timer reaches 0 so the following tick reverts to player chase.
-  const pursuitMsRemaining = isPursuing
-    ? Math.max(0, enemy.crossfirePursuitMs - activeDeltaMs)
-    : 0
-  const nextPursuitTargetId = pursuitMsRemaining > 0 ? activePursuitTargetId : null
-
-  const nextEnemy = {
-    ...enemy,
-    position: { ...enemy.position },
-    velocity: { ...enemy.velocity },
-    animationTimeMs: enemy.animationTimeMs + activeDeltaMs,
-    attackCooldownMs: Math.max(0, enemy.attackCooldownMs - activeDeltaMs),
-    dashBurstMsRemaining: Math.max(0, enemy.dashBurstMsRemaining - activeDeltaMs),
-    crossfireStaggerMs: Math.max(0, enemy.crossfireStaggerMs - deltaMs),
-    crossfirePursuitMs: pursuitMsRemaining,
-    crossfirePursuitTargetId: nextPursuitTargetId
-  }
-  const nextPlayer = { ...player, position: { ...player.position } }
-
-  // chaseTarget: the entity the AI uses for movement, facing, and attack
-  // range checks. Defaults to the player; swaps to the pursuit target
-  // while v2 retarget is active. Damage routing still branches on
-  // isPursuing so the player's health is never modified during a
-  // pursuit attack release.
-  const chaseTarget: PlayerCombatState = isPursuing && pursuitTarget
-    ? { position: pursuitTarget.position, radius: pursuitTarget.radius, health: pursuitTarget.health }
-    : nextPlayer
-
-  if (nextEnemy.crossfireStaggerMs <= 0) {
-    nextEnemy.facingAngle = angleBetween(nextEnemy.position, chaseTarget.position)
-  }
-
-  if (nextEnemy.health <= 0) {
-    nextEnemy.state = 'dead'
-    nextEnemy.velocity = { x: 0, y: 0, z: 0 }
-    return { enemy: nextEnemy, player: nextPlayer, events }
-  }
-
-  // If the entire frame was consumed by the stagger window, freeze
-  // velocity and return without running chase, attack, or dash logic.
-  // Any state ('chase', 'attackWindup', 'attackRelease', 'hurt') is
-  // implicitly paused because activeDeltaMs is 0 and animation timers
-  // did not advance.
-  if (activeDeltaMs === 0) {
-    nextEnemy.velocity = { x: 0, y: 0, z: 0 }
-    return { enemy: nextEnemy, player: nextPlayer, events }
-  }
-
-  if (nextEnemy.state === 'hurt') {
-    nextEnemy.velocity = { x: 0, y: 0, z: 0 }
-
-    if (nextEnemy.animationTimeMs >= config.hurtDurationMs) {
-      nextEnemy.state = 'chase'
-      nextEnemy.animationTimeMs = 0
-      events.push({ type: 'enemyRecovered', enemyId: nextEnemy.id })
+  switch (enemy.state) {
+    case 'idle': {
+      if (canSeeTarget && distance < 24) {
+        enemy.awake = true
+        enemy.state = 'chase'
+      }
+      break
     }
-
-    return { enemy: nextEnemy, player: nextPlayer, events }
-  }
-
-  if (nextEnemy.state === 'attackWindup') {
-    nextEnemy.velocity = { x: 0, y: 0, z: 0 }
-
-    if (nextEnemy.animationTimeMs >= config.attackWindupMs) {
-      nextEnemy.state = 'attackRelease'
-      nextEnemy.animationTimeMs = 0
-
-      if (config.attackKind === 'ranged') {
-        const dx = chaseTarget.position.x - nextEnemy.position.x
-        const dz = chaseTarget.position.z - nextEnemy.position.z
-        const distance = Math.hypot(dx, dz)
-        const direction = distance > 0
-          ? { x: dx / distance, y: 0, z: dz / distance }
-          : { x: 0, y: 0, z: 1 }
-        // Ranged attacks during a v2 pursuit still produce a projectile;
-        // the projectile resolution path applies infighting damage when
-        // the projectile hits a non-player enemy and credits no score.
-        events.push({
-          type: 'enemyProjectileFired',
-          enemyId: nextEnemy.id,
-          enemyType: nextEnemy.type,
-          origin: { x: nextEnemy.position.x, y: nextEnemy.position.y, z: nextEnemy.position.z },
-          direction,
-          speed: config.projectileSpeed ?? 0,
-          damage: config.attackDamage
-        })
-      } else if (isPursuing && pursuitTarget) {
-        // F-016 v2 pursuit melee hit: route damage to the pursuit target
-        // through enemyAttackEnemy without touching nextPlayer.health and
-        // without going through the player kill credit path.
-        if (enemyCanHitPlayer(nextEnemy, chaseTarget, config)) {
+    case 'chase': {
+      if (enemy.wanderTimer <= 0) {
+        // Zigzag toward the target: aim with a random offset, commit briefly.
+        const offset = (rng() - 0.5) * 1.5
+        enemy.moveAngle = angleTo(enemy.pos, target) + offset
+        enemy.wanderTimer = 0.3 + rng() * 0.6
+      }
+      const inMelee = def.melee !== undefined && distance <= def.melee.rangeM
+      // The gamble runs on a decision clock (~Doom's 0-15 step counter).
+      const gamble = rng() < attackChance(distance, def.melee !== undefined) * dt * 2.2
+      if (enemy.attackCooldown <= 0 && (inMelee || (canSeeTarget && def.attack !== undefined && gamble))) {
+        enemy.state = 'windup'
+        enemy.stateTimer = def.windupSec
+      }
+      break
+    }
+    case 'windup': {
+      if (enemy.stateTimer <= 0) {
+        const inMelee = def.melee !== undefined && distance <= def.melee.rangeM + 0.3
+        if (inMelee && def.melee) {
+          events.push({ type: 'meleeHit', damage: rollDamage(rng, def.melee.dice) })
+        } else if (def.attack?.type === 'hitscan') {
           events.push({
-            type: 'enemyAttackEnemy',
-            sourceId: nextEnemy.id,
-            sourceType: nextEnemy.type,
-            targetEnemyId: pursuitTarget.id,
-            damage: config.attackDamage
+            type: 'hitscan',
+            pellets: def.attack.pellets,
+            dice: def.attack.dice,
+            spreadRad: def.attack.spreadRad
           })
-        } else {
-          events.push({ type: 'enemyAttackMissed', enemyId: nextEnemy.id })
+        } else if (def.attack?.type === 'projectile') {
+          events.push({
+            type: 'projectile',
+            dice: def.attack.dice,
+            speedM: def.attack.speedM,
+            radiusM: def.attack.radiusM,
+            angle: angleTo(enemy.pos, target)
+          })
         }
-      } else if (enemyCanHitPlayer(nextEnemy, nextPlayer, config)) {
-        nextPlayer.health = Math.max(0, nextPlayer.health - config.attackDamage)
-        events.push({ type: 'enemyAttackHit', enemyId: nextEnemy.id, damage: config.attackDamage })
-      } else {
-        events.push({ type: 'enemyAttackMissed', enemyId: nextEnemy.id })
+        enemy.attackCooldown = def.attackCooldownSec * (0.75 + rng() * 0.5)
+        enemy.state = 'chase'
       }
-
-      if (config.attackKind !== 'ranged') {
-        for (const candidate of nearbyEnemies) {
-          if (candidate.id === nextEnemy.id) {
-            continue
-          }
-
-          // The pursuit target already received its damage through the
-          // enemyAttackEnemy branch above; emitting an additional
-          // enemyMeleeArcCrossfire here would double-apply infighting
-          // damage and could re-arm the retarget on the same victim.
-          if (isPursuing && candidate.id === activePursuitTargetId) {
-            continue
-          }
-
-          const dx = candidate.position.x - nextEnemy.position.x
-          const dz = candidate.position.z - nextEnemy.position.z
-          const distance = Math.hypot(dx, dz)
-
-          if (distance <= config.attackRange + candidate.radius) {
-            events.push({
-              type: 'enemyMeleeArcCrossfire',
-              sourceId: nextEnemy.id,
-              sourceType: nextEnemy.type,
-              targetEnemyId: candidate.id,
-              damage: config.attackDamage
-            })
-          }
-        }
-      }
+      break
     }
-
-    return { enemy: nextEnemy, player: nextPlayer, events }
-  }
-
-  if (nextEnemy.state === 'attackRelease') {
-    nextEnemy.velocity = { x: 0, y: 0, z: 0 }
-
-    if (nextEnemy.animationTimeMs >= config.attackReleaseMs) {
-      nextEnemy.state = 'chase'
-      nextEnemy.animationTimeMs = 0
-      nextEnemy.attackCooldownMs = config.attackCooldownMs
-    }
-
-    return { enemy: nextEnemy, player: nextPlayer, events }
-  }
-
-  if (enemyCanStartAttack(nextEnemy, chaseTarget, config)) {
-    nextEnemy.state = 'attackWindup'
-    nextEnemy.animationTimeMs = 0
-    nextEnemy.velocity = { x: 0, y: 0, z: 0 }
-    events.push({ type: 'enemyAttackStarted', enemyId: nextEnemy.id, enemyType: nextEnemy.type })
-    return { enemy: nextEnemy, player: nextPlayer, events }
-  }
-
-  // F-016 v2: skitter dash trigger reads the distance to whichever
-  // entity the AI is currently chasing, so a pursuing skitter can dash
-  // into the source enemy as readily as it would dash into the player.
-  if (
-    shouldStartSkitterDash({
-      type: nextEnemy.type,
-      state: nextEnemy.state,
-      attackCooldownMs: nextEnemy.attackCooldownMs,
-      dashBurstMsRemaining: nextEnemy.dashBurstMsRemaining,
-      distanceToPlayerM: distance2d(nextEnemy.position, chaseTarget.position)
-    })
-  ) {
-    nextEnemy.dashBurstMsRemaining = SKITTER_DASH_DURATION_MS
-    nextEnemy.attackCooldownMs = SKITTER_DASH_REARM_COOLDOWN_MS
-  }
-
-  moveEnemyTowardPlayer(nextEnemy, chaseTarget, activeDeltaMs, config)
-
-  // F-023 / REQ-021: clamp the enemy out of the arena cover and pillar
-  // rectangles after movement so chasing AI does not drive itself into
-  // a pillar. The collision radius scales with `config.scale` so a
-  // brute (scale > 1) clamps further out than a skitter (scale < 1).
-  // The base 0.4 matches the player radius for unit-scale enemies.
-  const clampedEnemy = clampOutsideRects(
-    nextEnemy.position.x,
-    nextEnemy.position.z,
-    0.4 * config.scale,
-    coverRects
-  )
-  nextEnemy.position = {
-    x: clampedEnemy.x,
-    y: nextEnemy.position.y,
-    z: clampedEnemy.z
-  }
-
-  // Skitter dash crossfire: closes F-013. While in an active dash burst,
-  // a skitter that overlaps another alive enemy applies infighting damage
-  // and ends its own burst so the dash reads as a single-target lunge.
-  if (nextEnemy.type === 'skitter' && nextEnemy.dashBurstMsRemaining > 0) {
-    for (const candidate of nearbyEnemies) {
-      if (candidate.id === nextEnemy.id) {
-        continue
+    case 'pain': {
+      if (enemy.stateTimer <= 0) {
+        enemy.state = 'chase'
       }
-
-      const cdx = candidate.position.x - nextEnemy.position.x
-      const cdz = candidate.position.z - nextEnemy.position.z
-      const cDistance = Math.hypot(cdx, cdz)
-
-      if (cDistance <= nextEnemy.radius + candidate.radius) {
-        events.push({
-          type: 'enemyMeleeArcCrossfire',
-          sourceId: nextEnemy.id,
-          sourceType: nextEnemy.type,
-          targetEnemyId: candidate.id,
-          damage: config.attackDamage
-        })
-        nextEnemy.dashBurstMsRemaining = 0
-        break
-      }
+      break
     }
+    case 'dying': {
+      enemy.deathTimer += dt
+      if (enemy.deathTimer > 0.7) {
+        enemy.state = 'dead'
+      }
+      break
+    }
+    case 'dead':
+      break
   }
 
-  return { enemy: nextEnemy, player: nextPlayer, events }
+  return events
 }
 
-export function damageEnemy(enemy: EnemyModel, damage: number): EnemyModel {
-  if (enemy.state === 'dead' || damage <= 0) {
-    return enemy
+export function enemyMoveSpeed(enemy: Enemy): number {
+  const def = ENEMY_DEFS[enemy.kind]
+  if (enemy.state === 'chase') {
+    return def.speedM
   }
+  return 0
+}
 
-  const health = Math.max(0, enemy.health - damage)
+export type DamageResult = 'pain' | 'died' | 'hit' | 'ignored'
 
-  return {
-    ...enemy,
-    health,
-    state: health === 0 ? 'dead' : 'hurt',
-    animationTimeMs: 0,
-    velocity: { x: 0, y: 0, z: 0 }
+export function damageEnemy(enemy: Enemy, damage: number, rng: Rng, attackerId: number | null = null): DamageResult {
+  if (enemy.state === 'dying' || enemy.state === 'dead') {
+    return 'ignored'
   }
-}
-
-export function circlesOverlap(a: Vec3, aRadius: number, b: Vec3, bRadius: number): boolean {
-  return distance2d(a, b) < aRadius + bRadius
-}
-
-function moveEnemyTowardPlayer(
-  enemy: EnemyModel,
-  player: PlayerCombatState,
-  deltaMs: number,
-  config: EnemyConfig
-) {
-  const dx = player.position.x - enemy.position.x
-  const dz = player.position.z - enemy.position.z
-  const distance = Math.hypot(dx, dz)
-  const minDistance = enemy.radius + player.radius + config.contactPadding
-
-  if (distance <= minDistance || distance === 0) {
-    enemy.velocity = { x: 0, y: 0, z: 0 }
-    return
+  const def = ENEMY_DEFS[enemy.kind]
+  enemy.hp -= damage
+  enemy.awake = true
+  // Damage wakes idle monsters even without line of sight (splash around
+  // a corner, infight ricochet).
+  if (enemy.state === 'idle') {
+    enemy.state = 'chase'
   }
-
-  const speedScale = skitterDashSpeedScale(enemy.dashBurstMsRemaining)
-  const speed = config.speed * speedScale
-  const step = Math.min(speed * (deltaMs / 1000), distance - minDistance)
-  const nx = dx / distance
-  const nz = dz / distance
-  enemy.position = {
-    x: enemy.position.x + nx * step,
-    y: enemy.position.y,
-    z: enemy.position.z + nz * step
+  if (attackerId !== null && attackerId !== enemy.id) {
+    enemy.infightTargetId = attackerId
   }
-  enemy.velocity = {
-    x: nx * speed,
-    y: 0,
-    z: nz * speed
+  if (enemy.hp <= 0) {
+    enemy.state = 'dying'
+    enemy.deathTimer = 0
+    return 'died'
   }
+  if (rng() * 255 < def.painChance) {
+    enemy.state = 'pain'
+    enemy.stateTimer = 0.35
+    return 'pain'
+  }
+  return 'hit'
 }
 
-function enemyCanStartAttack(enemy: EnemyModel, player: PlayerCombatState, config: EnemyConfig): boolean {
-  return enemy.attackCooldownMs <= 0 && enemyCanHitPlayer(enemy, player, config)
+export function rollDamage(rng: Rng, dice: { count: number; sides: number; mult: number }): number {
+  return rollDice(rng, dice.count, dice.sides, dice.mult)
 }
 
-function enemyCanHitPlayer(enemy: EnemyModel, player: PlayerCombatState, config: EnemyConfig): boolean {
-  return distance2d(enemy.position, player.position) <= enemy.radius + player.radius + config.attackRange
-}
-
-function distance2d(a: Vec3, b: Vec3): number {
-  return Math.hypot(a.x - b.x, a.z - b.z)
-}
-
-function angleBetween(from: Vec3, to: Vec3): number {
-  return Math.atan2(to.z - from.z, to.x - from.x)
+// Doom's friendly-fire rule: projectiles between same-species monsters are
+// harmless (hitscan and melee still hurt and provoke).
+export function projectileHarmless(shooter: EnemyKind, victim: EnemyKind): boolean {
+  return shooter === victim
 }

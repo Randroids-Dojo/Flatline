@@ -1,20 +1,17 @@
-# Out of Scope (v1)
+# Out of scope
 
 **Status:** done
 
-Explicitly out of scope for the v1 MVP. The loop must not scope-creep into items below without an explicit unblock from the dev.
+Cut lines for the reboot. Adding any of these requires explicit user approval.
 
-- Multiplayer
-- Full campaign
-- Level editor
-- Bosses
-- Save files (beyond local leaderboard / personal best)
-- Character classes
-- Complex inventory
-- Real 3D enemy models
-- Mobile-first controls (mobile touch ships as an early secondary, not as the primary target)
-- Networked gameplay (beyond leaderboard score submission)
+- Multiplayer, co-op, leaderboards (the old shared leaderboard and its API routes were removed).
+- Mobile touch controls and gamepad (title renders on mobile; play is desktop-only v1).
+- Level-based campaign, bosses with arenas, scripted encounters.
+- Eight-angle enemy sprites (billboards are front-facing v1).
+- Vertical dungeon layers, stairs, elevation.
+- Accent-color moments, licensed fonts, external asset pipelines.
+- Doom's sound-propagation wake model (simple radius wake instead).
 
 ### Build log
 
-- 2026-05-03: Split out of `GDD.md` section 20.3. The fence stays static. Adding an item requires a Q-NNN entry approving the carve-out.
+- 2026-07-07: scope fence established for the reboot. PR #172.

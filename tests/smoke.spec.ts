@@ -1,301 +1,102 @@
 import { expect, test } from '@playwright/test'
 
-test('starts a walk and shoot run', async ({ page }, testInfo) => {
-  test.setTimeout(60_000)
-  await page.route('**/api/leaderboard**', async (route) => {
-    if (route.request().method() === 'POST') {
-      await route.fulfill({ status: 503, json: { error: 'leaderboard unavailable' } })
-      return
-    }
+test('full loop: title, run, shoot, die, spend at the office, run again', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'mobile-chromium', 'desktop loop covered on desktop project')
+  test.setTimeout(90_000)
 
-    await route.fulfill({
-      status: 200,
-      json: {
-        scope: 'all',
-        date: null,
-        entries: [],
-        unavailable: true
-      }
-    })
-  })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Flatline' })).toBeVisible()
-  await expect(page.getByTestId('shared-leaderboard')).toBeVisible()
-  await expect(page.locator('canvas')).toBeVisible()
+  await expect(page.getByTestId('title-screen')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'FLATLINE' })).toBeVisible()
+  await expect(page.getByTestId('film-select')).toBeVisible()
+  await expect(page.locator('.render-root canvas')).toBeVisible()
+
+  // Start a run.
+  await page.getByTestId('start-run').click()
+  await expect(page.getByTestId('hud')).toBeVisible()
+  await expect(page.getByTestId('crosshair')).toBeVisible()
+  await expect(page.getByTestId('weapon-canvas')).toBeVisible()
+  await expect(page.getByTestId('hud-health')).toContainText('%')
   await expect(page.getByTestId('damage-flash')).toBeHidden()
   await expect.poll(async () => canvasHasPixels(page)).toBe(true)
 
-  await page.getByRole('button', { name: 'Start run' }).click()
+  // The snubnose starts with 50 bullets; a click must spend one.
+  await expect(page.getByTestId('hud-ammo')).toHaveText('50')
+  await page.mouse.click(640, 360)
+  await expect(page.getByTestId('hud-ammo')).not.toHaveText('50', { timeout: 3000 })
 
-  await expect(page.getByTestId('hud')).toBeVisible()
-  await expect(page.getByTestId('crosshair')).toBeVisible()
-  await expect(page.getByTestId('combo-pill')).toContainText('0')
-  await expect(page.getByTestId('weapon-ready')).toContainText('Ready')
-  await expect(page.getByTestId('weapon-sprite')).toHaveClass(/weapon-peashooter/)
-  await expect(page.getByTestId('status-line')).toBeVisible()
+  // Walking must actually move the world (weapon bob and dungeon render).
+  await page.keyboard.down('KeyW')
+  await page.waitForTimeout(600)
+  await page.keyboard.up('KeyW')
 
-  // Doom-feel HUD pills render at run start. dash-ready and wave-pill
-  // are post-spiral additions; this asserts they show up alongside
-  // the existing weapon-ready / combo / score pills without breaking
-  // the rest of the smoke flow. The dash trigger itself is intentionally
-  // not pressed here because it would displace the player and skew the
-  // peashooter-aim assertion below.
-  await expect(page.getByTestId('dash-ready')).toContainText('Ready')
-  await expect(page.getByTestId('wave-pill')).toContainText('Lull')
-
-  await page.mouse.click(960, 540)
-  await expect(page.getByTestId('status-line')).toContainText(/hurt|dropped/)
-  await page.keyboard.press('Digit2')
-  await expect(page.getByTestId('hud').getByText('Boomstick')).toBeVisible()
-  await expect(page.getByTestId('weapon-sprite')).toHaveClass(/weapon-boomstick/)
-  await page.mouse.click(960, 540)
-  await expect(page.getByTestId('weapon-sprite')).toHaveClass(/weapon-firing/)
-  await expect(page.getByTestId('weapon-ready')).toContainText('Ready', { timeout: 1200 })
-  await expect(page.getByTestId('status-line')).toContainText('Boomstick')
-  await expect(page.getByTestId('combo-pill')).toContainText('1')
-  await page.keyboard.press('Digit3')
-  await expect(page.getByTestId('hud').getByText('Inkblaster')).toBeVisible()
-  await expect(page.getByTestId('weapon-sprite')).toHaveClass(/weapon-inkblaster/)
-  await page.mouse.click(960, 540)
-  await expect(page.getByTestId('weapon-ready')).toContainText('Recovering')
-  await expect(page.getByTestId('weapon-ready')).toContainText('Ready', { timeout: 3000 })
-  await page.screenshot({ path: testInfo.outputPath('walk-and-shoot.png'), fullPage: true })
-
+  // Death drops the summary card.
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('flatline:force-death')))
+  await expect(page.getByTestId('death-screen')).toBeVisible({ timeout: 5000 })
   await expect(page.getByTestId('run-summary')).toBeVisible()
-  await expect(page.getByTestId('shared-submit')).toBeVisible()
-  await page.getByRole('button', { name: 'Submit score' }).click()
-  await expect(page.getByRole('button', { name: 'Unavailable' })).toBeVisible()
-  await expect(page.getByTestId('leaderboard')).toBeVisible()
-  await page.getByRole('button', { name: 'Restart run' }).click()
+
+  // The office: grant cheddar via the test hook and buy a stat rank.
+  await page.getByTestId('back-to-office').click()
+  await expect(page.getByTestId('office-screen')).toBeVisible()
+  await expect(page.getByTestId('case-board')).toBeVisible()
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('flatline:grant-cheddar', { detail: 5000 })))
+  await expect(page.getByTestId('office-cheddar')).toContainText('5000')
+  await page.getByTestId('buy-snacks').click()
+  await expect(page.getByTestId('office-cheddar')).not.toContainText('5000')
+
+  // Armory unlocks through the board, then sells a weapon.
+  await page.getByTestId('buy-boxing').click()
+  await page.getByTestId('buy-gunlocker').click()
+  await page.getByTestId('tab-armory').click()
+  await expect(page.getByTestId('armory')).toBeVisible()
+  await page.getByTestId('unlock-scattergun').click()
+
+  // Back on the streets with the upgrades applied.
+  await page.getByTestId('hit-the-streets').click()
+  await expect(page.getByTestId('hud')).toBeVisible()
+  // 110 max HP after one rank of Late Night Snacks.
+  await expect(page.getByTestId('hud-health')).toContainText('110%')
+
+  await page.screenshot({ path: testInfo.outputPath('run-after-upgrades.png'), fullPage: true })
+})
+
+test('pause menu opens with Escape and resumes', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'mobile-chromium', 'keyboard flow')
+  await page.goto('/')
+  await page.getByTestId('start-run').click()
   await expect(page.getByTestId('hud')).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('pause-menu')).toBeVisible()
-  await expect(page.getByTestId('settings-panel')).toBeVisible()
   await page.getByRole('button', { name: 'Resume' }).click()
   await expect(page.getByTestId('pause-menu')).toBeHidden()
 })
 
-test('daily route loads the deterministic daily seed', async ({ page }) => {
-  await page.route('**/api/leaderboard**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      json: {
-        scope: 'daily',
-        date: '2026-04-30',
-        entries: [],
-        unavailable: true
-      }
-    })
-  })
-  await page.goto('/arena/daily')
-  await expect(page.getByText(/Daily seed flatline-/)).toBeVisible()
-  await expect(page.getByTestId('daily-schedule')).toBeVisible()
-  await expect(page.getByLabel('Daily spawn order')).toBeVisible()
-  await expect(page.getByLabel('Daily hazard schedule')).toBeVisible()
-  await expect(page.getByTestId('shared-leaderboard')).toBeVisible()
-})
-
-test('practice route exposes tuning controls without leaderboard submission', async ({ page }, testInfo) => {
-  test.setTimeout(60_000)
-  const leaderboardRequests: string[] = []
-  await page.route('**/api/leaderboard**', async (route) => {
-    leaderboardRequests.push(route.request().method())
-    await route.fulfill({
-      status: 200,
-      json: {
-        scope: 'all',
-        date: null,
-        entries: [],
-        unavailable: true
-      }
-    })
-  })
-
-  await page.goto('/arena/practice')
-  await expect(page.getByRole('heading', { name: 'Flatline' })).toBeVisible()
-  await expect(page.getByTestId('practice-panel')).toBeVisible()
-  await expect(page.getByTestId('shared-leaderboard')).toBeHidden()
-  await page.getByLabel('Start weapon').selectOption('inkblaster')
-  await page.getByLabel('Grunt').uncheck()
-  await page.getByLabel('Skitter').uncheck()
-  await page.getByLabel('Infinite ammo').check()
-  await page.getByLabel('Damage').uncheck()
-  await page.getByLabel('Billboard debug').uncheck()
-  await page.getByLabel('Freeze room').check()
-  const startButton = page.getByRole('button', { name: 'Start run' })
-  if (testInfo.project.name === 'mobile-chromium') {
-    await startButton.tap()
-  } else {
-    await startButton.click()
-  }
-  await expect(page.getByTestId('hud').getByText('Inkblaster')).toBeVisible()
-  await expect(page.getByTestId('status-line')).toBeVisible()
-  await expect(page.getByTestId('billboard-debug')).toBeHidden()
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('flatline:force-death')))
-  await expect(page.getByTestId('run-summary')).toBeVisible()
-  await expect(page.getByTestId('shared-submit')).toBeHidden()
-  expect(leaderboardRequests).toEqual([])
-})
-
-test('mobile touch controls fit the viewport and block page scroll', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'mobile-chromium', 'mobile touch controls are covered by the mobile project')
-
+test('meta progression survives a reload', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'mobile-chromium', 'storage flow')
   await page.goto('/')
-  await page.getByRole('button', { name: 'Start run' }).click()
-  await expect(page.getByTestId('hud')).toBeVisible()
-  await expect(page.getByTestId('touch-controls')).toBeVisible()
-
-  const viewport = page.viewportSize()
-
-  if (!viewport) {
-    throw new Error('missing viewport')
-  }
-
-  await dispatchTouch(page, 'pointerdown', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.72))
-  await dispatchTouch(page, 'pointermove', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.52))
-
-  await expect(page.locator('.touch-stick-move')).toBeVisible()
-  await expect.poll(async () => {
-    return page.locator('.touch-stick-move').evaluate((element) => {
-      const rect = element.getBoundingClientRect()
-      return rect.left > 20 && rect.top > 20
-    })
-  }).toBe(true)
-  await page.waitForTimeout(120)
-  await dispatchTouch(page, 'pointerup', 51, Math.round(viewport.width * 0.22), Math.round(viewport.height * 0.52))
-  await expect(page.locator('.touch-stick-move')).toBeHidden()
-
-  await page.evaluate(() => {
-    window.scrollTo(0, 80)
-  })
-  await dispatchTouch(page, 'pointerdown', 52, Math.round(viewport.width * 0.72), Math.round(viewport.height * 0.62))
-  await dispatchTouch(page, 'pointermove', 52, Math.round(viewport.width * 0.86), Math.round(viewport.height * 0.56))
-
-  await expect(page.locator('.touch-stick-look')).toBeVisible()
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
-  await expect.poll(async () => {
-    return page.getByTestId('hud').evaluate((element) => {
-      const rect = element.getBoundingClientRect()
-      return rect.left >= 0 && rect.right <= window.innerWidth && rect.top >= 0
-    })
-  }).toBe(true)
+  await page.getByTestId('go-office').click()
+  await expect(page.getByTestId('office-screen')).toBeVisible()
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('flatline:grant-cheddar', { detail: 900 })))
+  await page.getByTestId('buy-snacks').click()
+  await page.reload()
+  await page.getByTestId('go-office').click()
+  await expect(page.getByTestId('case-board')).toBeVisible()
+  await expect(page.getByTestId('case-board').getByText('1/10')).toBeVisible()
 })
 
-test('mobile thumbsticks stay hidden until touched and clear on tab hide', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'mobile-chromium', 'mobile-only behavior')
-
-  await page.route('**/api/leaderboard**', async (route) => {
-    await route.fulfill({ status: 200, json: { scope: 'all', date: null, entries: [], unavailable: true } })
-  })
-
+test('title screen renders on mobile viewports', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'mobile-only check')
   await page.goto('/')
-  await page.getByRole('button', { name: 'Start run' }).tap()
-  await expect(page.getByTestId('hud')).toBeVisible()
-  await expect(page.getByTestId('touch-controls')).toBeVisible()
-
-  await expect(page.locator('.touch-stick')).toHaveCount(0)
-  await expect(page.locator('.touch-zone-label')).toHaveCount(0)
-
-  const viewport = page.viewportSize()
-
-  if (!viewport) {
-    throw new Error('missing viewport')
-  }
-
-  await dispatchTouch(page, 'pointerdown', 70, Math.round(viewport.width * 0.25), Math.round(viewport.height * 0.7))
-  await dispatchTouch(page, 'pointerdown', 71, Math.round(viewport.width * 0.75), Math.round(viewport.height * 0.7))
-  await expect(page.locator('.touch-stick-move')).toBeVisible()
-  await expect(page.locator('.touch-stick-look')).toBeVisible()
-
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
-    document.dispatchEvent(new Event('visibilitychange'))
-  })
-
-  await expect(page.locator('.touch-stick')).toHaveCount(0)
+  await expect(page.getByTestId('title-screen')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'FLATLINE' })).toBeVisible()
 })
-
-test('mobile tap on Start run begins the run', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'mobile-chromium', 'real touch taps only run on the mobile project')
-
-  await page.route('**/api/leaderboard**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      json: { scope: 'all', date: null, entries: [], unavailable: true }
-    })
-  })
-
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Flatline' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Start run' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'Start run' }).tap()
-
-  await expect(page.getByTestId('hud')).toBeVisible()
-  await expect(page.getByTestId('crosshair')).toBeVisible()
-  await expect(page.getByTestId('touch-controls')).toBeVisible()
-})
-
-async function dispatchTouch(
-  page: import('@playwright/test').Page,
-  type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
-  pointerId: number,
-  clientX: number,
-  clientY: number
-) {
-  const touchType =
-    type === 'pointerdown'
-      ? 'touchstart'
-      : type === 'pointermove'
-        ? 'touchmove'
-        : type === 'pointercancel'
-          ? 'touchcancel'
-          : 'touchend'
-
-  await page.evaluate(
-    ({ eventType, id, x, y }) => {
-      const target = document.body
-      const touch = new Touch({
-        identifier: id,
-        target,
-        clientX: x,
-        clientY: y,
-        pageX: x,
-        pageY: y,
-        screenX: x,
-        screenY: y,
-        radiusX: 1,
-        radiusY: 1,
-        rotationAngle: 0,
-        force: 1
-      })
-      const isStart = eventType === 'touchstart'
-      const isMove = eventType === 'touchmove'
-      const stillDown = isStart || isMove
-      window.dispatchEvent(
-        new TouchEvent(eventType, {
-          bubbles: true,
-          cancelable: true,
-          touches: stillDown ? [touch] : [],
-          targetTouches: stillDown ? [touch] : [],
-          changedTouches: [touch]
-        })
-      )
-    },
-    { eventType: touchType, id: pointerId, x: clientX, y: clientY }
-  )
-}
 
 async function canvasHasPixels(page: import('@playwright/test').Page) {
-  return page.locator('canvas').evaluate((element) => {
+  return page.locator('.render-root canvas').evaluate((element) => {
     const canvas = element as HTMLCanvasElement
     const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl')
-
     if (!gl) {
       return false
     }
-
     const width = gl.drawingBufferWidth
     const height = gl.drawingBufferHeight
     const pixels = new Uint8Array(4 * 9)
@@ -310,20 +111,9 @@ async function canvasHasPixels(page: import('@playwright/test').Page) {
       [0.5, 0.75],
       [0.75, 0.75]
     ]
-
     points.forEach(([x, y], index) => {
-      gl.readPixels(
-        Math.floor(width * x),
-        Math.floor(height * y),
-        1,
-        1,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        pixels,
-        index * 4
-      )
+      gl.readPixels(Math.floor(width * x), Math.floor(height * y), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels, index * 4)
     })
-
-    return pixels.some((value) => value > 24)
+    return pixels.some((value) => value > 12)
   })
 }

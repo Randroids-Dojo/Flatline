@@ -1,6442 +1,1833 @@
 'use client'
 
+// FLATLINE: a hard-boiled mouse story.
+//
+// First-person Doom-mechanics shooter in an endless streamed dungeon, drawn
+// like a 1934 rubber-hose cartoon. This component owns the Three.js world,
+// the frame loop, and the screen flow (title -> run -> death -> office).
+// All simulation rules live in src/game; all drawing recipes in src/art.
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { z } from 'zod'
+import { drawFilmFrame, diffusionFilter, makeGrainTiles, FILM_PRESETS, type FilmPreset } from '@/art/film'
+import { drawMugshot, mugTierForHp, type MugExpression } from '@/art/mugshot'
+import {
+  drawCrateSprites,
+  drawEnemySprites,
+  drawExplosion,
+  drawImpactStar,
+  drawInkSplatSprites,
+  drawPickupSprites,
+  drawProjectileSprites,
+  type ProjectileArt,
+  type SpriteSheet,
+  type EnemyFrame
+} from '@/art/sprites'
+import { drawCeiling, drawDoor, drawFloor, drawOfficeDoor, drawWall, themeForRing } from '@/art/textures'
+import { drawViewmodel, VIEW_H, VIEW_W, type ViewmodelSet } from '@/art/viewmodel'
+import { Sfx } from '@/audio/sfx'
+import { moveWithSliding, type SolidAt } from '@/game/collision'
+import { applyPlayerDamage, type PlayerVitals } from '@/game/combat'
+import {
+  CELL_DOOR,
+  CELL_M,
+  CELL_SOLID,
+  CELL_VAULT_DOOR,
+  CHUNK_SIZE,
+  WALL_HEIGHT_M,
+  cellAtGlobal,
+  cellCenter,
+  cellToChunk,
+  chunkKey,
+  generateChunk,
+  worldToCell,
+  type Chunk,
+  type EnemyKind,
+  type PickupKind
+} from '@/game/dungeon'
+import { createDoor, doorBlocks, doorKey, operateDoor, tickDoor, type DoorState } from '@/game/doors'
+import {
+  ENEMY_DEFS,
+  createEnemy,
+  damageEnemy,
+  enemyMoveSpeed,
+  projectileHarmless,
+  rollDamage,
+  tickEnemy,
+  type Enemy
+} from '@/game/enemies'
+import {
+  WEAPON_TIER_DAMAGE_PER_TIER,
+  beginRun,
+  createMetaState,
+  deriveRunConfig,
+  endRun,
+  metaSchema,
+  type MetaState,
+  type RunConfig
+} from '@/game/meta'
+import { applyFriction, applyThrust } from '@/game/movement'
+import { applyPickup, type PickupPlayerState } from '@/game/pickups'
+import { createProjectile, resolveSplash, tickProjectile, type Projectile } from '@/game/projectiles'
+import { castRay, hasLineOfSight, rayPointDistance } from '@/game/raycast'
+import { hashString, mulberry32, rngInt, type Rng } from '@/game/rng'
+import { angleTo, clamp, dist, type Vec2 } from '@/game/types'
 import { readStorage, writeStorage } from '@/lib/storage'
 import {
-  CURTAIN_DOOR_HALF_GAP_M,
-  CURTAIN_HEIGHT_M,
-  CURTAIN_PANEL_COUNT,
-  CURTAIN_PANEL_DEPTH_M,
-  CURTAIN_SIDE_WIDTH_M,
-  ORGAN_DOOR_OFFSET_M,
-  ORGAN_PIPE_HEIGHTS_M,
-  ORGAN_PIPE_RADIUS_M,
-  ORGAN_PIPE_SPACING_M,
-  landmarkForWall
-} from '@/game/arenaLandmarks'
-import { angleToPlayerBucket, angleToPlayerName, type BillboardAngle } from '@/game/billboard'
-import { damageDirectionRadians, damageIndicatorSeverity, type DamageIndicatorSeverity } from '@/game/damageDirection'
-import { doorOpenCue, type DoorCueStyle } from '@/game/doorCue'
-import { DOOR_TOTAL_MS, doorPhaseAtElapsedMs, doorPhaseVisualAtElapsedMs } from '@/game/doorState'
-import { doorEnemyTint } from '@/game/doorEnemyTint'
-import {
-  DOOR_SMOKE_START_ALPHA,
-  doorSmokeAlphaScale,
-  doorSmokeDirectionFor,
-  doorSmokePosition,
-  doorSmokeScale,
-  tickDoorSmoke,
-  type DoorSmokeState
-} from '@/game/doorSmoke'
-import {
-  applyDailySpawnOffset,
-  createDailyArenaConfig,
-  createDailySchedulePreview,
-  dailyCadenceScale,
-  dailyKillScoreMultiplier,
-  type DailyArenaConfig,
-  type DailySchedulePreview
-} from '@/game/dailyArena'
-import { applyCrossfireRetarget, createEnemy, createGrunt, crossfireStaggerIntensity, damageEnemy, enemyConfigs, enemyTypeForSpawn, isFinisherReady, tickEnemy, type EnemyEvent, type EnemyModel, type EnemyType } from '@/game/enemies'
-import { enemyHurtFlashIntensity, enemyHurtFlashStyle } from '@/game/enemyHurtFlash'
-import { enemyDeathCue, type EnemyDeathCueStyle } from '@/game/enemyDeathCue'
-import { enemyHurtCue, type EnemyHurtCueStyle } from '@/game/enemyHurtCue'
-import { enemyWindupCue, type EnemyWindupCueStyle } from '@/game/enemyWindupCue'
-import { runEndCue, type RunEndCueStyle } from '@/game/runEndCue'
-import {
-  SCORE_TOKEN_BONUS,
-  SCORE_TOKEN_TTL_MS,
-  scoreTokenBobY,
-  scoreTokenPickupIds,
-  shouldDropScoreToken
-} from '@/game/scoreTokenDrop'
-import {
-  AMMO_DROP_TTL_MS,
-  ammoDropBobY,
-  ammoDropBoomstickAmount,
-  ammoDropInkblasterAmount,
-  ammoDropPalette,
-  ammoDropPickupIds,
-  rollAmmoDrop,
-  type AmmoDropKind
-} from '@/game/ammoDrop'
-import {
-  HEALTH_DROP_TTL_MS,
-  healthDropAmount,
-  healthDropBobY,
-  healthDropPalette,
-  healthDropPickupIds,
-  rollHealthDrop,
-  type HealthDropKind
-} from '@/game/healthDrop'
-import {
-  gibColorFor,
-  gibCountFor,
-  gibInitialVelocity,
-  tickGibPhysics,
-  type GibState
-} from '@/game/enemyGibs'
-import {
-  bloodDecalAlphaScale,
-  bloodDecalBaseAlphaFor,
-  bloodDecalColorFor,
-  bloodDecalRadiusFor,
-  tickBloodDecal,
-  type BloodDecalState
-} from '@/game/bloodDecal'
-import { weaponFireCue, type WeaponFireCueStyle } from '@/game/weaponFireCue'
-import { boomstickPointBlankMultiplier } from '@/game/boomstickPointBlank'
-import { cameraKickProgressAtElapsedMs, cameraKickStyle, type CameraKickStyle } from '@/game/cameraKick'
-import { comboBreakCue, comboJustBroke, type ComboBreakCueStyle } from '@/game/comboBreakCue'
-import { dashReadyAt, dashStep, startDash, type DashState } from '@/game/dash'
-import {
-  RAGE_DURATION_MS,
-  rageBuffActive,
-  rageMultipliers,
-  rageTintOpacity,
-  type RageBuffState
-} from '@/game/rageBuff'
-import {
-  createSpitterProjectile,
-  SPITTER_PROJECTILE_RADIUS_M,
-  spitterProjectileExpired,
-  spitterProjectileHitsPlayer,
-  tickSpitterProjectile,
-  type SpitterProjectile
-} from '@/game/spitterProjectile'
-import { hazardCountdownCue, hazardCountdownTicksBetween, type HazardCountdownStyle, type HazardCountdownTick } from '@/game/hazardCountdown'
-import { CENTER_SURGE_PRESSURE_THRESHOLD, hazardClockRate, hazardCycleConfigs, hazardDamageAtPosition, hazardStatesForRunMs, roomPressureIntensity, type HazardKind, type HazardPhase, type HazardState } from '@/game/hazards'
-import { hitstopOnKill, hitstopScaleAtElapsedMs, hitstopStyle, type HitstopStyle } from '@/game/hitstop'
-import { knockbackDistance } from '@/game/knockback'
-import {
-  hudGrainOpacity,
-  hudPillWobbleAmplitudePx,
-  hudPillWobblePeriodMs,
-  hudPillWobbleRotationDeg,
-  hudSplatterIntensity
-} from '@/game/hudJitter'
-import { ARENA_COVER_RECTS, clampOutsideRects, segmentBlockedByRects, type CoverRect } from '@/game/coverCollision'
-import {
-  BREAKABLE_CRATE_HP,
-  CRATE_DESTRUCTION_SCORE,
-  collapsePelletCoverHits,
-  renumberMapAfterSplice,
-  spliceRectAt
-} from '@/game/breakableCover'
-import { MOVING_COVER_HEIGHT_M, MOVING_COVER_HALF_L, MOVING_COVER_HALF_W, movingCoverClockRate, movingCoverRectAt } from '@/game/movingCover'
-import { pillarBobOffsetMeters } from '@/game/pillarBob'
-import { updatePlayerPosition } from '@/game/movement'
-import { muzzleFlashStyle } from '@/game/muzzleFlash'
-import { healthPickupAmount, healthPickupTier } from '@/game/healthPickupTier'
-import { pickupCue, type PickupCueStyle } from '@/game/pickupCue'
-import { pickupLoopGain, pickupLoopStyle } from '@/game/pickupLoopCue'
-import {
-  pickupBounceY,
-  pickupGlowIntensity,
-  pickupHaloOpacity,
-  pickupHaloScale
-} from '@/game/pickupReadability'
-import { playerDamageCue, type PlayerDamageCueStyle } from '@/game/playerDamageCue'
-import { weaponRecoilStyle } from '@/game/weaponRecoil'
-import { accuracy, comboTimeRemainingRatio, createScoreState, finalScore, recordKill, recordShot, type ScoreState } from '@/game/scoring'
-import { crossedScoreMilestone, type ScoreMilestone } from '@/game/scoreMilestone'
-import { comboIncreaseCue, shouldPlayComboIncreaseCue, type ComboIncreaseCueStyle } from '@/game/comboIncreaseCue'
-import { crossedComboMilestone, type ComboMilestone } from '@/game/comboMilestone'
-import { justCrossedPersonalBest } from '@/game/personalBest'
-import { isAmmoCritical, justHitLastAmmo } from '@/game/ammoWarning'
-import { isEnemyOnCrosshair } from '@/game/crosshairLock'
-import { combinedLightingIntensityScale, lightingColorForPhase, lightingPhase } from '@/game/lightingPhase'
-import { fireHitscan, forwardFromYawPitch } from '@/game/shooting'
-import { createDirectorState, targetPressureForRunMs, tickDirector, type DirectorState } from '@/game/spawnDirector'
-import { encounterWaveSignal, lullStartedBetween, peakStartedBetween } from '@/game/encounterWave'
-import {
-  MUSIC_BASS_HZ,
-  COMBAT_LEAD_HZ,
-  COMBAT_DETUNE_CENTS,
-  COMBAT_PEAK_GAIN,
-  HIGH_PRESSURE_LEAD_HZ,
-  HIGH_PRESSURE_DETUNE_CENTS,
-  HIGH_PRESSURE_PEAK_GAIN,
-  MUSIC_PEAK_GAIN,
-  MUSIC_THROB_HZ,
-  NEAR_DEATH_LEAD_HZ,
-  NEAR_DEATH_PEAK_GAIN,
-  NEAR_DEATH_PULSE_DEPTH,
-  NEAR_DEATH_PULSE_HZ,
-  combatMusicGain,
-  highPressureMusicGain,
-  musicIntensityGain,
-  nearDeathMusicGain
-} from '@/game/musicIntensity'
-import {
-  RAGE_PULSE_BASS_HZ,
-  RAGE_PULSE_GAIN,
-  RAGE_PULSE_THROB_HZ
-} from '@/game/ragePulse'
-import {
-  formatScoreFloaterText,
-  scoreFloaterTier,
-  SCORE_FLOATER_TTL_MS,
-  type ScoreFloater
-} from '@/game/scoreFloater'
-import { SKITTER_DASH_DURATION_MS } from '@/game/skitterDash'
-import { spitterChargeIntensity } from '@/game/spitterCharge'
-import {
-  SCORE_TOKEN_REARM_MS,
-  scoreTokenActive,
-  scoreTokenMultiplier,
-  type ScoreTokenState
-} from '@/game/scoreToken'
-import { assertValidSpriteAtlas, frameToUvTransform, selectAnimationClip, selectSpriteFrame, type AnimationName, type SpriteAtlas } from '@/game/spriteAtlas'
-import type { MovementInput, SphereTarget, Vec3 } from '@/game/types'
-import {
-  beginJoystick,
-  createJoystick,
-  endJoystick,
-  JOYSTICK_DEADZONE,
-  JOYSTICK_RADIUS,
-  joystickMovedBeyond,
-  moveJoystick,
-  readJoystick,
-  type JoystickState
-} from '@/game/virtualJoystick'
-import {
-  canFireWeaponAt,
-  canFireWeapon,
-  collectWeaponAmmo,
-  createWeaponCooldownState,
-  createWeaponAmmo,
-  nextWeapon,
-  spendWeaponAmmo,
-  weaponAmmoLabel,
-  weaponConfigs,
-  weaponIds,
-  type WeaponAmmoState,
-  type WeaponCooldownState,
+  AMMO_MAX_BASE,
+  WEAPONS,
+  WEAPON_ORDER,
+  bestFallbackWeapon,
+  canFire,
+  spendAmmo,
+  type AmmoState,
   type WeaponId
 } from '@/game/weapons'
-import { dailySeed } from '@/lib/dailySeed'
-import {
-  dailyStreakLabel,
-  readDailyStreak,
-  recordDailyRun,
-  writeDailyStreak,
-  type DailyStreakRecord
-} from '@/lib/dailyStreak'
-import { bestLocalScore, insertLeaderboardEntry, readLeaderboard, writeLeaderboard, type LeaderboardEntry } from '@/lib/leaderboard'
-import {
-  createUpgradeWallet,
-  depositKills,
-  readUpgradeWallet,
-  writeUpgradeWallet,
-  type UpgradeWallet
-} from '@/lib/upgradeWallet'
-import { ensurePlayerId } from '@/lib/playerId'
-import {
-  fromSharedWallet,
-  mergeWallets,
-  toSharedWallet,
-  type UpgradeWalletGetResponse,
-  type UpgradeWalletPostResponse
-} from '@/lib/sharedUpgradeWallet'
-import {
-  MAX_HP_PER_TIER,
-  MAX_TIER,
-  MOVE_SPEED_PER_TIER,
-  STARTING_AMMO_PER_TIER,
-  UPGRADE_STAT_IDS,
-  WEAPON_DAMAGE_PER_TIER,
-  canAffordNextTier,
-  effectiveDamageMultiplier,
-  effectiveMaxAmmoBonus,
-  effectiveMaxHp,
-  effectiveMoveSpeedMultiplier,
-  nextTierCost,
-  purchaseTier,
-  type UpgradeStatId
-} from '@/game/upgradeTree'
-import { dailyDateKey, type LeaderboardScope, type RankedLeaderboardEntry, type SharedLeaderboardResponse } from '@/lib/sharedLeaderboard'
+import { OfficeScreen } from './OfficeScreen'
 
-const cameraHeight = 1.7
-const initialPlayerPosition: Vec3 = { x: 0, y: cameraHeight, z: -5.5 }
-const initialYaw = Math.PI
-const movementConfig = {
-  speed: 6.8,
-  bounds: {
-    minX: -8.5,
-    maxX: 8.5,
-    minZ: -8.5,
-    maxZ: 8.5
-  }
-}
-const weaponIdsForSelect = [...weaponIds]
-const enemyTypesForSelect: EnemyType[] = ['grunt', 'skitter', 'brute', 'spitter']
-const enemyAtlasTypes: EnemyType[] = ['grunt', 'skitter', 'brute', 'spitter']
+const filmSchema = z.enum(['studio', 'directors', 'vintage'])
 
-const MAX_ENEMIES = 8
+const META_KEY = 'flatline.meta.v2'
+const FILM_KEY = 'flatline.film.v1'
+const PLAYER_RADIUS = 0.45
+const EYE_HEIGHT = 1.5
+const ACTIVE_CHUNK_RADIUS = 2
+const KEEP_CHUNK_RADIUS = 3
+const ENEMY_THINK_RADIUS = 30
+const HITSCAN_RANGE = 44
 
-// Q-008 recommended default: cross-faction (infighting) damage is 50% of
-// player-facing damage. Hazard ticks against enemies and spitter projectile
-// crossfire both route through this scale.
-const INFIGHTING_DAMAGE_SCALE = 0.5
+type Screen = 'title' | 'playing' | 'dead' | 'office'
 
-type EnemyRenderSlot = {
-  material: THREE.MeshBasicMaterial
-  mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
-  arrow: THREE.ArrowHelper
-  texture: THREE.Texture | null
-  textureType: EnemyType | null
+type HudSnapshot = {
+  hp: number
+  armor: number
+  ammoInWeapon: number | null
+  weapon: WeaponId
+  owned: WeaponId[]
+  cheddar: number
+  ring: number
+  hasKey: boolean
 }
 
-type RuntimeRefs = {
-  renderer: THREE.WebGLRenderer
-  camera: THREE.PerspectiveCamera
-  scene: THREE.Scene
-  overhead: THREE.PointLight
-  enemySlots: EnemyRenderSlot[]
-  doorSignals: Record<string, THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>>
-  muzzleLight: THREE.PointLight
-  shotGroup: THREE.Group
-  hazardMeshes: Record<HazardKind, THREE.Mesh>
-  movingCover: THREE.Mesh
-  pickup: {
-    altar: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial>
-    halo: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
-    restY: number
-  }
-  pillars: THREE.Mesh[]
-  pillarRestY: number
+type RunSummaryView = { cheddar: number; kills: number; ring: number; seconds: number }
+
+type EnemyEntity = {
+  logic: Enemy
+  sprite: THREE.Sprite
+  boilAt: number
+  variant: number
+  // Line-of-sight rechecks are staggered (~Doom's sight throttling).
+  losUntil: number
+  losCached: boolean
 }
+type PickupEntity = { id: number; kind: PickupKind; pos: Vec2; sprite: THREE.Sprite; bob: number }
+type CrateEntity = { id: number; pos: Vec2; sprite: THREE.Sprite; hp: number }
+type ProjectileEntity = { p: Projectile; sprite: THREE.Sprite }
+type EffectEntity = { sprite: THREE.Object3D; ttl: number; total: number; frames?: THREE.Texture[] }
 
-type EnemyVisualAsset = {
-  atlas: SpriteAtlas
-  texture: THREE.Texture
-}
+type ChunkEntry = { chunk: Chunk; group: THREE.Group | null }
 
-type ShotBolt = {
-  mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
-  direction: THREE.Vector3
-  remainingDistance: number
-  ttlMs: number
-  hit: boolean
-  impactSpawned: boolean
-}
+// One identity for everything projectiles and splashes can hurt; the
+// projectile/splash modules treat it as an opaque id.
+type TargetRef = { kind: 'player' } | { kind: 'enemy'; id: number } | { kind: 'crate'; id: number }
 
-type ShotImpact = {
-  mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
-  ageMs: number
-  durationMs: number
-  startScale: number
-  endScale: number
-}
+type Art = ReturnType<typeof buildArt>
 
-// Feel pass: ring that pops at an enemy's feet on death. Bigger and
-// warmer than ShotImpact, faces straight up so the burst is visible
-// from any camera angle. Lifecycle and limit logic mirror the
-// ShotImpact pattern for consistency.
-type EnemyDeathPop = {
-  mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
-  ageMs: number
-  durationMs: number
-  startScale: number
-  endScale: number
-}
-
-type ScoreTokenDropEntry = {
-  id: string
-  position: { x: number; y: number; z: number }
-  ageMs: number
-  mesh: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>
-}
-
-type AmmoDropEntry = {
-  id: string
-  kind: AmmoDropKind
-  position: { x: number; y: number; z: number }
-  ageMs: number
-  // The pickup is a small group: an emissive body box, a thin accent
-  // strip, and a floor halo so the box reads against any lighting
-  // phase. Disposed atomically when the drop is collected or expires.
-  group: THREE.Group
-  body: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
-  accent: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
-  halo: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
-}
-
-type GibEntry = {
-  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
-  state: GibState
-}
-
-type BloodDecalEntry = {
-  mesh: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>
-  state: BloodDecalState
-}
-
-type DoorSmokeEntry = {
-  mesh: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>
-  state: DoorSmokeState
-}
-
-type HealthDropEntry = {
-  id: string
-  kind: HealthDropKind
-  position: { x: number; y: number; z: number }
-  ageMs: number
-  // White body + crossbar (horizontal arm) + crosspost (vertical
-  // arm) + floor halo. The cross silhouette reads at a distance even
-  // under the darkness lighting phase.
-  group: THREE.Group
-  body: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
-  crossbar: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
-  crosspost: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
-  halo: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>
-}
-
-type InkProjectile = {
-  group: THREE.Group
-  core: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
-  halo: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
-  direction: THREE.Vector3
-  remainingDistance: number
-  damage: number
-  splashRadius: number
-  ageMs: number
-}
-
-type SpitterProjectileRuntime = {
-  state: SpitterProjectile
-  group: THREE.Group
-  core: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
-  halo: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
-}
-
-type TouchJoysticks = {
-  move: JoystickState
-  look: JoystickState
-}
-
-type RunSummary = {
-  score: number
-  survivalMs: number
-  kills: number
-  accuracy: number
-  bestCombo: number
-  closeRangeKills: number
-  weaponsUsed: number
-  bestNoDamageStreak: number
-  // Best score from the local leaderboard at the moment this run
-  // started. null when the player has no prior runs recorded. The
-  // summary panel compares score against this to show a NEW BEST
-  // callout and the delta over the previous record.
-  previousBestScore: number | null
-}
-
-type Settings = {
-  sensitivity: number
-  fov: number
-  audio: boolean
-}
-
-const settingsStorageKey = 'flatline.settings.v1'
-const initialsStorageKey = 'flatline.initials.v1'
-
-const SettingsSchema = z.object({
-  sensitivity: z.number(),
-  fov: z.number(),
-  audio: z.boolean()
-})
-
-type SharedLeaderboardStatus = 'loading' | 'ready' | 'unavailable' | 'error'
-type SubmitStatus = 'idle' | 'submitting' | 'submitted' | 'unavailable' | 'error'
-
-type FlatlineGameProps = {
-  initialLeaderboardScope?: LeaderboardScope
-  arenaMode?: 'standard' | 'daily' | 'practice'
-}
-
-type PracticeSettings = {
-  startingWeapon: WeaponId
-  enemyTypes: EnemyType[]
-  spawnRate: number
-  infiniteAmmo: boolean
-  damageEnabled: boolean
-  debugOverlays: boolean
-  roomStateFrozen: boolean
-}
-
-export function FlatlineGame({ initialLeaderboardScope = 'all', arenaMode = 'standard' }: FlatlineGameProps) {
-  const mountRef = useRef<HTMLDivElement | null>(null)
-  const runtimeRef = useRef<RuntimeRefs | null>(null)
-  const animationRef = useRef<number | null>(null)
-  const shotBoltsRef = useRef<ShotBolt[]>([])
-  const shotImpactsRef = useRef<ShotImpact[]>([])
-  const enemyDeathPopsRef = useRef<EnemyDeathPop[]>([])
-  const scoreTokenDropsRef = useRef<ScoreTokenDropEntry[]>([])
-  const scoreTokenDropSeqRef = useRef<number>(0)
-  const ammoDropsRef = useRef<AmmoDropEntry[]>([])
-  const ammoDropSeqRef = useRef<number>(0)
-  const healthDropsRef = useRef<HealthDropEntry[]>([])
-  const healthDropSeqRef = useRef<number>(0)
-  const gibsRef = useRef<GibEntry[]>([])
-  const bloodDecalsRef = useRef<BloodDecalEntry[]>([])
-  const doorSmokesRef = useRef<DoorSmokeEntry[]>([])
-  // Snapshot of enemy ids that were already dead at the start of the
-  // last animate frame. The post-update phase scans for enemies that
-  // are dead now but were not in this snapshot to spawn the death-pop
-  // ring exactly once per kill.
-  const previouslyDeadEnemyIdsRef = useRef<Set<string>>(new Set())
-  const inkProjectilesRef = useRef<InkProjectile[]>([])
-  const spitterProjectilesRef = useRef<SpitterProjectileRuntime[]>([])
-  const spitterProjectileSeqRef = useRef<number>(0)
-  const lastTimeRef = useRef<number>(0)
-  const positionRef = useRef<Vec3>({ ...initialPlayerPosition })
-  const yawRef = useRef<number>(initialYaw)
-  const pitchRef = useRef<number>(0)
-  const keysRef = useRef<MovementInput>({ forward: false, backward: false, left: false, right: false })
-  const touchJoysticksRef = useRef<TouchJoysticks>({ move: createJoystick(), look: createJoystick() })
-  const touchLookVectorRef = useRef({ x: 0, y: 0 })
-  const touchLookStartedAtRef = useRef(0)
-  const runningRef = useRef<boolean>(false)
-  const pausedRef = useRef<boolean>(false)
-  const settingsRef = useRef<Settings>({ sensitivity: 1, fov: 75, audio: true })
-  const enemiesRef = useRef<EnemyModel[]>([createGrunt('grunt-1', { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)])
-  const enemySpawnSeqRef = useRef<number>(1)
-  const playerHealthRef = useRef<number>(100)
-  const directorRef = useRef<DirectorState>(createDirectorState())
-  const roomStateMsRef = useRef<number>(0)
-  // Hazard clock. Advances at a pressure-scaled rate so cycles
-  // compress at high pressure (idle gaps shrink, warning + active
-  // windows still feel the same to the player because the ratio is
-  // preserved). roomStateMsRef stays on real time for lighting and
-  // the moving cover oscillator.
-  const hazardClockMsRef = useRef<number>(0)
-  const scoreRef = useRef<ScoreState>(createScoreState())
-  // PB cue: snapshot of the player's local best at run start. The kill
-  // branch checks against this so the cue fires at most once per run,
-  // exactly when the score crosses the snapshot. Set by startRun.
-  const previousBestAtRunStartRef = useRef<number | null>(null)
-  const healthPickupReadyRef = useRef<boolean>(true)
-  const healthPickupCooldownRef = useRef<number>(0)
-  const hazardDamageCooldownRef = useRef<number>(0)
-  const enemyHazardCooldownRef = useRef<number>(0)
-  const prevHazardRunMsRef = useRef<number>(-1)
-  const prevWaveRunMsRef = useRef<number>(-1)
-  const prevActiveComboRef = useRef<number>(0)
-  const musicLayerRef = useRef<{
-    context: AudioContext
-    masterGain: GainNode
-    bass: OscillatorNode
-    throb: OscillatorNode
-    throbGain: GainNode
-    combatLead: OscillatorNode
-    combatGain: GainNode
-    highPressureLead: OscillatorNode
-    highPressureGain: GainNode
-    nearDeathLead: OscillatorNode
-    nearDeathGain: GainNode
-    nearDeathPulse: OscillatorNode
-  } | null>(null)
-  const ragePulseLayerRef = useRef<{
-    context: AudioContext
-    masterGain: GainNode
-    bass: OscillatorNode
-    throb: OscillatorNode
-    throbGain: GainNode
-  } | null>(null)
-  const pickupLoopLayerRef = useRef<{
-    context: AudioContext
-    masterGain: GainNode
-    osc: OscillatorNode
-  } | null>(null)
-  const tookDamageSinceLastKillRef = useRef<boolean>(false)
-  const hitstopStateRef = useRef<{ style: HitstopStyle; startMs: number } | null>(null)
-  const cameraKickStateRef = useRef<{ style: CameraKickStyle; startMs: number } | null>(null)
-  const lastMountTransformRef = useRef<string>('')
-  const dashStateRef = useRef<DashState | null>(null)
-  const lastDashStartMsRef = useRef<number>(Number.NEGATIVE_INFINITY)
-  const rageBuffStateRef = useRef<RageBuffState | null>(null)
-  const nextRageEligibleRunMsRef = useRef<number>(90_000)
-  const lastLargeHealRunMsRef = useRef<number>(Number.NEGATIVE_INFINITY)
-  const scoreTokenStateRef = useRef<ScoreTokenState | null>(null)
-  const nextScoreTokenEligibleRunMsRef = useRef<number>(70_000)
-  const selectedWeaponRef = useRef<WeaponId>('peashooter')
-  const weaponAmmoRef = useRef<WeaponAmmoState>(createWeaponAmmo())
-  const weaponCooldownRef = useRef<WeaponCooldownState>(createWeaponCooldownState())
-  const practiceSettingsRef = useRef<PracticeSettings>(createPracticeSettings())
-  const weaponFlashTimeoutRef = useRef<number | null>(null)
-  const muzzleFlashTimeoutRef = useRef<number | null>(null)
-  const enemyAssetsRef = useRef<Partial<Record<EnemyType, EnemyVisualAsset>>>({})
-  // Time elapsed since each door spawned an enemy, in ms. Doors that
-  // have never spawned (or whose spawn window has fully closed) sit
-  // at or above DOOR_TOTAL_MS, which the door state helper resolves
-  // to the `idle` phase.
-  const doorSignalTimersRef = useRef<Record<string, number>>({})
-  // Enemy type that came out of each door on its most recent spawn,
-  // so the door signal can tint to a per-type hue while the door is
-  // still in its opening / open phase. Cleared on run reset.
-  const doorSpawnTypesRef = useRef<Record<string, EnemyType>>({})
-  const [running, setRunning] = useState(false)
-  const [paused, setPaused] = useState(false)
-  const [hits, setHits] = useState(0)
-  const [playerHealth, setPlayerHealth] = useState(100)
-  const [enemyHealth, setEnemyHealth] = useState(3)
-  const [enemyType, setEnemyType] = useState<EnemyModel['type']>('grunt')
-  const [score, setScore] = useState(0)
-  const [kills, setKills] = useState(0)
-  const [combo, setCombo] = useState(0)
-  const [runMs, setRunMs] = useState(0)
-  const [damagePulse, setDamagePulse] = useState(0)
-  const [damageIndicator, setDamageIndicator] = useState<{ key: number; angleRadians: number; severity: DamageIndicatorSeverity } | null>(null)
-  const [muzzleFlash, setMuzzleFlash] = useState<{ key: number; weapon: WeaponId } | null>(null)
-  const [healthPickupReady, setHealthPickupReady] = useState(true)
-  const [selectedWeapon, setSelectedWeapon] = useState<WeaponId>('peashooter')
-  const [weaponAmmo, setWeaponAmmo] = useState<WeaponAmmoState>(() => createWeaponAmmo())
-  const [weaponFiring, setWeaponFiring] = useState(false)
-  const [weaponFireKey, setWeaponFireKey] = useState(0)
-  const [weaponReady, setWeaponReady] = useState(true)
-  const [dashReady, setDashReady] = useState(true)
-  const [crosshairLocked, setCrosshairLocked] = useState(false)
-  const [comboTimeRatio, setComboTimeRatio] = useState(0)
-  const [rageActive, setRageActive] = useState(false)
-  const [rageTint, setRageTint] = useState(0)
-  const [scoreTokenActiveState, setScoreTokenActiveState] = useState(false)
-  const [scoreFloaters, setScoreFloaters] = useState<ScoreFloater[]>([])
-  const scoreFloaterSeqRef = useRef<number>(0)
-  const [wavePhase, setWavePhase] = useState<'lull' | 'surge' | 'peak'>('lull')
-  const [touchJoysticksView, setTouchJoysticksView] = useState<TouchJoysticks>(() => ({
-    move: createJoystick(),
-    look: createJoystick()
-  }))
-  const [summary, setSummary] = useState<RunSummary | null>(null)
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
-    typeof window === 'undefined' ? [] : readLeaderboard(window.localStorage)
-  )
-  const [wallet, setWallet] = useState<UpgradeWallet>(() =>
-    typeof window === 'undefined' ? createUpgradeWallet() : readUpgradeWallet(window.localStorage)
-  )
-  const walletRef = useRef<UpgradeWallet>(wallet)
-  useEffect(() => {
-    walletRef.current = wallet
-  }, [wallet])
-  const playerIdRef = useRef<string | null>(null)
-  // Runtime cover collision rects. Cloned from the static seed list and
-  // mutated as breakables are destroyed during a run; reset on every
-  // startRun so a new run starts with all crates intact.
-  const coverRectsRef = useRef<CoverRect[]>([...ARENA_COVER_RECTS])
-  // Active breakable state, keyed by current rect index in coverRectsRef.
-  // Both maps stay aligned: a rect splice triggers a renumber on both.
-  const breakableMeshesRef = useRef<Map<number, THREE.Mesh>>(new Map())
-  const breakableHpRef = useRef<Map<number, number>>(new Map())
-  // Original mesh refs survive across runs so startRun can rebuild the
-  // active map and restore mesh visibility for the next run.
-  const originalCrateMeshesRef = useRef<THREE.Mesh[]>([])
-  // REQ-059 moving cover. The mesh lives across runs; the rect is at
-  // index `movingCoverRectIndexRef.current` of `coverRectsRef.current`
-  // and gets overwritten in place each frame. The index ref shifts
-  // down by one whenever a breakable rect below it is spliced out.
-  const movingCoverMeshRef = useRef<THREE.Mesh | null>(null)
-  const movingCoverRectIndexRef = useRef<number>(8)
-  const movingCoverElapsedMsRef = useRef<number>(0)
-  const [creditsEarnedThisRun, setCreditsEarnedThisRun] = useState<number>(0)
-  const [settings, setSettings] = useState<Settings>(() => loadInitialSettings())
-  const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>(() => createPracticeSettings())
-  const [seed] = useState(() => dailySeed())
-  const [dailyConfig] = useState<DailyArenaConfig | null>(() => arenaMode === 'daily' ? createDailyArenaConfig(seed) : null)
-  const [dailySchedule] = useState<DailySchedulePreview | null>(() => {
-    if (arenaMode !== 'daily') {
-      return null
+function buildArt() {
+  const tex = (canvas: HTMLCanvasElement, repeat = false) => {
+    const t = new THREE.CanvasTexture(canvas)
+    t.colorSpace = THREE.SRGBColorSpace
+    if (repeat) {
+      t.wrapS = THREE.RepeatWrapping
+      t.wrapT = THREE.RepeatWrapping
     }
+    return t
+  }
+  const enemySheets: Record<EnemyKind, SpriteSheet> = {
+    torpedo: drawEnemySprites('torpedo'),
+    capo: drawEnemySprites('capo'),
+    alleycat: drawEnemySprites('alleycat'),
+    bruiser: drawEnemySprites('bruiser'),
+    fatcat: drawEnemySprites('fatcat')
+  }
+  const enemyTex = {} as Record<EnemyKind, Record<EnemyFrame, THREE.Texture[]>>
+  for (const kind of Object.keys(enemySheets) as EnemyKind[]) {
+    enemyTex[kind] = {} as Record<EnemyFrame, THREE.Texture[]>
+    for (const frame of Object.keys(enemySheets[kind]) as EnemyFrame[]) {
+      enemyTex[kind][frame] = enemySheets[kind][frame].map((c) => tex(c))
+    }
+  }
+  const pickupSheets = drawPickupSprites()
+  const pickupTex = {} as Record<PickupKind, THREE.Texture[]>
+  for (const kind of Object.keys(pickupSheets) as PickupKind[]) {
+    pickupTex[kind] = pickupSheets[kind].map((c) => tex(c))
+  }
+  const projSheets = drawProjectileSprites()
+  const projTex = {} as Record<ProjectileArt, THREE.Texture[]>
+  for (const kind of Object.keys(projSheets) as ProjectileArt[]) {
+    projTex[kind] = projSheets[kind].map((c) => tex(c))
+  }
+  const wallMaterials: Record<string, THREE.MeshLambertMaterial> = {}
+  for (const theme of ['brick', 'panel', 'stone'] as const) {
+    wallMaterials[theme] = new THREE.MeshLambertMaterial({ map: tex(drawWall(theme, hashString(`wall-${theme}`))) })
+  }
+  // Shared chunk-building resources: repeat is identical for every chunk,
+  // so cloning textures per chunk only cost redundant GPU uploads.
+  const floorTex = tex(drawFloor(11), true)
+  floorTex.repeat.set(CHUNK_SIZE / 2, CHUNK_SIZE / 2)
+  const ceilTex = tex(drawCeiling(12), true)
+  ceilTex.repeat.set(CHUNK_SIZE / 2, CHUNK_SIZE / 2)
+  const viewmodels = {} as Record<WeaponId, ViewmodelSet>
+  for (const id of WEAPON_ORDER) {
+    viewmodels[id] = drawViewmodel(id)
+  }
+  const splatTextures = drawInkSplatSprites().map((c) => tex(c))
+  return {
+    wallMaterials,
+    wallGeo: new THREE.BoxGeometry(CELL_M, WALL_HEIGHT_M, CELL_M),
+    chunkPlaneGeo: new THREE.PlaneGeometry(CHUNK_SIZE * CELL_M, CHUNK_SIZE * CELL_M),
+    floorMaterial: new THREE.MeshLambertMaterial({ map: floorTex }),
+    ceilingMaterial: new THREE.MeshBasicMaterial({ map: ceilTex, fog: true }),
+    splatGeo: new THREE.PlaneGeometry(1.6, 1.6),
+    splatMaterials: splatTextures.map((t) => new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false })),
+    door: tex(drawDoor(false, 21)),
+    vaultDoor: tex(drawDoor(true, 22)),
+    officeDoor: tex(drawOfficeDoor()),
+    enemyTex,
+    pickupTex,
+    projTex,
+    crate: drawCrateSprites().map((c) => tex(c)),
+    impact: drawImpactStar().map((c) => tex(c)),
+    explosion: drawExplosion().map((c) => tex(c)),
+    splat: splatTextures,
+    viewmodels
+  }
+}
 
-    return createDailySchedulePreview(createDailyArenaConfig(seed))
-  })
-  const [dailyDate] = useState(() => dailyDateKey())
-  const [dailyStreak, setDailyStreak] = useState<DailyStreakRecord | null>(() =>
-    typeof window === 'undefined' || arenaMode !== 'daily' ? null : readDailyStreak(window.localStorage)
-  )
-  const [sharedScope, setSharedScope] = useState<LeaderboardScope>(initialLeaderboardScope)
-  const [sharedEntries, setSharedEntries] = useState<RankedLeaderboardEntry[]>([])
-  const [sharedStatus, setSharedStatus] = useState<SharedLeaderboardStatus>('loading')
-  const [initials, setInitials] = useState(() => loadInitials())
-  const [submitStatus, setSubmitStatus] = useState<SubmitStatus>('idle')
-  const [debug, setDebug] = useState<{ angle: BillboardAngle; bucket: number; animation: AnimationName }>({
-    angle: 'front',
-    bucket: 0,
-    animation: 'idle'
-  })
-  const [status, setStatus] = useState('Start a run to lock the pointer and enter the room.')
-  const isPractice = arenaMode === 'practice'
-  // Effective max HP for the HUD: tracks `wallet.tiers` (a React state)
-  // so the bar rescales when the player picks an HP upgrade mid-run.
-  // Distinct from `walletRef.current` (a ref) used in the game loop,
-  // because refs do not trigger re-renders.
-  const hudMaxHp = effectiveMaxHp(wallet.tiers)
+type World = {
+  seed: number
+  rng: Rng
+  chunks: Map<string, ChunkEntry>
+  // Hot-path caches: last chunk touched by solidAt, last streamed chunk
+  // coordinate, last visited automap cell.
+  lastChunk: ChunkEntry | null
+  lastStreamKey: string
+  lastVisitKey: string
+  spawned: Set<string>
+  doors: Map<string, { state: DoorState; mesh: THREE.Mesh; pos: Vec2 }>
+  enemies: Map<number, EnemyEntity>
+  pickups: Map<number, PickupEntity>
+  crates: Map<number, CrateEntity>
+  projectiles: Map<number, ProjectileEntity>
+  effects: EffectEntity[]
+  corpses: THREE.Object3D[]
+  visited: Set<string>
+  player: {
+    pos: Vec2
+    momentum: Vec2
+    yaw: number
+    pitch: number
+    vitals: PlayerVitals
+    ammo: AmmoState
+    ammoMax: AmmoState
+    weapon: WeaponId
+    owned: WeaponId[]
+    cooldown: number
+    fireHeld: boolean
+    fireQueued: boolean
+    firedWhileHeld: boolean
+    cheddarRun: number
+    kills: number
+    maxRing: number
+    hasVaultKey: boolean
+    reviveUsed: boolean
+    damageFlash: number
+    pickupFlash: number
+    painUntil: number
+    grinUntil: number
+    dead: boolean
+    deathAt: number
+    runStartAt: number
+    muzzleUntil: number
+  }
+  config: RunConfig
+  weaponTiers: Record<string, number>
+  nextId: number
+  time: number
+}
 
-  const damageEnemyById = useCallback(
-    (enemyId: string, damage: number, hurtStatus: string, killStatus: string, hitDistance?: number) => {
-      const enemies = enemiesRef.current
-      const index = enemies.findIndex((candidate) => candidate.id === enemyId)
+function makeAmmoMax(config: RunConfig): AmmoState {
+  return {
+    bullets: Math.round(AMMO_MAX_BASE.bullets * config.ammoMaxMult),
+    shells: Math.round(AMMO_MAX_BASE.shells * config.ammoMaxMult),
+    tnt: Math.round(AMMO_MAX_BASE.tnt * config.ammoMaxMult),
+    cells: Math.round(AMMO_MAX_BASE.cells * config.ammoMaxMult)
+  }
+}
 
-      if (index === -1) {
-        return
-      }
-
-      const enemy = enemies[index]
-
-      if (enemy.state === 'dead') {
-        return
-      }
-
-      const enemyPosition = enemy.position
-      const damaged = damageEnemy(enemy, damage)
-      enemies[index] = damaged
-      const baseHitstop = hitstopStyle(selectedWeaponRef.current)
-      hitstopStateRef.current = {
-        style: damaged.state === 'dead' ? hitstopOnKill(baseHitstop) : baseHitstop,
-        startMs: performance.now()
-      }
-
-      if (damaged.state === 'dead') {
-        const playerPos = positionRef.current
-        const dx = enemyPosition.x - playerPos.x
-        const dz = enemyPosition.z - playerPos.z
-        const fallbackDistance = Math.sqrt(dx * dx + dz * dz)
-        const distance = hitDistance ?? fallbackDistance
-        const previousScore = scoreRef.current.score
-        const previousCombo = scoreRef.current.combo
-        scoreRef.current = recordKill(scoreRef.current, directorRef.current.runMs, {
-          distance,
-          weapon: selectedWeaponRef.current,
-          tookDamageSinceLastKill: tookDamageSinceLastKillRef.current,
-          scoreMultiplier:
-            scoreTokenMultiplier(scoreTokenStateRef.current, performance.now()) * dailyKillScoreMultiplier(dailyConfig)
-        })
-        const scoreDelta = scoreRef.current.score - previousScore
-        tookDamageSinceLastKillRef.current = false
-        setScore(scoreRef.current.score)
-        setKills(scoreRef.current.kills)
-        setCombo(scoreRef.current.combo)
-        playCue(90, settingsRef.current.audio)
-        const milestone = crossedScoreMilestone(previousScore, scoreRef.current.score)
-        if (milestone !== null) {
-          playScoreMilestoneCue(milestone, settingsRef.current.audio)
-        }
-        const comboMilestone = crossedComboMilestone(previousCombo, scoreRef.current.combo)
-        if (comboMilestone !== null) {
-          playComboMilestoneCue(comboMilestone, settingsRef.current.audio)
-        } else if (shouldPlayComboIncreaseCue(previousCombo, scoreRef.current.combo, comboMilestone)) {
-          playComboIncreaseCue(comboIncreaseCue(scoreRef.current.combo), settingsRef.current.audio)
-        }
-        if (justCrossedPersonalBest(previousScore, scoreRef.current.score, previousBestAtRunStartRef.current)) {
-          playPersonalBestCue(settingsRef.current.audio)
-        }
-
-        const runtime = runtimeRef.current
-        if (runtime && scoreDelta > 0) {
-          const projected = new THREE.Vector3(enemyPosition.x, enemyPosition.y + 0.6, enemyPosition.z).project(runtime.camera)
-          const canvas = runtime.renderer.domElement
-          const rect = canvas.getBoundingClientRect()
-          const screenX = (projected.x * 0.5 + 0.5) * rect.width
-          const screenY = (1 - (projected.y * 0.5 + 0.5)) * rect.height
-          const inFront = projected.z < 1
-          if (inFront && screenX >= 0 && screenX <= rect.width && screenY >= 0 && screenY <= rect.height) {
-            scoreFloaterSeqRef.current += 1
-            const floater: ScoreFloater = {
-              id: scoreFloaterSeqRef.current,
-              text: formatScoreFloaterText(scoreDelta),
-              startedAtMs: performance.now(),
-              screenX,
-              screenY,
-              tier: scoreFloaterTier(scoreRef.current.combo)
-            }
-            setScoreFloaters((current) => [...current, floater])
-            window.setTimeout(() => {
-              setScoreFloaters((current) => current.filter((entry) => entry.id !== floater.id))
-            }, SCORE_FLOATER_TTL_MS + 60)
-          }
-        }
-      } else {
-        playEnemyHurtCue(enemyHurtCue(damaged.type), settingsRef.current.audio)
-      }
-
-      setEnemyHealth(damaged.health)
-      setEnemyType(damaged.type)
-      setStatus(damaged.state === 'dead' ? killStatus : hurtStatus)
+function createWorld(seed: number, config: RunConfig, meta: MetaState): World {
+  const ammoMax = makeAmmoMax(config)
+  const start: AmmoState = config.startFullAmmo
+    ? { ...ammoMax }
+    : { bullets: 50, shells: 0, tnt: 0, cells: 0 }
+  return {
+    seed,
+    rng: mulberry32(seed ^ 0x9e3779b9),
+    chunks: new Map(),
+    lastChunk: null,
+    lastStreamKey: '',
+    lastVisitKey: '',
+    spawned: new Set(),
+    doors: new Map(),
+    enemies: new Map(),
+    pickups: new Map(),
+    crates: new Map(),
+    projectiles: new Map(),
+    effects: [],
+    corpses: [],
+    visited: new Set(),
+    player: {
+      pos: { x: cellCenter(12), z: cellCenter(12) },
+      momentum: { x: 0, z: 0 },
+      yaw: 0,
+      pitch: 0,
+      vitals: { hp: config.startHp, maxHp: config.maxHp, armor: config.startArmor, armorClass: config.startArmorClass },
+      ammo: start,
+      ammoMax,
+      weapon: 'snub',
+      owned: [...meta.weaponsUnlocked] as WeaponId[],
+      cooldown: 0.3,
+      fireHeld: false,
+      fireQueued: false,
+      firedWhileHeld: false,
+      cheddarRun: 0,
+      kills: 0,
+      maxRing: 0,
+      hasVaultKey: false,
+      reviveUsed: false,
+      damageFlash: 0,
+      pickupFlash: 0,
+      painUntil: 0,
+      grinUntil: 0,
+      dead: false,
+      deathAt: 0,
+      runStartAt: 0,
+      muzzleUntil: 0
     },
-    [dailyConfig]
-  )
+    config,
+    weaponTiers: { ...meta.weaponTiers },
+    nextId: 1,
+    time: 0
+  }
+}
 
-  // Caller must route rectIndex from a segment-vs-rect hit and order
-  // multi-rect destructions high-to-low (see `collapsePelletCoverHits`)
-  // so each splice does not invalidate any pending lower index.
-  const damageBreakableAt = useCallback((rectIndex: number) => {
-    const currentHp = breakableHpRef.current.get(rectIndex)
-    if (currentHp === undefined) {
-      return
-    }
-    const nextHp = currentHp - 1
-    if (nextHp > 0) {
-      breakableHpRef.current.set(rectIndex, nextHp)
-      return
-    }
-    const mesh = breakableMeshesRef.current.get(rectIndex)
-    if (mesh) {
-      mesh.visible = false
-      const runtime = runtimeRef.current
-      if (runtime) {
-        spawnEnemyDeathPop(runtime, enemyDeathPopsRef.current, mesh.position)
-        scoreRef.current = {
-          ...scoreRef.current,
-          score: scoreRef.current.score + CRATE_DESTRUCTION_SCORE
-        }
-        setScore(scoreRef.current.score)
-        const projected = new THREE.Vector3(mesh.position.x, mesh.position.y + 0.4, mesh.position.z).project(runtime.camera)
-        const canvas = runtime.renderer.domElement
-        const rect = canvas.getBoundingClientRect()
-        const screenX = (projected.x * 0.5 + 0.5) * rect.width
-        const screenY = (1 - (projected.y * 0.5 + 0.5)) * rect.height
-        const inFront = projected.z < 1
-        if (inFront && screenX >= 0 && screenX <= rect.width && screenY >= 0 && screenY <= rect.height) {
-          scoreFloaterSeqRef.current += 1
-          const floater: ScoreFloater = {
-            id: scoreFloaterSeqRef.current,
-            text: formatScoreFloaterText(CRATE_DESTRUCTION_SCORE),
-            startedAtMs: performance.now(),
-            screenX,
-            screenY,
-            tier: 'base'
-          }
-          setScoreFloaters((current) => [...current, floater])
-          window.setTimeout(() => {
-            setScoreFloaters((current) => current.filter((entry) => entry.id !== floater.id))
-          }, SCORE_FLOATER_TTL_MS + 60)
-        }
-      }
-    }
-    coverRectsRef.current = spliceRectAt(coverRectsRef.current, rectIndex)
-    breakableMeshesRef.current = renumberMapAfterSplice(breakableMeshesRef.current, rectIndex)
-    breakableHpRef.current = renumberMapAfterSplice(breakableHpRef.current, rectIndex)
-    // The moving cover rect lives at a known index in coverRectsRef; if
-    // the splice removed a rect below it, that index just shifted down.
-    if (rectIndex < movingCoverRectIndexRef.current) {
-      movingCoverRectIndexRef.current -= 1
-    }
-    playCue(110, settingsRef.current.audio)
-  }, [])
+export function FlatlineGame() {
+  const [screen, setScreen] = useState<Screen>('title')
+  const [paused, setPaused] = useState(false)
+  const [meta, setMeta] = useState<MetaState>(createMetaState)
+  const [film, setFilm] = useState<FilmPreset>('directors')
+  const [muted, setMuted] = useState(false)
+  const [hud, setHud] = useState<HudSnapshot | null>(null)
+  const [summary, setSummary] = useState<RunSummaryView | null>(null)
+  const [booted, setBooted] = useState(false)
 
-  const fire = useCallback(() => {
-    const runtime = runtimeRef.current
+  const mountRef = useRef<HTMLDivElement>(null)
+  const filmCanvasRef = useRef<HTMLCanvasElement>(null)
+  const weaponCanvasRef = useRef<HTMLCanvasElement>(null)
+  const mugCanvasRef = useRef<HTMLCanvasElement>(null)
+  const automapRef = useRef<HTMLCanvasElement>(null)
 
-    if (!runningRef.current || runtime === null) {
-      return
-    }
+  const threeRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera } | null>(null)
+  const artRef = useRef<Art | null>(null)
+  const worldRef = useRef<World | null>(null)
+  const sfxRef = useRef<Sfx | null>(null)
+  const metaRef = useRef(meta)
+  const screenRef = useRef(screen)
+  const pausedRef = useRef(paused)
+  const filmRef = useRef(film)
+  const keysRef = useRef(new Set<string>())
+  const automapHeldRef = useRef(false)
+  const grainRef = useRef<{ tiles: HTMLCanvasElement[]; frame: number } | null>(null)
+  const lastFilmDrawRef = useRef(0)
+  const lastAutomapDrawRef = useRef(0)
+  const lastHudRef = useRef(0)
+  const mugCacheRef = useRef(new Map<string, HTMLCanvasElement>())
+  const mugLookRef = useRef({ look: 0, nextAt: 0 })
+  const spriteMaterialCache = useRef(new Map<THREE.Texture, THREE.SpriteMaterial>())
 
-    const weapon = selectedWeaponRef.current
-    const nowMs = performance.now()
-    const buff = rageMultipliers(rageBuffStateRef.current, nowMs)
-    const buffedFireIntervalMs = weaponConfigs[weapon].fireIntervalMs / buff.fireRate
+  metaRef.current = meta
+  screenRef.current = screen
+  pausedRef.current = paused
+  filmRef.current = film
 
-    if (nowMs - weaponCooldownRef.current[weapon] < buffedFireIntervalMs) {
-      setWeaponReady(false)
-      return
-    }
-
-    if (!practiceSettingsRef.current.infiniteAmmo && !canFireWeapon(weapon, weaponAmmoRef.current)) {
-      setStatus(`${weaponConfigs[weapon].label} is empty. Switch weapons or collect supplies.`)
-      return
-    }
-
-    weaponCooldownRef.current = {
-      ...weaponCooldownRef.current,
-      [weapon]: nowMs
-    }
-    setWeaponReady(false)
-
-    if (!practiceSettingsRef.current.infiniteAmmo) {
-      const previousAmmo = weaponAmmoRef.current
-      weaponAmmoRef.current = spendWeaponAmmo(weapon, weaponAmmoRef.current)
-      setWeaponAmmo(weaponAmmoRef.current)
-      if (justHitLastAmmo(weapon, previousAmmo, weaponAmmoRef.current)) {
-        playLastAmmoCue(settingsRef.current.audio)
-      }
-    }
-    runtime.muzzleLight.intensity = weapon === 'boomstick' ? 7 : 4.5
-    cameraKickStateRef.current = {
-      style: cameraKickStyle(weapon),
-      startMs: nowMs
-    }
-    setWeaponFiring(true)
-    setWeaponFireKey((value) => value + 1)
-
-    if (weaponFlashTimeoutRef.current !== null) {
-      window.clearTimeout(weaponFlashTimeoutRef.current)
-    }
-
-    weaponFlashTimeoutRef.current = window.setTimeout(() => {
-      setWeaponFiring(false)
-      weaponFlashTimeoutRef.current = null
-    }, 220)
-
-    if (muzzleFlashTimeoutRef.current !== null) {
-      window.clearTimeout(muzzleFlashTimeoutRef.current)
-    }
-
-    const flashStyle = muzzleFlashStyle(weapon)
-    setMuzzleFlash({ key: nowMs, weapon })
-    muzzleFlashTimeoutRef.current = window.setTimeout(() => {
-      setMuzzleFlash(null)
-      muzzleFlashTimeoutRef.current = null
-    }, flashStyle.durationMs)
-    playWeaponFireCue(weaponFireCue(weapon), settingsRef.current.audio)
-
-    const direction = forwardFromYawPitch(yawRef.current, pitchRef.current)
-
-    if (weapon === 'inkblaster') {
-      spawnInkProjectile(runtime, inkProjectilesRef.current, positionRef.current, direction, weaponConfigs.inkblaster.damage)
-      // Count the shotsFired now; shotsHit is added at impact in
-      // the animate-loop projectile-tick branch when the projectile
-      // actually overlaps an enemy. Counting `true` here would
-      // double-count every ink shot whether or not it lands.
-      scoreRef.current = recordShot(scoreRef.current, false)
-      setStatus('Inkblaster projectile launched.')
-      return
-    }
-
-    const aliveEnemies = enemiesRef.current.filter((candidate) => candidate.state !== 'dead')
-    const targets: SphereTarget[] = aliveEnemies.map((candidate) => ({
-      id: candidate.id,
-      center: { x: candidate.position.x, y: 1.35, z: candidate.position.z },
-      radius: 0.72
-    }))
-    const spread = weaponConfigs[weapon].spreadRadians
-    // Cover-aware shot resolution. Each pellet runs a 2D segment-vs-rect
-    // test against the runtime cover rects. If a rect blocks the pellet
-    // before it reaches an enemy, the rect consumes the shot (and is
-    // damaged if it is a breakable). The bolt visual terminates at
-    // whichever stopped the pellet first.
-    const coverHitsThisShot: number[] = []
-    const hits = spread
-      .map((yawOffset) => {
-        const pelletDirection = forwardFromYawPitch(yawRef.current + yawOffset, pitchRef.current)
-        const segmentEnd = {
-          x: positionRef.current.x + pelletDirection.x * 18,
-          z: positionRef.current.z + pelletDirection.z * 18
-        }
-        const coverHit = segmentBlockedByRects(
-          { x: positionRef.current.x, z: positionRef.current.z },
-          segmentEnd,
-          coverRectsRef.current
-        )
-        const coverDist = coverHit
-          ? Math.hypot(coverHit.x - positionRef.current.x, coverHit.z - positionRef.current.z)
-          : Number.POSITIVE_INFINITY
-        const enemyMaxDist = Math.min(18, coverDist)
-        const hit = fireHitscan(positionRef.current, pelletDirection, targets, enemyMaxDist)
-        const boltStopDist = Math.min(hit?.distance ?? Number.POSITIVE_INFINITY, coverDist, 18)
-        spawnShotBolt(runtime, shotBoltsRef.current, positionRef.current, pelletDirection, boltStopDist, Boolean(hit))
-        if (!hit && coverHit && breakableMeshesRef.current.has(coverHit.rectIndex)) {
-          coverHitsThisShot.push(coverHit.rectIndex)
-        }
-        return hit
-      })
-      .filter((hit): hit is NonNullable<typeof hit> => hit !== null)
-
-    // Resolve breakable damage after the per-pellet loop so a six-pellet
-    // boomstick blast collapses to one HP tick per rect (any blast that
-    // touches a crate breaks it).
-    if (coverHitsThisShot.length > 0) {
-      for (const rectIndex of collapsePelletCoverHits(coverHitsThisShot)) {
-        damageBreakableAt(rectIndex)
-      }
-    }
-
-    scoreRef.current = recordShot(scoreRef.current, hits.length > 0)
-
-    if (hits.length > 0) {
-      // Group hits by target id so a boomstick burst that lands multiple
-      // pellets on the same enemy still applies the per-pellet damage
-      // count to that enemy and a different enemy hit by another pellet
-      // gets its own damage entry.
-      const hitsById = new Map<string, { count: number; closestDistance: number }>()
-      for (const hit of hits) {
-        const entry = hitsById.get(hit.targetId) ?? { count: 0, closestDistance: Number.POSITIVE_INFINITY }
-        entry.count += 1
-        entry.closestDistance = Math.min(entry.closestDistance, hit.distance)
-        hitsById.set(hit.targetId, entry)
-      }
-
-      setHits((value) => value + hits.length)
-
-      const xzLen = Math.hypot(direction.x, direction.z)
-      const knockbackDir = xzLen > 0
-        ? { x: direction.x / xzLen, y: 0, z: direction.z / xzLen }
-        : { x: 0, y: 0, z: 1 }
-
-      for (const [enemyId, entry] of hitsById) {
-        const enemyIndex = enemiesRef.current.findIndex((candidate) => candidate.id === enemyId)
-        if (enemyIndex === -1) continue
-
-        const enemyBeforeDamage = enemiesRef.current[enemyIndex]
-        enemiesRef.current[enemyIndex] = knockEnemyBack(
-          enemyBeforeDamage,
-          knockbackDir,
-          knockbackDistance(weapon, entry.closestDistance, enemyBeforeDamage.type)
-        )
-
-        const baseDamage = weapon === 'boomstick' ? entry.count : weaponConfigs.peashooter.damage
-        const pointBlankMult = weapon === 'boomstick' ? boomstickPointBlankMultiplier(entry.closestDistance) : 1
-        const upgradeDamageMult = effectiveDamageMultiplier(walletRef.current.tiers)
-        // Pass the unrounded damage so each +10% tier contributes continuously.
-        // Quantizing per-hit would make tiers 1..4 invisible for single-pellet
-        // attacks (1 * 1.1 = 1.1 -> round = 1) and only "appear" at tier 5.
-        damageEnemyById(
-          enemyId,
-          Math.max(1, baseDamage * buff.damage * pointBlankMult * upgradeDamageMult),
-          weapon === 'boomstick' ? 'Boomstick blast landed.' : 'Billboard enemy hurt.',
-          weapon === 'boomstick' ? 'Boomstick dropped the enemy.' : 'Billboard enemy dropped.',
-          entry.closestDistance
-        )
-      }
-    } else {
-      setStatus(`${weaponConfigs[weapon].label} missed. Track the target and fire again.`)
-    }
-  }, [damageEnemyById, damageBreakableAt])
-
-  const startRun = useCallback(() => {
-    const firstEnemyType = practiceEnemyTypeForSpawn(0, practiceSettingsRef.current, isPractice)
-    const startingWeapon = practiceSettingsRef.current.startingWeapon
-    const startHp = effectiveMaxHp(walletRef.current.tiers)
-    const startingAmmoBonus = effectiveMaxAmmoBonus(walletRef.current.tiers)
-    positionRef.current = { ...initialPlayerPosition }
-    yawRef.current = initialYaw
-    pitchRef.current = 0
-    playerHealthRef.current = startHp
-    directorRef.current = createDirectorState()
-    roomStateMsRef.current = 0
-    hazardClockMsRef.current = 0
-    scoreRef.current = createScoreState()
-    previousBestAtRunStartRef.current = bestLocalScore(leaderboard)
-    enemySpawnSeqRef.current = 1
-    enemiesRef.current = [createEnemy(firstEnemyType, `${firstEnemyType}-${enemySpawnSeqRef.current}`, { x: 0, y: 1.05, z: 3.5 }, initialPlayerPosition)]
-    healthPickupReadyRef.current = true
-    healthPickupCooldownRef.current = 0
-    hazardDamageCooldownRef.current = 0
-    enemyHazardCooldownRef.current = 0
-    prevHazardRunMsRef.current = -1
-    prevWaveRunMsRef.current = -1
-    prevActiveComboRef.current = 0
-    tookDamageSinceLastKillRef.current = false
-    hitstopStateRef.current = null
-    cameraKickStateRef.current = null
-    dashStateRef.current = null
-    lastDashStartMsRef.current = Number.NEGATIVE_INFINITY
-    rageBuffStateRef.current = null
-    nextRageEligibleRunMsRef.current = 90_000
-    lastLargeHealRunMsRef.current = Number.NEGATIVE_INFINITY
-    // Reset breakable cover so each run starts with all crates intact.
-    coverRectsRef.current = [...ARENA_COVER_RECTS]
-    const restoredMeshes = originalCrateMeshesRef.current
-    breakableMeshesRef.current = new Map<number, THREE.Mesh>([
-      [4, restoredMeshes[0]],
-      [5, restoredMeshes[1]]
-    ])
-    breakableHpRef.current = new Map<number, number>([
-      [4, BREAKABLE_CRATE_HP],
-      [5, BREAKABLE_CRATE_HP]
-    ])
-    for (const mesh of restoredMeshes) {
-      mesh.visible = true
-    }
-    // Reset the moving cover so each run starts from the same beat.
-    movingCoverElapsedMsRef.current = 0
-    movingCoverRectIndexRef.current = 8
-    setRageActive(false)
-    setRageTint(0)
-    scoreTokenStateRef.current = null
-    nextScoreTokenEligibleRunMsRef.current = 70_000
-    setScoreTokenActiveState(false)
-    setScoreFloaters([])
-
-    if (mountRef.current && lastMountTransformRef.current !== '') {
-      mountRef.current.style.transform = ''
-      lastMountTransformRef.current = ''
-    }
-
-    selectedWeaponRef.current = startingWeapon
-    weaponAmmoRef.current = createWeaponAmmo(startingAmmoBonus)
-    weaponCooldownRef.current = createWeaponCooldownState()
-    resetTouchControls(touchJoysticksRef.current, keysRef.current)
-    touchLookVectorRef.current = { x: 0, y: 0 }
-    doorSignalTimersRef.current = {}
-    doorSpawnTypesRef.current = {}
-    clearShotBolts(runtimeRef.current, shotBoltsRef.current)
-    clearShotImpacts(runtimeRef.current, shotImpactsRef.current)
-    clearEnemyDeathPops(runtimeRef.current, enemyDeathPopsRef.current)
-    clearScoreTokenDrops(runtimeRef.current, scoreTokenDropsRef.current)
-    scoreTokenDropsRef.current = []
-    scoreTokenDropSeqRef.current = 0
-    clearAmmoDrops(runtimeRef.current, ammoDropsRef.current)
-    ammoDropsRef.current = []
-    ammoDropSeqRef.current = 0
-    clearHealthDrops(runtimeRef.current, healthDropsRef.current)
-    healthDropsRef.current = []
-    healthDropSeqRef.current = 0
-    clearGibs(runtimeRef.current, gibsRef.current)
-    gibsRef.current = []
-    clearBloodDecals(runtimeRef.current, bloodDecalsRef.current)
-    bloodDecalsRef.current = []
-    clearDoorSmokes(runtimeRef.current, doorSmokesRef.current)
-    doorSmokesRef.current = []
-    previouslyDeadEnemyIdsRef.current = new Set()
-    clearInkProjectiles(runtimeRef.current, inkProjectilesRef.current)
-    clearSpitterProjectiles(runtimeRef.current, spitterProjectilesRef.current)
-    runningRef.current = true
-    pausedRef.current = false
-    setRunning(true)
-    setPaused(false)
-    setSummary(null)
-    setHits(0)
-    setPlayerHealth(startHp)
-    setCreditsEarnedThisRun(0)
-    setEnemyHealth(enemiesRef.current[0]?.health ?? 0)
-    setEnemyType(enemiesRef.current[0]?.type ?? 'grunt')
-    setScore(0)
-    setKills(0)
-    setCombo(0)
-    setRunMs(0)
-    setHealthPickupReady(true)
-    setSelectedWeapon(startingWeapon)
-    setWeaponAmmo(weaponAmmoRef.current)
-    setWeaponReady(true)
-    setDashReady(true)
-    setDamageIndicator(null)
-    setMuzzleFlash(null)
-
-    if (muzzleFlashTimeoutRef.current !== null) {
-      window.clearTimeout(muzzleFlashTimeoutRef.current)
-      muzzleFlashTimeoutRef.current = null
-    }
-    setTouchJoysticksView(cloneTouchJoysticks(touchJoysticksRef.current))
-    setStatus(isPractice ? 'Practice run started. Tuning changes apply next run.' : 'WASD moves. Mouse aims. Left click fires.')
-    requestPointerLock(runtimeRef.current?.renderer.domElement)
-
-    stopMusicLayer(musicLayerRef.current)
-    musicLayerRef.current = settingsRef.current.audio ? startMusicLayer() : null
-    stopRagePulseLayer(ragePulseLayerRef.current)
-    ragePulseLayerRef.current = null
-    stopPickupLoopLayer(pickupLoopLayerRef.current)
-    pickupLoopLayerRef.current = settingsRef.current.audio ? startPickupLoopLayer() : null
-  }, [isPractice])
-
-  // Best-effort push of the current wallet to the shared sync route.
-  // Network failures and KV unavailability are swallowed; the player
-  // can still play offline and the local wallet is the source of
-  // truth. The merged response (server-side highest-water-mark per
-  // field) is folded back into local state so a stricter or
-  // higher-tier server record cannot be overwritten by a stale client.
-  const pushSharedWallet = useCallback(async () => {
-    const playerId = playerIdRef.current
-    if (!playerId || typeof window === 'undefined') {
-      return
-    }
-    try {
-      const response = await fetch('/api/upgrade-wallet', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ playerId, wallet: toSharedWallet(walletRef.current) })
-      })
-      if (!response.ok) {
-        return
-      }
-      const body = (await response.json()) as UpgradeWalletPostResponse
-      if (!body.ok) {
-        return
-      }
-      const merged = mergeWallets(toSharedWallet(walletRef.current), toSharedWallet(body.wallet))
-      const nextWallet = fromSharedWallet(merged)
-      walletRef.current = nextWallet
-      setWallet(nextWallet)
-      writeUpgradeWallet(window.localStorage, nextWallet)
-    } catch {
-      // Network error / offline. Local wallet stays canonical.
-    }
-  }, [])
-
-  const finishRun = useCallback(() => {
-    resetTouchControls(touchJoysticksRef.current, keysRef.current)
-    touchLookVectorRef.current = { x: 0, y: 0 }
-    setTouchJoysticksView(cloneTouchJoysticks(touchJoysticksRef.current))
-    const finalScoreValue = finalScore(scoreRef.current, directorRef.current.runMs)
-    const previousBestSnapshot = previousBestAtRunStartRef.current
-    const runSummary = {
-      score: finalScoreValue,
-      survivalMs: directorRef.current.runMs,
-      kills: scoreRef.current.kills,
-      accuracy: accuracy(scoreRef.current),
-      bestCombo: scoreRef.current.bestCombo,
-      closeRangeKills: scoreRef.current.closeRangeKills,
-      weaponsUsed: scoreRef.current.weaponsUsedForKills.length,
-      bestNoDamageStreak: scoreRef.current.bestNoDamageStreak,
-      // Snapshot at run start so the summary panel can compute and show
-      // a personal-best delta. null when no prior runs are recorded.
-      previousBestScore: previousBestSnapshot
-    }
-    setSummary(runSummary)
-
-    if (!isPractice && typeof window !== 'undefined') {
-      const nextLeaderboard = insertLeaderboardEntry(
-        readLeaderboard(window.localStorage),
-        {
-          playerInitials: 'YOU',
-          score: runSummary.score,
-          survivalMs: runSummary.survivalMs,
-          kills: runSummary.kills,
-          accuracy: runSummary.accuracy,
-          bestCombo: runSummary.bestCombo,
-          createdAt: new Date().toISOString()
-        }
-      )
-      writeLeaderboard(window.localStorage, nextLeaderboard)
-      setLeaderboard(nextLeaderboard)
-
-      const earned = runSummary.kills
-      const nextWallet = depositKills(walletRef.current, earned)
-      if (nextWallet !== walletRef.current) {
-        walletRef.current = nextWallet
-        setWallet(nextWallet)
-        writeUpgradeWallet(window.localStorage, nextWallet)
-      }
-      setCreditsEarnedThisRun(earned)
-      void pushSharedWallet()
-
-      if (arenaMode === 'daily') {
-        const nextDailyStreak = recordDailyRun(readDailyStreak(window.localStorage), dailyDate)
-        writeDailyStreak(window.localStorage, nextDailyStreak)
-        setDailyStreak(nextDailyStreak)
-      }
-    }
-
-    playerHealthRef.current = 0
-    setPlayerHealth(0)
-    runningRef.current = false
-    pausedRef.current = false
-    setRunning(false)
-    setPaused(false)
-    setStatus(isPractice ? 'Practice run ended.' : 'Flatlined.')
-
-    stopMusicLayer(musicLayerRef.current)
-    musicLayerRef.current = null
-    stopRagePulseLayer(ragePulseLayerRef.current)
-    ragePulseLayerRef.current = null
-    stopPickupLoopLayer(pickupLoopLayerRef.current)
-    pickupLoopLayerRef.current = null
-
-    if (!isPractice) {
-      playRunEndCue(runEndCue(), settingsRef.current.audio)
-    }
-  }, [arenaMode, dailyDate, isPractice, pushSharedWallet])
-
-  const resumeRun = useCallback(() => {
-    pausedRef.current = false
-    setPaused(false)
-    setStatus('Run resumed.')
-    requestPointerLock(runtimeRef.current?.renderer.domElement)
-  }, [])
-
-  const purchaseUpgrade = useCallback((stat: UpgradeStatId) => {
-    const result = purchaseTier(walletRef.current.tiers, walletRef.current.credits, stat)
-    if (!result) {
-      return
-    }
-    const nextWallet: UpgradeWallet = {
-      ...walletRef.current,
-      credits: result.creditsRemaining,
-      tiers: result.tiers
-    }
-    walletRef.current = nextWallet
-    setWallet(nextWallet)
-    if (typeof window !== 'undefined') {
-      writeUpgradeWallet(window.localStorage, nextWallet)
-    }
-    void pushSharedWallet()
-  }, [pushSharedWallet])
-
-  const updateSettings = useCallback((nextSettings: typeof settings) => {
-    settingsRef.current = nextSettings
-    setSettings(nextSettings)
-    writeStorage(settingsStorageKey, nextSettings)
-  }, [])
-
-  const updatePracticeSettings = useCallback((nextSettings: PracticeSettings) => {
-    const safeSettings = normalizePracticeSettings(nextSettings)
-    practiceSettingsRef.current = safeSettings
-    setPracticeSettings(safeSettings)
-  }, [])
-
-  const fetchSharedLeaderboard = useCallback(async (scope: LeaderboardScope) => {
-    if (isPractice) {
-      setSharedEntries([])
-      setSharedStatus('ready')
-      return
-    }
-
-    try {
-      const params = new URLSearchParams({ scope })
-
-      if (scope === 'daily') {
-        params.set('date', dailyDate)
-      }
-
-      const response = await fetch(`/api/leaderboard?${params.toString()}`)
-      const data = await response.json() as SharedLeaderboardResponse
-      setSharedEntries(data.entries)
-      setSharedStatus(data.unavailable ? 'unavailable' : 'ready')
-    } catch {
-      setSharedStatus('error')
-    }
-  }, [dailyDate, isPractice])
-
-  const switchSharedScope = useCallback((scope: LeaderboardScope) => {
-    setSharedScope(scope)
-    setSharedStatus('loading')
-    fetchSharedLeaderboard(scope)
-  }, [fetchSharedLeaderboard])
-
-  const submitSharedScore = useCallback(async () => {
-    if (isPractice || !summary || submitStatus === 'submitting') {
-      return
-    }
-
-    const cleanInitials = normalizeClientInitials(initials)
-
-    if (!cleanInitials) {
-      setSubmitStatus('error')
-      setStatus('Enter at least one letter for initials.')
-      return
-    }
-
-    setInitials(cleanInitials)
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(initialsStorageKey, cleanInitials)
-    }
-    setSubmitStatus('submitting')
-
-    try {
-      const response = await fetch('/api/leaderboard', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({
-          initials: cleanInitials,
-          ...summary,
-          scope: sharedScope,
-          date: dailyDate
-        })
-      })
-
-      if (response.status === 503) {
-        setSubmitStatus('unavailable')
-        setSharedStatus('unavailable')
-        setStatus('Shared leaderboard is not configured yet.')
-        return
-      }
-
-      if (!response.ok) {
-        setSubmitStatus('error')
-        setStatus('Shared leaderboard submit failed.')
-        return
-      }
-
-      const data = await response.json() as SharedLeaderboardResponse
-      setSharedEntries(data.entries)
-      setSharedStatus(data.unavailable ? 'unavailable' : 'ready')
-      setSubmitStatus('submitted')
-      setStatus('Shared leaderboard updated.')
-    } catch {
-      setSubmitStatus('error')
-      setStatus('Shared leaderboard submit failed.')
-    }
-  }, [dailyDate, initials, isPractice, sharedScope, submitStatus, summary])
-
+  // --- Boot: pull saved progress from localStorage once the client mounts.
+  // Deferred to a microtask so hydration completes against default state.
   useEffect(() => {
-    const mount = mountRef.current
+    queueMicrotask(() => {
+      const saved = readStorage(META_KEY, metaSchema)
+      if (saved) {
+        setMeta(saved)
+      }
+      const savedFilm = readStorage(FILM_KEY, filmSchema)
+      if (savedFilm) {
+        setFilm(savedFilm)
+      }
+      setBooted(true)
+    })
+  }, [])
 
-    if (!mount) {
+  const saveMeta = useCallback((next: MetaState) => {
+    setMeta(next)
+    writeStorage(META_KEY, next)
+  }, [])
+
+  const changeFilm = useCallback((preset: FilmPreset) => {
+    setFilm(preset)
+    writeStorage(FILM_KEY, preset)
+  }, [])
+
+  const spriteFor = useCallback((texture: THREE.Texture, scale: number): THREE.Sprite => {
+    const sprite = new THREE.Sprite(getSpriteMaterial(texture))
+    sprite.scale.set(scale, scale, 1)
+    return sprite
+  }, [])
+
+  // --- Run lifecycle ---
+  const startRun = useCallback(() => {
+    const currentMeta = metaRef.current
+    const afterRent = beginRun(currentMeta)
+    saveMeta(afterRent)
+    const config = deriveRunConfig(currentMeta)
+    const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0
+    const world = createWorld(seed, config, afterRent)
+    world.player.runStartAt = performance.now()
+
+    const three = threeRef.current
+    if (three) {
+      // Clear previous run's scene objects (lights are re-added below).
+      three.scene.clear()
+      setupSceneBasics(three.scene)
+    }
+    worldRef.current = world
+    setSummary(null)
+    setPaused(false)
+    setScreen('playing')
+    sfxRef.current?.startAmbience()
+  }, [saveMeta])
+
+  const finishDeath = useCallback(() => {
+    const world = worldRef.current
+    if (!world) {
       return
     }
+    const seconds = Math.round((performance.now() - world.player.runStartAt) / 1000)
+    const next = endRun(metaRef.current, {
+      cheddarEarned: world.player.cheddarRun,
+      kills: world.player.kills,
+      ring: world.player.maxRing
+    })
+    saveMeta(next)
+    setSummary({ cheddar: world.player.cheddarRun, kills: world.player.kills, ring: world.player.maxRing, seconds })
+    setScreen('dead')
+    sfxRef.current?.stopAmbience()
+  }, [saveMeta])
 
-    const shotBolts = shotBoltsRef.current
-    const shotImpacts = shotImpactsRef.current
-    const inkProjectiles = inkProjectilesRef.current
-    const spitterProjectiles = spitterProjectilesRef.current
-    const scene = new THREE.Scene()
-    scene.background = new THREE.Color('#101010')
-    scene.fog = new THREE.Fog('#101010', 12, 28)
+  const finishDeathRef = useRef(finishDeath)
+  finishDeathRef.current = finishDeath
 
-    const camera = new THREE.PerspectiveCamera(75, mount.clientWidth / mount.clientHeight, 0.1, 100)
-    camera.position.set(positionRef.current.x, positionRef.current.y, positionRef.current.z)
-    camera.rotation.order = 'YXZ'
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
+  // --- Three.js boot + frame loop ---
+  useEffect(() => {
+    if (!booted || !mountRef.current) {
+      return
+    }
+    const mount = mountRef.current
+    // preserveDrawingBuffer keeps the canvas readable after compositing so
+    // smoke tests can assert real pixels were drawn.
+    const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.setSize(mount.clientWidth, mount.clientHeight)
-    renderer.shadowMap.enabled = true
-    renderer.domElement.setAttribute('aria-label', 'Flatline 3D game canvas')
     mount.appendChild(renderer.domElement)
+    const scene = new THREE.Scene()
+    setupSceneBasics(scene)
+    const camera = new THREE.PerspectiveCamera(74, mount.clientWidth / mount.clientHeight, 0.1, 60)
+    threeRef.current = { renderer, scene, camera }
+    artRef.current = buildArt()
+    sfxRef.current = new Sfx()
+    grainRef.current = { tiles: makeGrainTiles(), frame: 0 }
 
-    const ambient = new THREE.HemisphereLight('#f4f1e8', '#171717', 1.7)
-    scene.add(ambient)
-
-    const overhead = new THREE.PointLight('#50d1c0', 55, 18)
-    overhead.position.set(0, 6, 0)
-    overhead.castShadow = true
-    scene.add(overhead)
-
-    const muzzleLight = new THREE.PointLight('#f05a4f', 0, 7)
-    muzzleLight.position.set(0, 1.4, -4)
-    scene.add(muzzleLight)
-
-    const shotGroup = new THREE.Group()
-    shotGroup.name = 'shot-bolts'
-    scene.add(shotGroup)
-
-    const hazardMeshes = createHazardMeshes()
-    Object.values(hazardMeshes).forEach((mesh) => scene.add(mesh))
-
-    const movingCover = new THREE.Mesh(
-      new THREE.BoxGeometry(2.2, 1.35, 0.32),
-      new THREE.MeshStandardMaterial({ color: '#565248', roughness: 0.86 })
-    )
-    movingCover.position.set(0, 0.68, 1.35)
-    movingCover.castShadow = true
-    movingCover.receiveShadow = true
-    scene.add(movingCover)
-
-    const roomVisuals = createRoom()
-    scene.add(roomVisuals.group)
-
-    // Seed breakable cover state. The two crate meshes returned by
-    // createRoom map to ARENA_COVER_RECTS indices 4 (west) and 5 (east).
-    originalCrateMeshesRef.current = roomVisuals.breakableCrateMeshes
-    breakableMeshesRef.current = new Map<number, THREE.Mesh>([
-      [4, roomVisuals.breakableCrateMeshes[0]],
-      [5, roomVisuals.breakableCrateMeshes[1]]
-    ])
-    breakableHpRef.current = new Map<number, number>([
-      [4, BREAKABLE_CRATE_HP],
-      [5, BREAKABLE_CRATE_HP]
-    ])
-    movingCoverMeshRef.current = roomVisuals.movingCover
-    movingCoverRectIndexRef.current = 8
-
-    const enemySlots: EnemyRenderSlot[] = []
-
-    for (let i = 0; i < MAX_ENEMIES; i += 1) {
-      const material = new THREE.MeshBasicMaterial({
-        color: '#ffffff',
-        transparent: true,
-        side: THREE.DoubleSide,
-        depthWrite: false
-      })
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), material)
-      mesh.name = `debug-billboard-enemy-${i}`
-      mesh.position.set(0, 1.05, 3.5)
-      mesh.renderOrder = 2
-      mesh.visible = false
-      scene.add(mesh)
-
-      const arrow = new THREE.ArrowHelper(
-        new THREE.Vector3(0, 0, -1),
-        new THREE.Vector3(0, 0.08, 3.5),
-        1.15,
-        '#f05a4f'
-      )
-      arrow.visible = false
-      scene.add(arrow)
-
-      enemySlots.push({ material, mesh, arrow, texture: null, textureType: null })
+    const onResize = () => {
+      renderer.setSize(mount.clientWidth, mount.clientHeight)
+      camera.aspect = mount.clientWidth / mount.clientHeight
+      camera.updateProjectionMatrix()
+      const filmCanvas = filmCanvasRef.current
+      if (filmCanvas) {
+        filmCanvas.width = mount.clientWidth
+        filmCanvas.height = mount.clientHeight
+      }
     }
+    onResize()
+    window.addEventListener('resize', onResize)
 
-    const dummyMarker = new THREE.Mesh(
-      new THREE.TorusGeometry(0.82, 0.025, 8, 40),
-      new THREE.MeshBasicMaterial({ color: '#50d1c0' })
-    )
-    dummyMarker.position.set(0, 0.04, 3.5)
-    dummyMarker.rotation.x = Math.PI / 2
-    scene.add(dummyMarker)
-
-    const blobShadow = new THREE.Mesh(
-      new THREE.CircleGeometry(0.72, 24),
-      new THREE.MeshBasicMaterial({ color: '#050505', transparent: true, opacity: 0.55 })
-    )
-    blobShadow.position.set(0, 0.015, 3.5)
-    blobShadow.rotation.x = -Math.PI / 2
-    scene.add(blobShadow)
-
-    runtimeRef.current = {
-      renderer,
-      camera,
-      scene,
-      overhead,
-      enemySlots,
-      doorSignals: roomVisuals.doorSignals,
-      muzzleLight,
-      shotGroup,
-      hazardMeshes,
-      movingCover,
-      pickup: roomVisuals.pickup,
-      pillars: roomVisuals.pillars,
-      pillarRestY: roomVisuals.pillarRestY
+    let raf = 0
+    let last = performance.now()
+    const frame = (now: number) => {
+      raf = requestAnimationFrame(frame)
+      const dt = Math.min(0.05, (now - last) / 1000)
+      last = now
+      if (screenRef.current === 'playing' && !pausedRef.current) {
+        stepWorld(dt, now)
+      }
+      renderer.render(scene, camera)
+      drawOverlays(now)
     }
-
-    loadEnemyAtlases().then((assets) => {
-      const runtime = runtimeRef.current
-
-      if (!runtime) {
-        disposeEnemyAssets(assets)
-        return
-      }
-
-      enemyAssetsRef.current = assets
-    }).catch(() => {
-      setStatus('Sprite atlas failed to load.')
-    })
-
-    camera.fov = settingsRef.current.fov
-    camera.updateProjectionMatrix()
-
-    function resize() {
-      if (!mount || !runtimeRef.current) {
-        return
-      }
-
-      const width = mount.clientWidth
-      const height = mount.clientHeight
-      runtimeRef.current.camera.aspect = width / height
-      runtimeRef.current.camera.updateProjectionMatrix()
-      runtimeRef.current.renderer.setSize(width, height)
-    }
-
-    const enemyHurtFlashColor = new THREE.Color()
-    const spitterChargeColor = new THREE.Color('#f0ffd0')
-    const skitterDashColor = new THREE.Color('#ffffff')
-    // F-016 stagger tint: a cool pale steel-blue reads as "shaken / off
-    // balance" without colliding with the hurt flash (which is enemy-tinted
-    // hot), the spitter charge (yellow-green), or the skitter dash (white).
-    const crossfireStaggerColor = new THREE.Color('#9fb4c8')
-    // Finisher tint: a warm amber pulled toward the billboard says "one
-    // more hit kills this one." Persistent (not animated) so the player
-    // can clock it at a glance without a moving signal competing with
-    // the transient hurt flash and stagger blue.
-    const finisherReadyColor = new THREE.Color('#ffaa55')
-
-    function animate(time: number) {
-      animationRef.current = requestAnimationFrame(animate)
-      const runtime = runtimeRef.current
-
-      if (!runtime) {
-        return
-      }
-
-      const viewDelta = Math.min((time - lastTimeRef.current) / 1000 || 0, 0.05)
-      lastTimeRef.current = time
-      const hitstopState = hitstopStateRef.current
-      const hitstopElapsedMs = hitstopState ? performance.now() - hitstopState.startMs : 0
-      const hitstopScale = hitstopScaleAtElapsedMs(hitstopState?.style ?? null, hitstopElapsedMs)
-
-      if (hitstopState && hitstopElapsedMs >= hitstopState.style.durationMs) {
-        hitstopStateRef.current = null
-      }
-
-      // Hitstop scales the simulation delta so movement / AI / projectiles
-      // freeze together. View rotation reads viewDelta so camera aim stays
-      // responsive on wall-clock time during the freeze.
-      const delta = viewDelta * hitstopScale
-      const selectedWeaponId = selectedWeaponRef.current
-      const selectedWeaponReady = canFireWeaponAt(
-        selectedWeaponId,
-        weaponCooldownRef.current[selectedWeaponId],
-        performance.now()
-      )
-
-      setWeaponReady((current) => current === selectedWeaponReady ? current : selectedWeaponReady)
-
-      if (runningRef.current && !pausedRef.current) {
-        // REQ-059 moving cover: advance the elapsed timer and write the
-        // new rect into coverRectsRef BEFORE player movement / enemy AI
-        // clamp so the slab is up-to-date for every collision read this
-        // frame. The mesh position mirrors the rect for visual sync.
-        // The clock advances at a pressure-scaled rate so the sweep
-        // tightens as the room fills up.
-        const movingCoverPressure = roomPressureIntensity(roomStateMsRef.current)
-        movingCoverElapsedMsRef.current += delta * 1000 * movingCoverClockRate(movingCoverPressure)
-        const movingRect = movingCoverRectAt(movingCoverElapsedMsRef.current)
-        const moverIndex = movingCoverRectIndexRef.current
-        if (moverIndex >= 0 && moverIndex < coverRectsRef.current.length) {
-          coverRectsRef.current[moverIndex] = movingRect
-        }
-        const moverMesh = movingCoverMeshRef.current
-        if (moverMesh) {
-          moverMesh.position.set(movingRect.x, MOVING_COVER_HEIGHT_M / 2, movingRect.z)
-        }
-
-        const touchLook = touchLookVectorRef.current
-
-        if (touchLook.x !== 0 || touchLook.y !== 0) {
-          yawRef.current -= touchLook.x * 2.8 * viewDelta * settingsRef.current.sensitivity
-          pitchRef.current = clamp(
-            pitchRef.current - touchLook.y * 2.35 * viewDelta * settingsRef.current.sensitivity,
-            -1.25,
-            1.25
-          )
-        }
-
-        const moveBuff = rageMultipliers(rageBuffStateRef.current, performance.now())
-        const upgradeSpeedMult = effectiveMoveSpeedMultiplier(walletRef.current.tiers)
-        const combinedSpeedMult = moveBuff.speed * upgradeSpeedMult
-        positionRef.current = updatePlayerPosition(
-          positionRef.current,
-          yawRef.current,
-          keysRef.current,
-          delta,
-          combinedSpeedMult === 1 ? movementConfig : { ...movementConfig, speed: movementConfig.speed * combinedSpeedMult }
-        )
-
-        const dashFrame = dashStep(dashStateRef.current, performance.now())
-
-        if (dashFrame.active) {
-          const bounds = movementConfig.bounds
-          const nextX = positionRef.current.x + dashFrame.vx * delta
-          const nextZ = positionRef.current.z + dashFrame.vz * delta
-          positionRef.current = {
-            x: Math.max(bounds.minX, Math.min(bounds.maxX, nextX)),
-            y: positionRef.current.y,
-            z: Math.max(bounds.minZ, Math.min(bounds.maxZ, nextZ))
-          }
-        } else if (dashStateRef.current !== null) {
-          dashStateRef.current = null
-        }
-
-        // F-023 / REQ-021: clamp the player out of the arena cover and
-        // pillar collision rectangles. Radius 0.4 matches the player
-        // radius used for enemy attack range checks.
-        const clampedPlayer = clampOutsideRects(
-          positionRef.current.x,
-          positionRef.current.z,
-          0.4,
-          coverRectsRef.current
-        )
-        positionRef.current = {
-          x: clampedPlayer.x,
-          y: positionRef.current.y,
-          z: clampedPlayer.z
-        }
-
-        const dashIsReady = dashReadyAt(performance.now(), lastDashStartMsRef.current)
-        setDashReady((current) => (current === dashIsReady ? current : dashIsReady))
-
-        const rageNow = performance.now()
-        const rageState = rageBuffStateRef.current
-        const rageStillActive = rageBuffActive(rageState, rageNow)
-        const rageTintNow = rageTintOpacity(rageState, rageNow)
-
-        if (rageState !== null && !rageStillActive && rageNow - rageState.startMs >= RAGE_DURATION_MS) {
-          rageBuffStateRef.current = null
-          stopRagePulseLayer(ragePulseLayerRef.current)
-          ragePulseLayerRef.current = null
-        }
-
-        setRageActive((current) => (current === rageStillActive ? current : rageStillActive))
-        setRageTint((current) => (Math.abs(current - rageTintNow) < 0.005 ? current : rageTintNow))
-
-        const tokenState = scoreTokenStateRef.current
-        const tokenStillActive = scoreTokenActive(tokenState, rageNow)
-
-        if (tokenState !== null && !tokenStillActive) {
-          scoreTokenStateRef.current = null
-        }
-
-        setScoreTokenActiveState((current) => (current === tokenStillActive ? current : tokenStillActive))
-
-        if (playerHealthRef.current > 0) {
-          directorRef.current.runMs += delta * 1000
-          setRunMs(directorRef.current.runMs)
-          if (
-            prevWaveRunMsRef.current >= 0 &&
-            peakStartedBetween(prevWaveRunMsRef.current, directorRef.current.runMs)
-          ) {
-            playWaveHornCue(settingsRef.current.audio)
-            setStatus('Wave peak. Hold ground or reposition.')
-          }
-          if (
-            prevWaveRunMsRef.current >= 0 &&
-            lullStartedBetween(prevWaveRunMsRef.current, directorRef.current.runMs)
-          ) {
-            playWaveLullCue(settingsRef.current.audio)
-            setStatus('Wave eased. Recover and reposition.')
-          }
-          prevWaveRunMsRef.current = directorRef.current.runMs
-
-          const wavePhaseNow = encounterWaveSignal(directorRef.current.runMs).phase
-          setWavePhase((current) => (current === wavePhaseNow ? current : wavePhaseNow))
-
-          if (!practiceSettingsRef.current.roomStateFrozen) {
-            roomStateMsRef.current += delta * 1000
-            const hazardPressure = roomPressureIntensity(roomStateMsRef.current)
-            hazardClockMsRef.current += delta * 1000 * hazardClockRate(hazardPressure)
-          }
-          hazardDamageCooldownRef.current = Math.max(0, hazardDamageCooldownRef.current - delta * 1000)
-          enemyHazardCooldownRef.current = Math.max(0, enemyHazardCooldownRef.current - delta * 1000)
-          const hazardRunMs = hazardClockMsRef.current + (dailyConfig?.hazardOffsetMs ?? 0)
-          const hazardPressure = roomPressureIntensity(roomStateMsRef.current)
-          const hazards = hazardStatesForRunMs(hazardRunMs, hazardPressure)
-          applyHazardMeshes(runtime, hazards)
-          if (prevHazardRunMsRef.current >= 0 && settingsRef.current.audio) {
-            for (const config of hazardCycleConfigs) {
-              if (config.kind === 'centerSurge' && hazardPressure < CENTER_SURGE_PRESSURE_THRESHOLD) {
-                continue
-              }
-              const ticks = hazardCountdownTicksBetween(config.kind, prevHazardRunMsRef.current, hazardRunMs)
-
-              for (const tick of ticks) {
-                playHazardCountdownCue(hazardCountdownCue(tick.kind), tick, settingsRef.current.audio)
-              }
-            }
-          }
-          prevHazardRunMsRef.current = hazardRunMs
-          // Effective pressure adds the encounter-wave delta so the
-          // emergency / flicker phases react to surge / peak windows
-          // earlier than the base ramp alone would trigger them.
-          // Matches the spawn-director call site in spawnDirector.ts.
-          const lightingPressure =
-            targetPressureForRunMs(directorRef.current.runMs) +
-            encounterWaveSignal(directorRef.current.runMs).targetDelta
-          runtime.overhead.intensity =
-            (55 + roomPressureIntensity(roomStateMsRef.current) * 35) *
-            combinedLightingIntensityScale(
-              lightingPressure,
-              playerHealthRef.current,
-              roomStateMsRef.current
-            )
-          runtime.overhead.color.set(
-            lightingColorForPhase(lightingPhase(lightingPressure, playerHealthRef.current))
-          )
-          // Pillar bob at peak pressure. Each pillar gets a distinct
-          // phase offset so the four bob out of sync; collision rects
-          // for pillars are not changed (cover read stays the same).
-          const pillarPressure = roomPressureIntensity(roomStateMsRef.current)
-          for (let i = 0; i < runtime.pillars.length; i += 1) {
-            const offset = pillarBobOffsetMeters(
-              roomStateMsRef.current,
-              pillarPressure,
-              i * (Math.PI / 2)
-            )
-            runtime.pillars[i].position.y = runtime.pillarRestY + offset
-          }
-
-          if (hazardDamageCooldownRef.current === 0) {
-            const hazardDamage = hazardDamageAtPosition(positionRef.current, hazards)
-
-            if (hazardDamage > 0 && practiceSettingsRef.current.damageEnabled) {
-              playerHealthRef.current = Math.max(0, playerHealthRef.current - hazardDamage)
-              hazardDamageCooldownRef.current = 900
-              tookDamageSinceLastKillRef.current = true
-              setPlayerHealth(playerHealthRef.current)
-              setDamagePulse((value) => value + 1)
-              setStatus(`Hazard hit for ${hazardDamage}.`)
-              playPlayerDamageCue(playerDamageCue('hazard'), settingsRef.current.audio)
-            }
-          }
-
-          if (enemyHazardCooldownRef.current === 0) {
-            const enemiesNow = enemiesRef.current
-            let appliedAny = false
-            let lastBurnedLabel: string | null = null
-            let lastBurnedKilled = false
-            let lastBurnedType: EnemyType | null = null
-
-            for (let i = 0; i < enemiesNow.length; i += 1) {
-              const candidate = enemiesNow[i]
-
-              if (candidate.state === 'dead') {
-                continue
-              }
-
-              const enemyHazardSource = hazardDamageAtPosition(candidate.position, hazards)
-              const enemyHazardDamage = Math.max(0, Math.round(enemyHazardSource * INFIGHTING_DAMAGE_SCALE))
-
-              if (enemyHazardDamage > 0) {
-                const damaged = damageEnemy(candidate, enemyHazardDamage)
-                enemiesNow[i] = damaged
-                appliedAny = true
-                lastBurnedLabel = enemyLabel(damaged.type)
-                lastBurnedKilled = damaged.state === 'dead'
-                lastBurnedType = damaged.type
-              }
-            }
-
-            if (appliedAny && lastBurnedLabel !== null && lastBurnedType !== null) {
-              enemyHazardCooldownRef.current = 900
-              setStatus(
-                lastBurnedKilled
-                  ? `Hazard finished the ${lastBurnedLabel}.`
-                  : `Hazard scorched the ${lastBurnedLabel}.`
-              )
-              // Only fire the hurt cue here. The kill detection block
-              // below handles the death cue on any fresh state === 'dead'
-              // transition, so firing one here would double up.
-              if (!lastBurnedKilled) {
-                playEnemyHurtCue(enemyHurtCue(lastBurnedType), settingsRef.current.audio)
-              }
-              setEnemyHealth(enemiesRef.current[0]?.health ?? 0)
-            }
-          }
-
-          if (!healthPickupReadyRef.current) {
-            healthPickupCooldownRef.current = Math.max(0, healthPickupCooldownRef.current - delta * 1000)
-
-            if (healthPickupCooldownRef.current === 0) {
-              healthPickupReadyRef.current = true
-              setHealthPickupReady(true)
-            }
-          }
-
-          const maxHpForRun = effectiveMaxHp(walletRef.current.tiers)
-          const ammoBonusForRun = effectiveMaxAmmoBonus(walletRef.current.tiers)
-          const wantsSupply =
-            playerHealthRef.current < maxHpForRun ||
-            weaponAmmoRef.current.boomstick < (weaponConfigs.boomstick.maxAmmo ?? 0) + ammoBonusForRun ||
-            weaponAmmoRef.current.inkblaster < (weaponConfigs.inkblaster.maxAmmo ?? 0) + ammoBonusForRun
-          const rageEligibleNow =
-            rageBuffStateRef.current === null &&
-            directorRef.current.runMs >= nextRageEligibleRunMsRef.current &&
-            targetPressureForRunMs(directorRef.current.runMs) >= 2
-          const tokenEligibleNow =
-            scoreTokenStateRef.current === null &&
-            directorRef.current.runMs >= nextScoreTokenEligibleRunMsRef.current &&
-            targetPressureForRunMs(directorRef.current.runMs) >= 2 &&
-            !rageEligibleNow
-          const atAltar = Math.hypot(positionRef.current.x, positionRef.current.z) <= 1.35
-
-          if (healthPickupReadyRef.current && atAltar && (wantsSupply || rageEligibleNow || tokenEligibleNow)) {
-            const healTier = healthPickupTier({
-              playerHealth: playerHealthRef.current,
-              pressure: targetPressureForRunMs(directorRef.current.runMs),
-              runMs: directorRef.current.runMs,
-              lastLargeRunMs: lastLargeHealRunMsRef.current
-            })
-            const healAmount = healthPickupAmount(healTier)
-            playerHealthRef.current = Math.min(maxHpForRun, playerHealthRef.current + healAmount)
-            if (healTier === 'large') {
-              lastLargeHealRunMsRef.current = directorRef.current.runMs
-            }
-            weaponAmmoRef.current = collectWeaponAmmo(weaponAmmoRef.current, 2, 1, ammoBonusForRun)
-            healthPickupReadyRef.current = false
-            healthPickupCooldownRef.current = dailyConfig?.supplyCooldownMs ?? 9000
-            setPlayerHealth(playerHealthRef.current)
-            setWeaponAmmo(weaponAmmoRef.current)
-            setHealthPickupReady(false)
-
-            if (rageEligibleNow) {
-              rageBuffStateRef.current = { startMs: performance.now() }
-              nextRageEligibleRunMsRef.current = directorRef.current.runMs + 90_000
-              setRageActive(true)
-              setStatus('Rage burst absorbed. Damage and speed amplified.')
-              playRageCue(settingsRef.current.audio)
-              stopRagePulseLayer(ragePulseLayerRef.current)
-              ragePulseLayerRef.current = settingsRef.current.audio ? startRagePulseLayer() : null
-              if (ragePulseLayerRef.current) {
-                const ctx = ragePulseLayerRef.current.context
-                ragePulseLayerRef.current.masterGain.gain.setTargetAtTime(
-                  RAGE_PULSE_GAIN,
-                  ctx.currentTime,
-                  0.08
-                )
-              }
-            } else if (tokenEligibleNow) {
-              scoreTokenStateRef.current = { startMs: performance.now() }
-              nextScoreTokenEligibleRunMsRef.current = directorRef.current.runMs + SCORE_TOKEN_REARM_MS
-              setScoreTokenActiveState(true)
-              setStatus('Score token grabbed. 2x scoring window open.')
-              playScoreTokenCue(settingsRef.current.audio)
-            } else if (healTier === 'large') {
-              setStatus(`Large supply collected. +${healAmount} health.`)
-            } else {
-              setStatus('Supplies collected.')
-            }
-
-            playPickupCue(pickupCue('supply'), settingsRef.current.audio)
-          }
-
-          const projectileTick = tickInkProjectiles(
-            runtime,
-            inkProjectiles,
-            enemiesRef.current,
-            positionRef.current,
-            delta * 1000,
-            coverRectsRef.current
-          )
-
-          if (projectileTick.coverRectHits.length > 0) {
-            for (const rectIndex of collapsePelletCoverHits(projectileTick.coverRectHits)) {
-              damageBreakableAt(rectIndex)
-            }
-          }
-
-          const projectileHits = projectileTick.enemyHits
-
-          if (projectileHits.length > 0) {
-            scoreRef.current = {
-              ...scoreRef.current,
-              shotsHit: scoreRef.current.shotsHit + projectileHits.length
-            }
-            setHits((value) => value + projectileHits.length)
-            const inkBuff = rageMultipliers(rageBuffStateRef.current, performance.now())
-
-            for (const hit of projectileHits) {
-              const enemyIndex = enemiesRef.current.findIndex((candidate) => candidate.id === hit.enemyId)
-              if (enemyIndex === -1) continue
-
-              const enemyBefore = enemiesRef.current[enemyIndex]
-              const dx = enemyBefore.position.x - positionRef.current.x
-              const dz = enemyBefore.position.z - positionRef.current.z
-              const hitDistance = Math.hypot(dx, dz)
-              const knockbackDir = hitDistance > 0
-                ? { x: dx / hitDistance, y: 0, z: dz / hitDistance }
-                : { x: 0, y: 0, z: 1 }
-              enemiesRef.current[enemyIndex] = knockEnemyBack(
-                enemyBefore,
-                knockbackDir,
-                knockbackDistance('inkblaster', hitDistance, enemyBefore.type)
-              )
-
-              damageEnemyById(
-                hit.enemyId,
-                Math.max(
-                  1,
-                  weaponConfigs.inkblaster.damage *
-                    inkBuff.damage *
-                    effectiveDamageMultiplier(walletRef.current.tiers)
-                ),
-                'Ink splash landed.',
-                'Inkblaster dropped the enemy.',
-                hitDistance
-              )
-            }
-          }
-
-          const playerCombatState = {
-            position: positionRef.current,
-            radius: 0.4,
-            health: practiceSettingsRef.current.damageEnabled ? playerHealthRef.current : 999
-          }
-          let runningPlayerHealth = playerCombatState.health
-          const aggregatedEvents: EnemyEvent[] = []
-
-          const nearbyEnemies = enemiesRef.current
-            .filter((candidate) => candidate.state !== 'dead')
-            .map((candidate) => ({ id: candidate.id, position: candidate.position, radius: candidate.radius }))
-
-          // F-016 v2: build a quick lookup so a pursuing enemy can hand
-          // its source enemy to tickEnemy as a pursuit target. Each entry
-          // adapts EnemyModel to the PursuitTarget shape (just the fields
-          // tickEnemy needs to drive chase, attack range, and liveness).
-          const enemyById = new Map(enemiesRef.current.map((entry) => [entry.id, entry] as const))
-
-          for (let i = 0; i < enemiesRef.current.length; i += 1) {
-            const candidate = enemiesRef.current[i]
-            const sourceCandidate = candidate.crossfirePursuitTargetId !== null
-              ? enemyById.get(candidate.crossfirePursuitTargetId)
-              : undefined
-            const pursuitTarget = sourceCandidate && sourceCandidate.state !== 'dead'
-              ? {
-                  id: sourceCandidate.id,
-                  position: sourceCandidate.position,
-                  radius: sourceCandidate.radius,
-                  health: sourceCandidate.health
-                }
-              : undefined
-
-            const result = tickEnemy(
-              candidate,
-              { ...playerCombatState, health: runningPlayerHealth },
-              delta * 1000,
-              enemyConfigs[candidate.type],
-              nearbyEnemies,
-              pursuitTarget,
-              coverRectsRef.current
-            )
-            enemiesRef.current[i] = result.enemy
-            runningPlayerHealth = result.player.health
-
-            for (const event of result.events) {
-              aggregatedEvents.push(event)
-            }
-          }
-
-          if (practiceSettingsRef.current.damageEnabled && runningPlayerHealth !== playerHealthRef.current) {
-            playerHealthRef.current = runningPlayerHealth
-            tookDamageSinceLastKillRef.current = true
-            setPlayerHealth(runningPlayerHealth)
-            setDamagePulse((value) => value + 1)
-            playPlayerDamageCue(playerDamageCue('enemy'), settingsRef.current.audio)
-          }
-
-          for (const event of aggregatedEvents) {
-            if (event.type === 'enemyAttackStarted') {
-              setStatus('Enemy windup. Backpedal or sidestep.')
-              playWindupCue(enemyWindupCue(event.enemyType), settingsRef.current.audio)
-            } else if (event.type === 'enemyAttackHit') {
-              setStatus(`Enemy hit for ${event.damage}.`)
-              const attacker = enemiesRef.current.find((candidate) => candidate.id === event.enemyId)
-              if (attacker) {
-                const angle = damageDirectionRadians(yawRef.current, attacker.position, positionRef.current)
-                setDamageIndicator({
-                  key: performance.now(),
-                  angleRadians: angle,
-                  severity: damageIndicatorSeverity(event.damage)
-                })
-              }
-            } else if (event.type === 'enemyAttackMissed') {
-              setStatus('Enemy missed.')
-            } else if (event.type === 'enemyProjectileFired') {
-              spitterProjectileSeqRef.current += 1
-              const projectileId = `spitter-projectile-${spitterProjectileSeqRef.current}`
-              spawnSpitterProjectile(
-                runtime,
-                spitterProjectilesRef.current,
-                createSpitterProjectile(projectileId, event.origin, event.direction, event.speed, event.damage, event.enemyId)
-              )
-              playSpitterFireCue(settingsRef.current.audio)
-              setStatus('Spitter loosed acid. Sidestep.')
-            } else if (event.type === 'enemyMeleeArcCrossfire') {
-              const idx = enemiesRef.current.findIndex((candidate) => candidate.id === event.targetEnemyId)
-              if (idx !== -1 && enemiesRef.current[idx].state !== 'dead') {
-                const crossfireDamage = Math.max(1, Math.round(event.damage * INFIGHTING_DAMAGE_SCALE))
-                const damaged = damageEnemy(enemiesRef.current[idx], crossfireDamage)
-                const source = enemiesRef.current.find((candidate) => candidate.id === event.sourceId)
-                const retargeted = source && damaged.state !== 'dead'
-                  ? applyCrossfireRetarget(damaged, source, Math.random())
-                  : damaged
-                enemiesRef.current[idx] = retargeted
-                // F-016 feel: audible cue only when the retarget actually
-                // armed a fresh stagger window (transition from 0 to > 0).
-                // Cascade no-ops and rolls under probability are silent.
-                if (damaged.crossfireStaggerMs === 0 && retargeted.crossfireStaggerMs > 0) {
-                  playCrossfireStaggerCue(settingsRef.current.audio)
-                }
-
-                if (retargeted.id === enemiesRef.current[0]?.id) {
-                  setEnemyHealth(retargeted.health)
-                }
-              }
-            } else if (event.type === 'enemyAttackEnemy') {
-              // F-016 v2: pursuit melee landed on the source enemy.
-              // Apply infighting-scaled damage WITHOUT crediting the
-              // player, then end the attacker's pursuit so the cycle is
-              // one attack per retarget rather than indefinite chasing.
-              const targetIdx = enemiesRef.current.findIndex((candidate) => candidate.id === event.targetEnemyId)
-              if (targetIdx !== -1 && enemiesRef.current[targetIdx].state !== 'dead') {
-                const pursuitDamage = Math.max(1, Math.round(event.damage * INFIGHTING_DAMAGE_SCALE))
-                const damaged = damageEnemy(enemiesRef.current[targetIdx], pursuitDamage)
-                enemiesRef.current[targetIdx] = damaged
-
-                if (damaged.id === enemiesRef.current[0]?.id) {
-                  setEnemyHealth(damaged.health)
-                }
-              }
-
-              const attackerIdx = enemiesRef.current.findIndex((candidate) => candidate.id === event.sourceId)
-              if (attackerIdx !== -1) {
-                enemiesRef.current[attackerIdx] = {
-                  ...enemiesRef.current[attackerIdx],
-                  crossfirePursuitMs: 0,
-                  crossfirePursuitTargetId: null
-                }
-              }
-            }
-          }
-
-          tickAndResolveSpitterProjectiles(
-            runtime,
-            spitterProjectilesRef.current,
-            positionRef.current,
-            0.4,
-            enemiesRef.current,
-            delta * 1000,
-            coverRectsRef.current,
-            (damage) => {
-              if (!practiceSettingsRef.current.damageEnabled) {
-                return
-              }
-              playerHealthRef.current = Math.max(0, playerHealthRef.current - damage)
-              tookDamageSinceLastKillRef.current = true
-              setPlayerHealth(playerHealthRef.current)
-              setDamagePulse((value) => value + 1)
-              setStatus(`Spitter splashed for ${damage}.`)
-              playPlayerDamageCue(playerDamageCue('hazard'), settingsRef.current.audio)
-            },
-            (enemyId, damage, sourceEnemyId) => {
-              const idx = enemiesRef.current.findIndex((candidate) => candidate.id === enemyId)
-              if (idx === -1) {
-                return
-              }
-              const damaged = damageEnemy(enemiesRef.current[idx], damage)
-              // F-016 v2: spitter projectile crossfire now arms the
-              // same retarget the brute and skitter melee paths arm.
-              const source = enemiesRef.current.find((candidate) => candidate.id === sourceEnemyId)
-              const retargeted = source && damaged.state !== 'dead'
-                ? applyCrossfireRetarget(damaged, source, Math.random())
-                : damaged
-              enemiesRef.current[idx] = retargeted
-              setStatus(
-                retargeted.state === 'dead'
-                  ? `Crossfire finished the ${enemyLabel(retargeted.type)}.`
-                  : `Crossfire splashed the ${enemyLabel(retargeted.type)}.`
-              )
-              setEnemyHealth(enemiesRef.current[0]?.health ?? 0)
-              // Only fire the hurt cue here. The kill detection block
-              // below handles the death cue on any fresh state === 'dead'
-              // transition, so firing one here would double up.
-              if (retargeted.state !== 'dead') {
-                playEnemyHurtCue(enemyHurtCue(retargeted.type), settingsRef.current.audio)
-              }
-              if (damaged.crossfireStaggerMs === 0 && retargeted.crossfireStaggerMs > 0) {
-                playCrossfireStaggerCue(settingsRef.current.audio)
-              }
-            }
-          )
-
-          if (practiceSettingsRef.current.damageEnabled && playerHealthRef.current === 0) {
-            finishRun()
-          }
-
-          // Feel pass: scan for enemies that transitioned to 'dead' this
-          // frame and spawn one death-pop ring per kill, regardless of
-          // which damage path closed them out (player shot, crossfire,
-          // pursuit attack, spitter splash). Prev-state snapshot uses
-          // unique enemy ids so the detection survives id reuse never
-          // happening across a run; the snapshot is reset on startRun.
-          const previouslyDead = previouslyDeadEnemyIdsRef.current
-          const stillDead = new Set<string>()
-          for (const candidate of enemiesRef.current) {
-            if (candidate.state !== 'dead') {
-              continue
-            }
-            stillDead.add(candidate.id)
-            if (!previouslyDead.has(candidate.id)) {
-              spawnEnemyDeathPop(runtime, enemyDeathPopsRef.current, candidate.position)
-              spawnEnemyGibs(runtime, gibsRef.current, candidate.type, candidate.position)
-              spawnBloodDecal(runtime, bloodDecalsRef.current, candidate.type, candidate.position)
-              playEnemyDeathCue(enemyDeathCue(candidate.type), settingsRef.current.audio)
-              if (shouldDropScoreToken(candidate.type, Math.random())) {
-                scoreTokenDropSeqRef.current += 1
-                spawnScoreTokenDrop(
-                  runtime,
-                  scoreTokenDropsRef.current,
-                  `score-token-${scoreTokenDropSeqRef.current}`,
-                  candidate.position
-                )
-              }
-              const ammoKind = rollAmmoDrop(candidate.type, Math.random())
-              if (ammoKind !== null) {
-                ammoDropSeqRef.current += 1
-                spawnAmmoDrop(
-                  runtime,
-                  ammoDropsRef.current,
-                  `ammo-drop-${ammoDropSeqRef.current}`,
-                  ammoKind,
-                  candidate.position
-                )
-              }
-              const healthKind = rollHealthDrop(candidate.type, Math.random())
-              if (healthKind !== null) {
-                healthDropSeqRef.current += 1
-                spawnHealthDrop(
-                  runtime,
-                  healthDropsRef.current,
-                  `health-drop-${healthDropSeqRef.current}`,
-                  healthKind,
-                  candidate.position
-                )
-              }
-            }
-          }
-          previouslyDeadEnemyIdsRef.current = stillDead
-
-          const activePressure = enemiesRef.current.reduce((acc, candidate) => {
-            return candidate.state === 'dead' ? acc : acc + enemyConfigs[candidate.type].pressureCost
-          }, 0)
-          const musicLayer = musicLayerRef.current
-
-          if (musicLayer !== null) {
-            const wave = encounterWaveSignal(directorRef.current.runMs)
-            const baseTarget = targetPressureForRunMs(directorRef.current.runMs) + wave.targetDelta
-            const ratio = baseTarget > 0 ? activePressure / baseTarget : 0
-            const audioEnabled = settingsRef.current.audio
-            const gainNow = audioEnabled ? musicIntensityGain(ratio) * MUSIC_PEAK_GAIN : 0
-            musicLayer.masterGain.gain.setTargetAtTime(gainNow, musicLayer.context.currentTime, 0.12)
-            const combatGainNow = audioEnabled ? combatMusicGain(ratio) * COMBAT_PEAK_GAIN : 0
-            musicLayer.combatGain.gain.setTargetAtTime(combatGainNow, musicLayer.context.currentTime, 0.14)
-            const highGainNow = audioEnabled ? highPressureMusicGain(ratio) * HIGH_PRESSURE_PEAK_GAIN : 0
-            musicLayer.highPressureGain.gain.setTargetAtTime(highGainNow, musicLayer.context.currentTime, 0.16)
-            const nearDeathGainNow = audioEnabled
-              ? nearDeathMusicGain(playerHealthRef.current) * NEAR_DEATH_PEAK_GAIN
-              : 0
-            musicLayer.nearDeathGain.gain.setTargetAtTime(nearDeathGainNow, musicLayer.context.currentTime, 0.18)
-          }
-
-          const ragePulseLayer = ragePulseLayerRef.current
-          if (ragePulseLayer !== null) {
-            const audioEnabled = settingsRef.current.audio
-            const target = audioEnabled ? RAGE_PULSE_GAIN : 0
-            ragePulseLayer.masterGain.gain.setTargetAtTime(target, ragePulseLayer.context.currentTime, 0.08)
-          }
-
-          const directorTick = tickDirector(
-            directorRef.current,
-            0,
-            activePressure,
-            positionRef.current,
-            undefined,
-            { cadenceScale: (dailyCadenceScale(dailyConfig) / practiceSettingsRef.current.spawnRate) }
-          )
-          directorRef.current = directorTick.state
-
-          // Cull enemies that have been dead long enough to finish their
-          // death animation. Keeps the array tight so render slots can
-          // be reused for fresh spawns.
-          enemiesRef.current = enemiesRef.current.filter((candidate) => {
-            return candidate.state !== 'dead' || candidate.animationTimeMs <= 1000
-          })
-
-          const aliveCount = enemiesRef.current.reduce(
-            (acc, candidate) => (candidate.state === 'dead' ? acc : acc + 1),
-            0
-          )
-
-          const hasFreshKill = enemiesRef.current.some(
-            (candidate) => candidate.state === 'dead' && candidate.animationTimeMs < 800
-          )
-
-          if (directorTick.spawn && aliveCount < MAX_ENEMIES && !hasFreshKill) {
-            const nextType = practiceEnemyTypeForSpawn(
-              applyDailySpawnOffset(directorRef.current.spawnCount, dailyConfig),
-              practiceSettingsRef.current,
-              isPractice
-            )
-            enemySpawnSeqRef.current += 1
-            const newEnemy = createEnemy(
-              nextType,
-              `${nextType}-${enemySpawnSeqRef.current}`,
-              directorTick.spawn.door.position,
-              positionRef.current
-            )
-            enemiesRef.current = [...enemiesRef.current, newEnemy]
-            doorSignalTimersRef.current[directorTick.spawn.door.id] = 0
-            doorSpawnTypesRef.current[directorTick.spawn.door.id] = newEnemy.type
-            spawnDoorSmoke(runtime, doorSmokesRef.current, directorTick.spawn.door.id, directorTick.spawn.door.position)
-            playDoorOpenCue(doorOpenCue(), settingsRef.current.audio)
-            setEnemyHealth(newEnemy.health)
-            setEnemyType(newEnemy.type)
-            setStatus(`${enemyLabel(newEnemy.type)} entered from ${directorTick.spawn.door.id}.`)
-          }
-        }
-      }
-
-      const kickState = cameraKickStateRef.current
-      const kickElapsedMs = kickState ? performance.now() - kickState.startMs : 0
-      const kickProgress = cameraKickProgressAtElapsedMs(kickState?.style ?? null, kickElapsedMs)
-
-      if (kickState && kickElapsedMs >= kickState.style.durationMs) {
-        cameraKickStateRef.current = null
-      }
-
-      const baseFovDeg = settingsRef.current.fov
-      const kickFovDeg = kickState ? kickProgress * kickState.style.fovDeltaDeg : 0
-      const nextFovDeg = baseFovDeg + kickFovDeg
-
-      if (Math.abs(runtime.camera.fov - nextFovDeg) > 0.0001) {
-        runtime.camera.fov = nextFovDeg
-        runtime.camera.updateProjectionMatrix()
-      }
-
-      const nextMountTransform = kickState && kickProgress > 0
-        ? `translateY(${kickProgress * kickState.style.kickPx}px)`
-        : ''
-
-      if (mount && lastMountTransformRef.current !== nextMountTransform) {
-        mount.style.transform = nextMountTransform
-        lastMountTransformRef.current = nextMountTransform
-      }
-
-      runtime.camera.position.set(positionRef.current.x, positionRef.current.y, positionRef.current.z)
-      runtime.camera.rotation.set(pitchRef.current, yawRef.current, 0)
-      runtime.muzzleLight.position.copy(runtime.camera.position)
-      runtime.muzzleLight.intensity = Math.max(0, runtime.muzzleLight.intensity - delta * 22)
-      applyDoorSignals(runtime, doorSignalTimersRef.current, doorSpawnTypesRef.current, delta * 1000)
-      applyPickupReadability(runtime, time, healthPickupReadyRef.current)
-
-      const pickupLoopLayer = pickupLoopLayerRef.current
-      if (pickupLoopLayer !== null) {
-        const target = settingsRef.current.audio
-          ? pickupLoopGain(pickupLoopStyle(), time, healthPickupReadyRef.current)
-          : 0
-        pickupLoopLayer.masterGain.gain.setTargetAtTime(target, pickupLoopLayer.context.currentTime, 0.18)
-      }
-
-      tickShotBolts(runtime, shotBolts, shotImpacts, delta * 1000)
-      tickShotImpacts(runtime, shotImpacts, delta * 1000)
-      tickEnemyDeathPops(runtime, enemyDeathPopsRef.current, delta * 1000)
-      tickGibs(runtime, gibsRef.current, delta * 1000)
-      tickBloodDecals(runtime, bloodDecalsRef.current, delta * 1000)
-      tickDoorSmokes(runtime, doorSmokesRef.current, delta * 1000)
-      tickScoreTokenDrops(runtime, scoreTokenDropsRef.current, delta * 1000)
-
-      const tokenPickups = scoreTokenPickupIds(scoreTokenDropsRef.current, positionRef.current)
-      if (tokenPickups.length > 0) {
-        const pickedSet = new Set(tokenPickups)
-        const remaining: ScoreTokenDropEntry[] = []
-        let bonus = 0
-
-        for (const entry of scoreTokenDropsRef.current) {
-          if (pickedSet.has(entry.id)) {
-            runtime.shotGroup.remove(entry.mesh)
-            entry.mesh.geometry.dispose()
-            entry.mesh.material.dispose()
-            bonus += SCORE_TOKEN_BONUS
-          } else {
-            remaining.push(entry)
-          }
-        }
-
-        scoreTokenDropsRef.current = remaining
-
-        if (bonus > 0) {
-          scoreRef.current = { ...scoreRef.current, score: scoreRef.current.score + bonus }
-          setScore(scoreRef.current.score)
-          playPickupCue(pickupCue('supply'), settingsRef.current.audio)
-        }
-      }
-
-      tickAmmoDropEntries(runtime, ammoDropsRef.current, delta * 1000)
-
-      const ammoPickups = ammoDropPickupIds(ammoDropsRef.current, positionRef.current)
-      if (ammoPickups.length > 0) {
-        const pickedSet = new Set(ammoPickups)
-        const remaining: AmmoDropEntry[] = []
-        let boomstickAdd = 0
-        let inkblasterAdd = 0
-        let sawShell = false
-        let sawCell = false
-
-        for (const entry of ammoDropsRef.current) {
-          if (pickedSet.has(entry.id)) {
-            runtime.shotGroup.remove(entry.group)
-            entry.body.geometry.dispose()
-            entry.body.material.dispose()
-            entry.accent.geometry.dispose()
-            entry.accent.material.dispose()
-            entry.halo.geometry.dispose()
-            entry.halo.material.dispose()
-            boomstickAdd += ammoDropBoomstickAmount(entry.kind)
-            inkblasterAdd += ammoDropInkblasterAmount(entry.kind)
-            if (entry.kind === 'shell-small' || entry.kind === 'shell-large') sawShell = true
-            if (entry.kind === 'cell-small' || entry.kind === 'cell-large') sawCell = true
-          } else {
-            remaining.push(entry)
-          }
-        }
-
-        ammoDropsRef.current = remaining
-
-        if (boomstickAdd > 0 || inkblasterAdd > 0) {
-          const ammoBonus = effectiveMaxAmmoBonus(walletRef.current.tiers)
-          weaponAmmoRef.current = collectWeaponAmmo(
-            weaponAmmoRef.current,
-            boomstickAdd,
-            inkblasterAdd,
-            ammoBonus
-          )
-          setWeaponAmmo(weaponAmmoRef.current)
-          if (sawShell) playPickupCue(pickupCue('ammo-shell'), settingsRef.current.audio)
-          if (sawCell) playPickupCue(pickupCue('ammo-cell'), settingsRef.current.audio)
-        }
-      }
-
-      tickHealthDropEntries(runtime, healthDropsRef.current, delta * 1000)
-
-      const healthPickups = healthDropPickupIds(healthDropsRef.current, positionRef.current)
-      if (healthPickups.length > 0) {
-        const pickedSet = new Set(healthPickups)
-        const remaining: HealthDropEntry[] = []
-        let healAmount = 0
-
-        for (const entry of healthDropsRef.current) {
-          if (pickedSet.has(entry.id)) {
-            runtime.shotGroup.remove(entry.group)
-            entry.body.geometry.dispose()
-            entry.body.material.dispose()
-            entry.crossbar.geometry.dispose()
-            entry.crossbar.material.dispose()
-            entry.crosspost.geometry.dispose()
-            entry.crosspost.material.dispose()
-            entry.halo.geometry.dispose()
-            entry.halo.material.dispose()
-            healAmount += healthDropAmount(entry.kind)
-          } else {
-            remaining.push(entry)
-          }
-        }
-
-        healthDropsRef.current = remaining
-
-        if (healAmount > 0) {
-          const maxHpForRun = effectiveMaxHp(walletRef.current.tiers)
-          playerHealthRef.current = Math.min(
-            maxHpForRun,
-            playerHealthRef.current + healAmount
-          )
-          setPlayerHealth(playerHealthRef.current)
-          playPickupCue(pickupCue('medkit'), settingsRef.current.audio)
-        }
-      }
-
-
-      // Feel pass: scan alive enemies for one inside the soft crosshair
-      // cone. The state setter is gated against the previous value so
-      // React only re-renders when the lock state actually flips.
-      let lockedThisFrame = false
-      for (const candidate of enemiesRef.current) {
-        if (candidate.state === 'dead') {
-          continue
-        }
-        if (isEnemyOnCrosshair(positionRef.current, yawRef.current, candidate.position)) {
-          lockedThisFrame = true
-          break
-        }
-      }
-      setCrosshairLocked((current) => (current === lockedThisFrame ? current : lockedThisFrame))
-      const activeCombo = directorRef.current.runMs <= scoreRef.current.comboExpiresAtMs ? scoreRef.current.combo : 0
-      if (comboJustBroke(prevActiveComboRef.current, activeCombo)) {
-        playComboBreakCue(comboBreakCue(), settingsRef.current.audio)
-      }
-      prevActiveComboRef.current = activeCombo
-      setCombo((current) => current === activeCombo ? current : activeCombo)
-      const comboTimeRatio = activeCombo > 0
-        ? comboTimeRemainingRatio(scoreRef.current.comboExpiresAtMs, directorRef.current.runMs)
-        : 0
-      setComboTimeRatio((current) => (Math.abs(current - comboTimeRatio) < 0.01 ? current : comboTimeRatio))
-
-      const enemiesNow = enemiesRef.current
-      const debugBillboardEnemy = enemiesNow[0] ?? null
-      let debugAngle: BillboardAngle = 'front'
-      let debugBucket = 0
-      let debugAnimation: AnimationName = 'idle'
-      const debugOverlays = runningRef.current && practiceSettingsRef.current.debugOverlays
-
-      for (let i = 0; i < runtime.enemySlots.length; i += 1) {
-        const slot = runtime.enemySlots[i]
-        const enemy = i < enemiesNow.length ? enemiesNow[i] : null
-
-        if (enemy === null) {
-          slot.mesh.visible = false
-          slot.arrow.visible = false
-          continue
-        }
-
-        const baseTint = enemyConfigs[enemy.type].tint
-
-        if (enemy.state === 'hurt' || enemy.state === 'dead') {
-          const flashStyle = enemyHurtFlashStyle(enemy.type)
-          const intensity = enemyHurtFlashIntensity(flashStyle, enemy.animationTimeMs)
-          enemyHurtFlashColor.setRGB(flashStyle.flashColor.r, flashStyle.flashColor.g, flashStyle.flashColor.b)
-          slot.material.color.set(baseTint).lerp(enemyHurtFlashColor, intensity)
-        } else if (enemy.crossfireStaggerMs > 0) {
-          // F-016 feel: pull the billboard toward a cool steel-blue while
-          // staggered so the player can see at a glance that this enemy
-          // is the open one. Half-strength lerp peak so the silhouette
-          // stays readable; intensity fades with the remaining stagger.
-          const intensity = crossfireStaggerIntensity(enemy.crossfireStaggerMs)
-          slot.material.color.set(baseTint).lerp(crossfireStaggerColor, 0.5 * intensity)
-        } else if (enemy.type === 'spitter' && enemy.state === 'attackWindup') {
-          const charge = spitterChargeIntensity(enemy.state, enemy.animationTimeMs, enemyConfigs.spitter.attackWindupMs)
-          slot.material.color.set(baseTint).lerp(spitterChargeColor, charge)
-        } else if (enemy.type === 'skitter' && enemy.dashBurstMsRemaining > 0) {
-          // Telegraph the dash burst: lerp toward white at the leading edge.
-          const intensity = Math.min(1, enemy.dashBurstMsRemaining / SKITTER_DASH_DURATION_MS)
-          slot.material.color.set(baseTint).lerp(skitterDashColor, 0.5 * intensity)
-        } else if (isFinisherReady(enemy.health, enemyConfigs[enemy.type].maxHealth)) {
-          // Finisher tint at the lowest priority so transient cues
-          // (hurt, stagger, charge, dash) still win the frame, but a
-          // wounded enemy idling between hits reads as the obvious
-          // next target. Persistent half-strength lerp keeps the
-          // silhouette readable.
-          slot.material.color.set(baseTint).lerp(finisherReadyColor, 0.5)
-        } else {
-          slot.material.color.set(baseTint)
-        }
-
-        const angle = angleToPlayerName(enemy.position, enemy.facingAngle, positionRef.current)
-        const animation = animationForEnemyState(enemy.state)
-        const enemyAsset = enemyAssetsRef.current[enemy.type] ?? enemyAssetsRef.current.grunt ?? null
-
-        if (enemyAsset) {
-          setEnemySlotAsset(slot, enemy.type, enemyAsset)
-        }
-
-        applyEnemyFrame(slot, enemyAsset?.atlas ?? null, animation, angle, enemy.animationTimeMs)
-        slot.mesh.position.set(enemy.position.x, enemy.position.y, enemy.position.z)
-        slot.mesh.scale.setScalar(enemyConfigs[enemy.type].scale)
-        slot.mesh.lookAt(runtime.camera.position)
-        slot.mesh.visible = enemy.state !== 'dead' || enemy.animationTimeMs < 1000
-        slot.arrow.position.set(enemy.position.x, 0.08, enemy.position.z)
-        slot.arrow.setDirection(new THREE.Vector3(Math.cos(enemy.facingAngle), 0, Math.sin(enemy.facingAngle)))
-        slot.arrow.visible = debugOverlays && enemy.state !== 'dead'
-
-        if (debugBillboardEnemy !== null && enemy.id === debugBillboardEnemy.id) {
-          debugAngle = angle
-          debugBucket = angleToPlayerBucket(enemy.position, enemy.facingAngle, positionRef.current)
-          debugAnimation = animation
-        }
-      }
-
-      if (debugBillboardEnemy !== null) {
-        dummyMarker.position.set(debugBillboardEnemy.position.x, 0.04, debugBillboardEnemy.position.z)
-        dummyMarker.visible = debugBillboardEnemy.state !== 'dead'
-      } else {
-        dummyMarker.visible = false
-      }
-
-      dummyMarker.rotation.z += delta * 1.4
-
-      setDebug((current) => {
-        if (current.angle === debugAngle && current.bucket === debugBucket && current.animation === debugAnimation) {
-          return current
-        }
-
-        return { angle: debugAngle, bucket: debugBucket, animation: debugAnimation }
-      })
-      runtime.renderer.render(runtime.scene, runtime.camera)
-    }
-
-    window.addEventListener('resize', resize)
-    animationRef.current = requestAnimationFrame(animate)
+    raf = requestAnimationFrame(frame)
 
     return () => {
-      window.removeEventListener('resize', resize)
-
-      if (animationRef.current !== null) {
-        cancelAnimationFrame(animationRef.current)
-      }
-
-      clearShotBolts(runtimeRef.current, shotBolts)
-      clearShotImpacts(runtimeRef.current, shotImpacts)
-      clearEnemyDeathPops(runtimeRef.current, enemyDeathPopsRef.current)
-      clearScoreTokenDrops(runtimeRef.current, scoreTokenDropsRef.current)
-      scoreTokenDropsRef.current = []
-      clearAmmoDrops(runtimeRef.current, ammoDropsRef.current)
-      ammoDropsRef.current = []
-      clearHealthDrops(runtimeRef.current, healthDropsRef.current)
-      healthDropsRef.current = []
-      clearGibs(runtimeRef.current, gibsRef.current)
-      gibsRef.current = []
-      clearBloodDecals(runtimeRef.current, bloodDecalsRef.current)
-      bloodDecalsRef.current = []
-      clearDoorSmokes(runtimeRef.current, doorSmokesRef.current)
-      doorSmokesRef.current = []
-      clearInkProjectiles(runtimeRef.current, inkProjectiles)
-      clearSpitterProjectiles(runtimeRef.current, spitterProjectiles)
-      stopMusicLayer(musicLayerRef.current)
-      musicLayerRef.current = null
-      stopRagePulseLayer(ragePulseLayerRef.current)
-      ragePulseLayerRef.current = null
-      stopPickupLoopLayer(pickupLoopLayerRef.current)
-      pickupLoopLayerRef.current = null
-      if (runtimeRef.current) {
-        disposeEnemySlots(runtimeRef.current.enemySlots)
-      }
-      disposeEnemyAssets(enemyAssetsRef.current)
-      enemyAssetsRef.current = {}
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
       renderer.dispose()
       mount.removeChild(renderer.domElement)
-      runtimeRef.current = null
+      sfxRef.current?.stopAmbience()
     }
-  }, [dailyConfig, damageBreakableAt, damageEnemyById, finishRun, isPractice])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booted])
 
+  // --- Input ---
   useEffect(() => {
-    function updateKey(event: KeyboardEvent, pressed: boolean) {
-      if (event.code === 'KeyW') {
-        keysRef.current.forward = pressed
+    const onKeyDown = (e: KeyboardEvent) => {
+      keysRef.current.add(e.code)
+      if (e.code === 'Tab') {
+        e.preventDefault()
+        automapHeldRef.current = true
       }
-      if (event.code === 'KeyS') {
-        keysRef.current.backward = pressed
-      }
-      if (event.code === 'KeyA') {
-        keysRef.current.left = pressed
-      }
-      if (event.code === 'KeyD') {
-        keysRef.current.right = pressed
-      }
-      if (event.code === 'Space' && pressed) {
-        event.preventDefault()
-        fire()
-      }
-      if (event.code === 'Digit1' && pressed) {
-        selectWeapon('peashooter', selectedWeaponRef, setSelectedWeapon, setStatus)
-      }
-      if (event.code === 'Digit2' && pressed) {
-        selectWeapon('boomstick', selectedWeaponRef, setSelectedWeapon, setStatus)
-      }
-      if (event.code === 'Digit3' && pressed) {
-        selectWeapon('inkblaster', selectedWeaponRef, setSelectedWeapon, setStatus)
-      }
-      if (event.code === 'KeyQ' && pressed) {
-        selectWeapon(nextWeapon(selectedWeaponRef.current), selectedWeaponRef, setSelectedWeapon, setStatus)
-      }
-      if (event.code === 'Escape' && pressed && runningRef.current) {
-        pausedRef.current = !pausedRef.current
-        setPaused(pausedRef.current)
-        setStatus(pausedRef.current ? 'Paused.' : 'Run resumed.')
-      }
-      if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && pressed) {
-        if (runningRef.current && !pausedRef.current) {
-          const now = performance.now()
-
-          if (dashReadyAt(now, lastDashStartMsRef.current)) {
-            dashStateRef.current = startDash(now, keysRef.current, yawRef.current)
-            lastDashStartMsRef.current = now
-            setDashReady(false)
-            playDashCue(settingsRef.current.audio)
+      const world = worldRef.current
+      if (screenRef.current === 'playing' && world && !world.player.dead) {
+        const slotKeys: Record<string, number> = {
+          Digit1: 1,
+          Digit2: 2,
+          Digit3: 3,
+          Digit4: 4,
+          Digit5: 5,
+          Digit6: 6,
+          Digit7: 7
+        }
+        const slot = slotKeys[e.code]
+        if (slot) {
+          const target = WEAPON_ORDER.find((id) => WEAPONS[id].slot === slot)
+          if (target && world.player.owned.includes(target)) {
+            world.player.weapon = target
           }
+        }
+        if (e.code === 'KeyE' || e.code === 'Space') {
+          e.preventDefault()
+          tryUseDoor()
+        }
+        if (e.code === 'Escape') {
+          setPaused(true)
+          document.exitPointerLock()
         }
       }
     }
-
-    function onKeyDown(event: KeyboardEvent) {
-      updateKey(event, true)
-    }
-
-    function onKeyUp(event: KeyboardEvent) {
-      updateKey(event, false)
-    }
-
-    function onMouseMove(event: MouseEvent) {
-      const canvas = runtimeRef.current?.renderer.domElement
-
-      if (document.pointerLockElement !== canvas) {
-        return
-      }
-
-      yawRef.current -= event.movementX * 0.0024 * settingsRef.current.sensitivity
-      pitchRef.current = clamp(
-        pitchRef.current - event.movementY * 0.002 * settingsRef.current.sensitivity,
-        -1.25,
-        1.25
-      )
-    }
-
-    function onPointerLockChange() {
-      if (runningRef.current && document.pointerLockElement === null) {
-        setStatus('Pointer released. Click the room to lock again.')
+    const onKeyUp = (e: KeyboardEvent) => {
+      keysRef.current.delete(e.code)
+      if (e.code === 'Tab') {
+        automapHeldRef.current = false
       }
     }
-
-    function onMouseDown(event: MouseEvent) {
-      if (event.button !== 0) {
-        return
-      }
-
-      const canvas = runtimeRef.current?.renderer.domElement
-
-      if (runningRef.current && document.pointerLockElement !== canvas) {
-        requestPointerLock(canvas)
-      }
-
-      fire()
-    }
-
-    function onForceDeath() {
-      if (!runningRef.current) {
-        return
-      }
-
-      finishRun()
-    }
-
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mousedown', onMouseDown)
-    window.addEventListener('flatline:force-death', onForceDeath)
-    document.addEventListener('pointerlockchange', onPointerLockChange)
-
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mousedown', onMouseDown)
-      window.removeEventListener('flatline:force-death', onForceDeath)
-      document.removeEventListener('pointerlockchange', onPointerLockChange)
     }
-  }, [fire, finishRun])
-
-  useEffect(() => {
-    const joysticks = touchJoysticksRef.current
-    const keys = keysRef.current
-
-    function rerenderTouchControls() {
-      setTouchJoysticksView(cloneTouchJoysticks(joysticks))
-    }
-
-    function applyMoveJoystick() {
-      const move = readJoystick(joysticks.move)
-      keys.left = move.x < -JOYSTICK_DEADZONE
-      keys.right = move.x > JOYSTICK_DEADZONE
-      keys.forward = move.y < -JOYSTICK_DEADZONE
-      keys.backward = move.y > JOYSTICK_DEADZONE
-    }
-
-    function applyLookJoystick() {
-      const look = readJoystick(joysticks.look)
-      touchLookVectorRef.current = {
-        x: Math.abs(look.x) > JOYSTICK_DEADZONE ? look.x : 0,
-        y: Math.abs(look.y) > JOYSTICK_DEADZONE ? look.y : 0
-      }
-    }
-
-    function isInteractiveTarget(target: EventTarget | null): boolean {
-      if (!(target instanceof Element)) {
-        return false
-      }
-
-      return target.closest('button, input, textarea, select, a') !== null
-    }
-
-    function beginTouch(pointerId: number, x: number, y: number): boolean {
-      if (x < window.innerWidth / 2) {
-        if (joysticks.move.active) {
-          return false
-        }
-
-        beginJoystick(joysticks.move, pointerId, x, y)
-        applyMoveJoystick()
-      } else {
-        if (joysticks.look.active) {
-          return false
-        }
-
-        beginJoystick(joysticks.look, pointerId, x, y)
-        touchLookStartedAtRef.current = performance.now()
-        applyLookJoystick()
-      }
-
-      rerenderTouchControls()
-      return true
-    }
-
-    function rebaseOriginIfStale(joystick: JoystickState, x: number, y: number) {
-      if (joystick.originX === 0 && joystick.originY === 0 && (x !== 0 || y !== 0)) {
-        joystick.originX = x
-        joystick.originY = y
-        joystick.currentX = x
-        joystick.currentY = y
-      }
-    }
-
-    function moveTouch(pointerId: number, x: number, y: number) {
-      if (joysticks.move.pointerId === pointerId) {
-        rebaseOriginIfStale(joysticks.move, x, y)
-        moveJoystick(joysticks.move, x, y)
-        applyMoveJoystick()
-        rerenderTouchControls()
-        return
-      }
-
-      if (joysticks.look.pointerId === pointerId) {
-        rebaseOriginIfStale(joysticks.look, x, y)
-        moveJoystick(joysticks.look, x, y)
-        applyLookJoystick()
-        rerenderTouchControls()
-      }
-    }
-
-    function endTouch(pointerId: number) {
-      if (joysticks.move.pointerId === pointerId) {
-        endJoystick(joysticks.move)
-        applyMoveJoystick()
-        rerenderTouchControls()
-      }
-
-      if (joysticks.look.pointerId === pointerId) {
-        const wasTap = !joystickMovedBeyond(joysticks.look, 14) && performance.now() - touchLookStartedAtRef.current < 260
-        endJoystick(joysticks.look)
-        applyLookJoystick()
-        rerenderTouchControls()
-
-        if (wasTap && runningRef.current && !pausedRef.current) {
-          fire()
-        }
-      }
-    }
-
-    function onTouchStart(event: TouchEvent) {
-      if (!runningRef.current || pausedRef.current || isInteractiveTarget(event.target)) {
-        return
-      }
-
-      let claimedAny = false
-
-      for (let i = 0; i < event.changedTouches.length; i += 1) {
-        const touch = event.changedTouches[i]
-
-        if (beginTouch(touch.identifier, touch.clientX, touch.clientY)) {
-          claimedAny = true
-        }
-      }
-
-      if (claimedAny) {
-        event.preventDefault()
-      }
-    }
-
-    function onTouchMove(event: TouchEvent) {
-      let claimedAny = false
-
-      for (let i = 0; i < event.changedTouches.length; i += 1) {
-        const touch = event.changedTouches[i]
-
-        if (joysticks.move.pointerId === touch.identifier || joysticks.look.pointerId === touch.identifier) {
-          claimedAny = true
-          moveTouch(touch.identifier, touch.clientX, touch.clientY)
-        }
-      }
-
-      if (claimedAny) {
-        event.preventDefault()
-      }
-    }
-
-    function onTouchEnd(event: TouchEvent) {
-      for (let i = 0; i < event.changedTouches.length; i += 1) {
-        const touch = event.changedTouches[i]
-
-        if (joysticks.move.pointerId === touch.identifier || joysticks.look.pointerId === touch.identifier) {
-          endTouch(touch.identifier)
-        }
-      }
-    }
-
-    function releaseAllTouches() {
-      const wasActive = joysticks.move.active || joysticks.look.active
-      resetTouchControls(joysticks, keys)
-      touchLookVectorRef.current = { x: 0, y: 0 }
-
-      if (wasActive) {
-        rerenderTouchControls()
-      }
-    }
-
-    function onVisibilityChange() {
-      if (document.visibilityState === 'hidden') {
-        releaseAllTouches()
-      }
-    }
-
-    window.addEventListener('touchstart', onTouchStart, { passive: false })
-    window.addEventListener('touchmove', onTouchMove, { passive: false })
-    window.addEventListener('touchend', onTouchEnd)
-    window.addEventListener('touchcancel', onTouchEnd)
-    window.addEventListener('blur', releaseAllTouches)
-    document.addEventListener('visibilitychange', onVisibilityChange)
-
-    return () => {
-      window.removeEventListener('touchstart', onTouchStart)
-      window.removeEventListener('touchmove', onTouchMove)
-      window.removeEventListener('touchend', onTouchEnd)
-      window.removeEventListener('touchcancel', onTouchEnd)
-      window.removeEventListener('blur', releaseAllTouches)
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-      releaseAllTouches()
-    }
-  }, [fire])
-
-  useEffect(() => () => {
-    if (weaponFlashTimeoutRef.current !== null) {
-      window.clearTimeout(weaponFlashTimeoutRef.current)
-    }
-
-    if (muzzleFlashTimeoutRef.current !== null) {
-      window.clearTimeout(muzzleFlashTimeoutRef.current)
-    }
+     
   }, [])
 
   useEffect(() => {
-    const runtime = runtimeRef.current
-
-    if (!runtime) {
-      return
-    }
-
-    runtime.camera.fov = settings.fov
-    runtime.camera.updateProjectionMatrix()
-    settingsRef.current = settings
-  }, [settings])
-
-  useEffect(() => {
-    void Promise.resolve().then(() => fetchSharedLeaderboard(sharedScope))
-  }, [fetchSharedLeaderboard, sharedScope])
-
-  // First-mount cross-device wallet sync: ensure a player id, fetch the
-  // server record, merge it with the local wallet (highest-water-mark
-  // per field), and push the merged result back so both sides agree.
-  // All steps are best-effort; offline play is unchanged.
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-    const playerId = ensurePlayerId(window.localStorage)
-    playerIdRef.current = playerId
-    void (async () => {
-      try {
-        const response = await fetch(`/api/upgrade-wallet?playerId=${encodeURIComponent(playerId)}`)
-        if (!response.ok) {
-          return
-        }
-        const body = (await response.json()) as UpgradeWalletGetResponse
-        if (body.unavailable || !body.wallet) {
-          return
-        }
-        const merged = mergeWallets(toSharedWallet(walletRef.current), toSharedWallet(body.wallet))
-        const nextWallet = fromSharedWallet(merged)
-        walletRef.current = nextWallet
-        setWallet(nextWallet)
-        writeUpgradeWallet(window.localStorage, nextWallet)
-        // The local record may carry tiers the server has not seen
-        // yet (e.g. an offline session that bought a tier). A best-
-        // effort push reconciles that direction too.
-        void pushSharedWallet()
-      } catch {
-        // Offline / KV down; local wallet is canonical.
+    const onMouseMove = (e: MouseEvent) => {
+      const world = worldRef.current
+      if (!world || screenRef.current !== 'playing' || pausedRef.current || world.player.dead) {
+        return
       }
-    })()
-  }, [pushSharedWallet])
+      if (document.pointerLockElement) {
+        world.player.yaw -= e.movementX * 0.0022
+        world.player.pitch = clamp(world.player.pitch - e.movementY * 0.0022, -0.6, 0.6)
+      }
+    }
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) {
+        return
+      }
+      const world = worldRef.current
+      if (screenRef.current !== 'playing' || !world || world.player.dead || pausedRef.current) {
+        return
+      }
+      if (!document.pointerLockElement) {
+        mountRef.current?.querySelector('canvas')?.requestPointerLock()
+      }
+      world.player.fireHeld = true
+      world.player.fireQueued = true
+      world.player.firedWhileHeld = false
+    }
+    const onMouseUp = () => {
+      const world = worldRef.current
+      if (world) {
+        world.player.fireHeld = false
+      }
+    }
+    const onLockChange = () => {
+      if (!document.pointerLockElement && screenRef.current === 'playing' && !worldRef.current?.player.dead) {
+        setPaused(true)
+      }
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mouseup', onMouseUp)
+    document.addEventListener('pointerlockchange', onLockChange)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mouseup', onMouseUp)
+      document.removeEventListener('pointerlockchange', onLockChange)
+    }
+  }, [])
 
-  return (
-    <main className="game-shell">
-      <div ref={mountRef} className="render-root" data-testid="render-root" />
-      {running && scoreFloaters.length > 0 ? (
-        <div className="score-floaters-layer">
-          {scoreFloaters.map((floater) => (
-            <span
-              key={floater.id}
-              className="score-floater"
-              data-testid="score-floater"
-              data-tier={floater.tier}
-              style={{ left: `${floater.screenX}px`, top: `${floater.screenY}px` }}
-            >
-              {floater.text}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {running ? (
-        <div
-          className="hud"
-          data-testid="hud"
-          style={{
-            ['--hud-wobble-px' as string]: `${hudPillWobbleAmplitudePx(playerHealth)}px`,
-            ['--hud-wobble-deg' as string]: `${hudPillWobbleRotationDeg(playerHealth)}deg`,
-            ['--hud-wobble-period' as string]: `${hudPillWobblePeriodMs()}ms`
-          }}
-        >
-          <div className="hud-status-row" aria-label="Active buffs">
-            {rageActive ? (
-              <span className="status-badge status-rage" data-testid="rage-pill">Rage</span>
-            ) : null}
-            {scoreTokenActiveState ? (
-              <span className="status-badge status-score" data-testid="score-token-pill">Score 2x</span>
-            ) : null}
-            {healthPickupReady ? (
-              <span className="status-badge status-supply">Supply Ready</span>
-            ) : null}
-          </div>
+  // Test hooks: deterministic ways for e2e to drive the loop. Not wired in
+  // production builds.
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      return
+    }
+    const forceDeath = () => {
+      const world = worldRef.current
+      if (world && screenRef.current === 'playing') {
+        world.player.vitals = { ...world.player.vitals, hp: 0 }
+        killPlayer(performance.now())
+      }
+    }
+    const grant = (e: Event) => {
+      const amount = (e as CustomEvent<number>).detail ?? 0
+      saveMeta({ ...metaRef.current, cheddar: metaRef.current.cheddar + amount })
+    }
+    const spawnGoons = () => {
+      const world = worldRef.current
+      if (!world || screenRef.current !== 'playing') {
+        return
+      }
+      const kinds: EnemyKind[] = ['torpedo', 'capo', 'alleycat', 'bruiser', 'fatcat']
+      kinds.forEach((kind, i) => {
+        addEnemy(kind, {
+          x: world.player.pos.x + Math.sin(world.player.yaw + (i - 2) * 0.35) * (5 + i),
+          z: world.player.pos.z + Math.cos(world.player.yaw + (i - 2) * 0.35) * (5 + i)
+        })
+      })
+    }
+    window.addEventListener('flatline:force-death', forceDeath)
+    window.addEventListener('flatline:grant-cheddar', grant)
+    window.addEventListener('flatline:spawn-goons', spawnGoons)
+    return () => {
+      window.removeEventListener('flatline:force-death', forceDeath)
+      window.removeEventListener('flatline:grant-cheddar', grant)
+      window.removeEventListener('flatline:spawn-goons', spawnGoons)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- killPlayer/addEnemy read only refs
+  }, [saveMeta])
 
-          <div
-            className="hud-streak"
-            data-testid="combo-pill"
-            style={{ ['--combo-time-ratio' as string]: comboTimeRatio.toFixed(3) }}
-          >
-            <div className="streak-line">
-              <span className="streak-x">x</span>
-              <span className="streak-value">{combo}</span>
-            </div>
-            <div className="streak-score">{score.toLocaleString()}</div>
-            <span className="combo-timer-bar" data-testid="combo-timer-bar" aria-hidden="true" />
-          </div>
+  useEffect(() => {
+    sfxRef.current?.setMuted(muted)
+  }, [muted])
 
-          <div className="hud-runstate" aria-label="Run state">
-            <div className={`wave-chip wave-${wavePhase}`} data-testid="wave-pill">
-              <span className="wave-dot" aria-hidden="true" />
-              {wavePhase === 'lull' ? 'Lull' : wavePhase === 'surge' ? 'Surge' : 'Peak'}
-            </div>
-            <div className="run-clock">{formatTime(runMs)}</div>
-            <div className="run-kills">{kills} kills</div>
-          </div>
+  // ================= WORLD SIMULATION =================
 
-          <div className="hud-vitals" aria-label="Vitals">
-            <div className="hp-bar">
-              <div
-                className="hp-fill"
-                data-zone={hpZone(playerHealth, hudMaxHp)}
-                style={{
-                  width: `${Math.max(0, Math.min(100, (playerHealth / hudMaxHp) * 100))}%`
-                }}
-              />
-              <div className="hp-readout">
-                <span className="hp-value">{playerHealth}</span>
-                <span className="hp-label">/{hudMaxHp}</span>
-              </div>
-            </div>
-            <div
-              className={`dash-chip${dashReady ? '' : ' dash-cooling'}`}
-              data-testid="dash-ready"
-            >
-              <span className="chip-glyph" aria-hidden="true">»»</span>
-              <span className="chip-label">Dash</span>
-              <span className="chip-state">{dashReady ? 'Ready' : 'Cooling'}</span>
-            </div>
-          </div>
-
-          <div className="hud-armament" aria-label="Weapon">
-            <img
-              className="armament-icon"
-              src={`/assets/weapons/${selectedWeapon}-hud.png`}
-              alt=""
-              aria-hidden="true"
-            />
-            <div className="armament-meta">
-              <span className="armament-name">{weaponConfigs[selectedWeapon].label}</span>
-              <span
-                className={`armament-state${weaponReady ? ' weapon-ready' : ' weapon-recovering'}`}
-                data-testid="weapon-ready"
-              >
-                {weaponReady ? 'Ready' : 'Recovering'}
-              </span>
-            </div>
-            <div
-              className="armament-ammo"
-              data-critical={isAmmoCritical(selectedWeapon, weaponAmmo) ? 'true' : 'false'}
-            >
-              <span className="ammo-value">
-                {weaponAmmoLabel(selectedWeapon, weaponAmmo)}
-              </span>
-              <span className="ammo-label">Ammo</span>
-            </div>
-          </div>
-
-          {isPractice && practiceSettings.debugOverlays ? (
-            <div className="hud-debug" aria-label="Debug overlays">
-              <span data-testid="billboard-debug">
-                Bucket {debug.bucket} {debug.angle} {debug.animation}
-              </span>
-              <span>
-                Enemy {enemyLabel(enemyType)} {enemyHealth}
-              </span>
-              <span>Hits {hits}</span>
-            </div>
-          ) : null}
-        </div>
-      ) : (
-        <section className="start-panel">
-          <div className="start-panel-inner">
-            <h1>Flatline</h1>
-            {!isPractice && bestLocalScore(leaderboard) !== null ? (
-              <p className="best-score" data-testid="best-score">
-                Best <strong>{bestLocalScore(leaderboard)}</strong>
-              </p>
-            ) : null}
-            {summary ? (
-              <div className="summary" data-testid="run-summary">
-                {summary.previousBestScore !== null && summary.score > summary.previousBestScore ? (
-                  <p className="summary-new-best" data-testid="summary-new-best">
-                    <strong>NEW BEST!</strong>{' '}
-                    +{summary.score - summary.previousBestScore} over previous {summary.previousBestScore}
-                  </p>
-                ) : null}
-                <p>Score {summary.score}</p>
-                <p>
-                  Kills {summary.kills}
-                  {!isPractice && creditsEarnedThisRun > 0 ? (
-                    <span className="summary-credits-earned" data-testid="summary-credits-earned">
-                      {' '}+{creditsEarnedThisRun} credits
-                    </span>
-                  ) : null}
-                </p>
-                <p>Time {formatTime(summary.survivalMs)}</p>
-                <p>Accuracy {formatAccuracyPercent(summary.accuracy)}</p>
-                <p>Best combo {summary.bestCombo}</p>
-                <p>Close-range kills {summary.closeRangeKills}</p>
-                <p>Weapons used {summary.weaponsUsed}</p>
-                <p>No-damage streak {summary.bestNoDamageStreak}</p>
-              </div>
-            ) : isPractice ? (
-              <p>Practice room. Tune the run, test weapons, and rehearse pressure without score submission.</p>
-            ) : (
-              <p>Daily seed {seed}. One room. Endless pressure. Move fast, aim clean, and stay alive.</p>
-            )}
-            {summary && !isPractice ? (
-              <UpgradePanel wallet={wallet} onPurchase={purchaseUpgrade} />
-            ) : null}
-            {!summary && dailySchedule ? <DailySchedulePanel preview={dailySchedule} streak={dailyStreak} /> : null}
-            {summary && !isPractice ? (
-              <div className="submit-panel" data-testid="shared-submit">
-                <label>
-                  Initials
-                  <input
-                    value={initials}
-                    maxLength={3}
-                    onChange={(event) => {
-                      setInitials(normalizeClientInitials(event.target.value))
-                      setSubmitStatus('idle')
-                    }}
-                  />
-                </label>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  disabled={submitStatus === 'submitting' || submitStatus === 'submitted'}
-                  onClick={submitSharedScore}
-                >
-                  {submitButtonLabel(submitStatus)}
-                </button>
-              </div>
-            ) : null}
-            <SettingsPanel settings={settings} onChange={updateSettings} />
-            {isPractice ? (
-              <PracticePanel settings={practiceSettings} onChange={updatePracticeSettings} />
-            ) : (
-              <SharedLeaderboardPanel
-                entries={sharedEntries}
-                scope={sharedScope}
-                status={sharedStatus}
-                onScopeChange={switchSharedScope}
-              />
-            )}
-            {!isPractice && leaderboard.length > 0 ? <LocalLeaderboard entries={leaderboard} /> : null}
-            <button className="start-button" type="button" onClick={startRun}>
-              {summary ? 'Restart run' : 'Start run'}
-            </button>
-          </div>
-        </section>
-      )}
-      {paused ? (
-        <section className="pause-panel" data-testid="pause-menu">
-          <div className="pause-panel-inner">
-            <h2>Paused</h2>
-            <SettingsPanel settings={settings} onChange={updateSettings} />
-            {isPractice ? (
-              <PracticePanel settings={practiceSettings} onChange={updatePracticeSettings} disabled />
-            ) : (
-              <SharedLeaderboardPanel
-                entries={sharedEntries}
-                scope={sharedScope}
-                status={sharedStatus}
-                onScopeChange={switchSharedScope}
-              />
-            )}
-            {!isPractice && leaderboard.length > 0 ? <LocalLeaderboard entries={leaderboard} /> : null}
-            <button className="start-button" type="button" onClick={resumeRun}>
-              Resume
-            </button>
-          </div>
-        </section>
-      ) : null}
-      <div className="crosshair" data-testid="crosshair" data-locked={crosshairLocked ? 'true' : 'false'} />
-      {running ? (
-        <div
-          className="hud-grain"
-          data-testid="hud-grain"
-          aria-hidden="true"
-          style={{ ['--hud-grain-opacity' as string]: hudGrainOpacity(playerHealth).toFixed(3) }}
-        />
-      ) : null}
-      {running && hudSplatterIntensity(playerHealth) > 0 ? (
-        <div
-          className="hud-splatter"
-          data-testid="hud-splatter"
-          aria-hidden="true"
-          style={{ ['--hud-splatter-intensity' as string]: hudSplatterIntensity(playerHealth).toFixed(3) }}
-        />
-      ) : null}
-      {damagePulse > 0 ? <div key={damagePulse} className="damage-flash" data-testid="damage-flash" aria-hidden="true" /> : null}
-      {rageTint > 0 ? (
-        <div
-          className="rage-tint"
-          data-testid="rage-tint"
-          aria-hidden="true"
-          style={{ ['--rage-tint-opacity' as string]: rageTint.toFixed(3) }}
-        />
-      ) : null}
-      {damageIndicator ? (
-        <div
-          key={damageIndicator.key}
-          className="damage-indicator"
-          data-testid="damage-indicator"
-          data-severity={damageIndicator.severity}
-          aria-hidden="true"
-          style={{ transform: `translate(-50%, -50%) rotate(${damageIndicator.angleRadians}rad)` }}
-        />
-      ) : null}
-      {(() => {
-        const recoilStyle = weaponRecoilStyle(selectedWeapon)
-        return (
-          <div
-            key={`weapon-${selectedWeapon}-${weaponFiring ? 'firing' : weaponReady ? 'idle' : 'cooldown'}-${weaponFireKey}`}
-            className={`weapon weapon-${selectedWeapon}${weaponFiring ? ' weapon-firing' : !weaponReady ? ' weapon-cooldown' : ''}`}
-            data-testid="weapon-sprite"
-            aria-hidden="true"
-            style={{
-              ['--weapon-recoil-kick' as string]: `${recoilStyle.kickPx}px`,
-              ['--weapon-recoil-rotate' as string]: `${recoilStyle.rotateDeg}deg`,
-              ['--weapon-recoil-duration' as string]: `${recoilStyle.durationMs}ms`
-            }}
-          />
-        )
-      })()}
-      {muzzleFlash ? (
-        (() => {
-          const flashStyle = muzzleFlashStyle(muzzleFlash.weapon)
-          return (
-            <div
-              key={muzzleFlash.key}
-              className={`muzzle-flash muzzle-flash-${muzzleFlash.weapon}`}
-              data-testid="muzzle-flash"
-              aria-hidden="true"
-              style={{
-                ['--muzzle-color' as string]: flashStyle.color,
-                ['--muzzle-scale' as string]: String(flashStyle.scale),
-                ['--muzzle-duration' as string]: `${flashStyle.durationMs}ms`
-              }}
-            />
-          )
-        })()
-      ) : null}
-      {running && !paused ? <TouchControls joysticks={touchJoysticksView} /> : null}
-      <div className="status-line" data-testid="status-line">
-        {status}
-      </div>
-    </main>
-  )
-}
-
-function TouchControls({ joysticks }: { joysticks: TouchJoysticks }) {
-  return (
-    <div className="touch-controls" data-testid="touch-controls" aria-hidden="true">
-      <JoystickVisual joystick={joysticks.move} label="Move" className="move" />
-      <JoystickVisual joystick={joysticks.look} label="Aim" className="look" />
-    </div>
-  )
-}
-
-function JoystickVisual({
-  joystick,
-  label,
-  className
-}: {
-  joystick: JoystickState
-  label: string
-  className: string
-}) {
-  if (!joystick.active) {
-    return null
+  function getChunk(cx: number, cz: number): Chunk {
+    const world = worldRef.current as World
+    // Movement, raycasts, and projectiles hammer the same chunk in bursts;
+    // the one-entry cache skips the string key on almost every call.
+    const last = world.lastChunk
+    if (last && last.chunk.cx === cx && last.chunk.cz === cz) {
+      return last.chunk
+    }
+    const key = chunkKey(cx, cz)
+    let entry = world.chunks.get(key)
+    if (!entry) {
+      // Data only: meshes are built lazily by ensureChunkMesh so that a
+      // neighbor lookup during mesh building cannot recurse outward forever.
+      entry = { chunk: generateChunk(world.seed, cx, cz), group: null }
+      world.chunks.set(key, entry)
+    }
+    world.lastChunk = entry
+    return entry.chunk
   }
 
-  const dx = joystick.currentX - joystick.originX
-  const dy = joystick.currentY - joystick.originY
-  const length = Math.hypot(dx, dy)
-  const scale = length > JOYSTICK_RADIUS ? JOYSTICK_RADIUS / length : 1
-  const knobX = joystick.originX + dx * scale
-  const knobY = joystick.originY + dy * scale
-
-  return (
-    <>
-      <div
-        className={`touch-stick touch-stick-${className}`}
-        style={{
-          left: `${joystick.originX - JOYSTICK_RADIUS}px`,
-          top: `${joystick.originY - JOYSTICK_RADIUS}px`,
-          width: `${JOYSTICK_RADIUS * 2}px`,
-          height: `${JOYSTICK_RADIUS * 2}px`
-        }}
-      >
-        <span>{label}</span>
-      </div>
-      <div
-        className={`touch-knob touch-knob-${className}`}
-        style={{
-          left: `${knobX - 24}px`,
-          top: `${knobY - 24}px`
-        }}
-      />
-    </>
-  )
-}
-
-function resetTouchControls(joysticks: TouchJoysticks, keys: MovementInput) {
-  endJoystick(joysticks.move)
-  endJoystick(joysticks.look)
-  keys.forward = false
-  keys.backward = false
-  keys.left = false
-  keys.right = false
-}
-
-function cloneTouchJoysticks(joysticks: TouchJoysticks): TouchJoysticks {
-  return {
-    move: { ...joysticks.move },
-    look: { ...joysticks.look }
-  }
-}
-
-function createRoom() {
-  const group = new THREE.Group()
-  const doorSignals: Record<string, THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>> = {}
-  const floorMaterial = new THREE.MeshStandardMaterial({ color: '#242424', roughness: 0.94 })
-  const wallMaterial = new THREE.MeshStandardMaterial({ color: '#4a4740', roughness: 0.9 })
-  const doorMaterial = new THREE.MeshStandardMaterial({ color: '#171717', roughness: 0.82 })
-  const accentMaterial = new THREE.MeshStandardMaterial({
-    color: '#50d1c0',
-    emissive: '#123d39',
-    roughness: 0.72
-  })
-  const pickupMaterial = new THREE.MeshStandardMaterial({
-    color: '#50d1c0',
-    emissive: '#1f8e84',
-    emissiveIntensity: 0.6,
-    roughness: 0.5
-  })
-  const dangerMaterial = new THREE.MeshStandardMaterial({
-    color: '#f05a4f',
-    emissive: '#40110f',
-    roughness: 0.7
-  })
-
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(20, 0.2, 20), floorMaterial)
-  floor.position.y = -0.1
-  floor.receiveShadow = true
-  group.add(floor)
-
-  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(20, 0.2, 20), wallMaterial)
-  ceiling.position.y = 4.2
-  group.add(ceiling)
-
-  const wallGeometry = new THREE.BoxGeometry(20, 4.2, 0.35)
-  const northWall = new THREE.Mesh(wallGeometry, wallMaterial)
-  northWall.position.set(0, 2, 10)
-  group.add(northWall)
-
-  const southWall = new THREE.Mesh(wallGeometry, wallMaterial)
-  southWall.position.set(0, 2, -10)
-  group.add(southWall)
-
-  const sideWallGeometry = new THREE.BoxGeometry(0.35, 4.2, 20)
-  const eastWall = new THREE.Mesh(sideWallGeometry, wallMaterial)
-  eastWall.position.set(10, 2, 0)
-  group.add(eastWall)
-
-  const westWall = new THREE.Mesh(sideWallGeometry, wallMaterial)
-  westWall.position.set(-10, 2, 0)
-  group.add(westWall)
-
-  const pillarGeometry = new THREE.CylinderGeometry(0.45, 0.58, 3.2, 8)
-  const pillarRestY = 1.6
-  const pillars: THREE.Mesh[] = []
-
-  for (const [x, z] of [
-    [-3.5, -1.8],
-    [3.5, -1.8],
-    [-3.5, 2.1],
-    [3.5, 2.1]
-  ]) {
-    const pillar = new THREE.Mesh(pillarGeometry, wallMaterial)
-    pillar.position.set(x, pillarRestY, z)
-    pillar.castShadow = true
-    pillar.receiveShadow = true
-    group.add(pillar)
-    pillars.push(pillar)
+  function ensureChunkMesh(cx: number, cz: number) {
+    const world = worldRef.current as World
+    getChunk(cx, cz)
+    const entry = world.chunks.get(chunkKey(cx, cz))
+    if (!entry || entry.group) {
+      return
+    }
+    entry.group = buildChunkMeshes(entry.chunk)
+    threeRef.current?.scene.add(entry.group)
   }
 
-  // Cover billboards (REQ-021). Closes F-020. Visual cover only,
-  // matching the pillar precedent above (no collision wired). The PNGs
-  // come from `scripts/generate-cover-billboards.mjs` (art slice 6) and
-  // give the arena distinct silhouettes the player can route around
-  // without losing the open-arena feel.
-  const coverLoader = new THREE.TextureLoader()
-  const coverInstances: Array<{ texture: string; widthM: number; heightM: number; x: number; y: number; z: number }> = [
-    // Two crates flanking the south doors (z = +9 wall).
-    { texture: '/assets/cover/crate.png', widthM: 1.2, heightM: 1.2, x: -2.1, y: 0.6, z: 7.6 },
-    { texture: '/assets/cover/crate.png', widthM: 1.2, heightM: 1.2, x: 2.1, y: 0.6, z: 7.6 },
-    // Partition between the west pillar pair, broken-wall fragment by
-    // the east pillar pair. Both rotate to face into the arena.
-    { texture: '/assets/cover/partition.png', widthM: 0.9, heightM: 2.0, x: -3.5, y: 1.0, z: 0.15 },
-    { texture: '/assets/cover/broken-wall.png', widthM: 1.6, heightM: 1.4, x: 3.5, y: 0.7, z: 0.15 },
-    // Hanging banner near the ceiling on the north side (z = -9 wall).
-    { texture: '/assets/cover/hanging-banner.png', widthM: 1.4, heightM: 1.9, x: 0, y: 2.4, z: -4.0 }
-  ]
+  const solidAt: SolidAt = (gx, gz) => {
+    const world = worldRef.current as World
+    const cell = cellAtGlobal(getChunk, gx, gz)
+    if (cell === CELL_SOLID) {
+      return true
+    }
+    if (cell === CELL_DOOR || cell === CELL_VAULT_DOOR) {
+      const door = world.doors.get(doorKey(gx, gz))
+      return door ? doorBlocks(door.state) : true
+    }
+    return false
+  }
 
-  // The two crate billboards are the breakable props for REQ-059. Order
-  // matters: index 0 is the west crate (rect index 4 in
-  // ARENA_COVER_RECTS), index 1 is the east crate (rect index 5). The
-  // caller pairs these meshes with their rect indices when seeding the
-  // breakable map.
-  const breakableCrateMeshes: THREE.Mesh[] = []
-  for (const instance of coverInstances) {
-    const texture = coverLoader.load(instance.texture)
-    texture.colorSpace = THREE.SRGBColorSpace
-    texture.magFilter = THREE.NearestFilter
-    texture.minFilter = THREE.NearestFilter
-    const material = new THREE.MeshBasicMaterial({
-      map: texture,
-      transparent: true,
-      side: THREE.DoubleSide,
-      depthWrite: false
+  function buildChunkMeshes(chunk: Chunk): THREE.Group {
+    const art = artRef.current as Art
+    const group = new THREE.Group()
+    const theme = themeForRing(chunk.ring)
+
+    // Visible wall cells: solid with at least one walkable neighbor.
+    const instances: Array<[number, number]> = []
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        if (chunk.cells[lz * CHUNK_SIZE + lx] !== CELL_SOLID) {
+          continue
+        }
+        const gx = chunk.cx * CHUNK_SIZE + lx
+        const gz = chunk.cz * CHUNK_SIZE + lz
+        let visible = false
+        for (const [dx, dz] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1]
+        ]) {
+          if (cellAtGlobal(getChunk, gx + dx, gz + dz) !== CELL_SOLID) {
+            visible = true
+            break
+          }
+        }
+        if (visible) {
+          instances.push([gx, gz])
+        }
+      }
+    }
+    const mesh = new THREE.InstancedMesh(art.wallGeo, art.wallMaterials[theme], instances.length)
+    const matrix = new THREE.Matrix4()
+    instances.forEach(([gx, gz], i) => {
+      matrix.setPosition(cellCenter(gx), WALL_HEIGHT_M / 2, cellCenter(gz))
+      mesh.setMatrixAt(i, matrix)
     })
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(instance.widthM, instance.heightM), material)
-    mesh.position.set(instance.x, instance.y, instance.z)
-    mesh.renderOrder = 1
+    mesh.instanceMatrix.needsUpdate = true
     group.add(mesh)
-    if (instance.texture === '/assets/cover/crate.png') {
-      breakableCrateMeshes.push(mesh)
-    }
-  }
 
-  const altar = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.6, 0.45, 24), pickupMaterial)
-  altar.position.set(0, 0.22, 0)
-  altar.receiveShadow = true
-  group.add(altar)
-  const altarRestY = altar.position.y
-
-  const pickupHaloMaterial = new THREE.MeshBasicMaterial({
-    color: '#7ff0e0',
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide
-  })
-  const pickupHalo = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.62, 48), pickupHaloMaterial)
-  pickupHalo.position.set(0, 0.045, 0)
-  pickupHalo.rotation.x = -Math.PI / 2
-  pickupHalo.renderOrder = 1
-  group.add(pickupHalo)
-
-  // REQ-019: four corner pickup-zone markers. The room spec calls
-  // for "4 corner pickup zones" alongside the central altar's risk /
-  // reward zone. The actual altar carries the supply pickup
-  // (REQ-033/034); the corner zones are reserved spots so the player
-  // reads the room's symmetry on entry. Static teal rings on the
-  // floor inside the four corners, matching the altar's accent
-  // palette but darker and non-pulsing so the central zone stays the
-  // visual focus.
-  const cornerZoneMaterial = new THREE.MeshBasicMaterial({
-    color: '#3aa39b',
-    transparent: true,
-    opacity: 0.45,
-    depthWrite: false,
-    side: THREE.DoubleSide
-  })
-  const cornerZonePositions: ReadonlyArray<readonly [number, number]> = [
-    [-6, -6],
-    [6, -6],
-    [-6, 6],
-    [6, 6]
-  ]
-  for (const [cx, cz] of cornerZonePositions) {
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.0, 36), cornerZoneMaterial)
-    ring.position.set(cx, 0.04, cz)
-    ring.rotation.x = -Math.PI / 2
-    ring.renderOrder = 1
-    group.add(ring)
-  }
-
-  const clockLandmark = landmarkForWall('north')!
-  const clock = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.045, 12, 60), accentMaterial)
-  clock.position.set(clockLandmark.position.x, clockLandmark.position.y, clockLandmark.position.z)
-  group.add(clock)
-
-  const clockHand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.85, 0.04), accentMaterial)
-  clockHand.position.set(clockLandmark.position.x, clockLandmark.position.y + 0.35, clockLandmark.position.z - 0.04)
-  clockHand.rotation.z = Math.PI / 8
-  group.add(clockHand)
-
-  const furnaceLandmark = landmarkForWall('east')!
-  const furnaceLeft = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.7, 1.4), dangerMaterial)
-  furnaceLeft.position.set(furnaceLandmark.position.x, furnaceLandmark.position.y, furnaceLandmark.position.z - 1)
-  group.add(furnaceLeft)
-
-  const furnaceRight = furnaceLeft.clone()
-  furnaceRight.position.z = furnaceLandmark.position.z + 1
-  group.add(furnaceRight)
-
-  const curtainLandmark = landmarkForWall('south')!
-  const curtainMaterial = new THREE.MeshStandardMaterial({
-    color: '#8a2828',
-    emissive: '#220606',
-    roughness: 0.95
-  })
-  const curtainPanelSpacing = CURTAIN_SIDE_WIDTH_M / CURTAIN_PANEL_COUNT
-  const curtainPanelWidth = curtainPanelSpacing * 0.92
-  const curtainBaseY = curtainLandmark.position.y
-  const curtainZ = curtainLandmark.position.z + 0.18
-  for (const sideSign of [-1, 1] as const) {
-    for (let i = 0; i < CURTAIN_PANEL_COUNT; i += 1) {
-      // First panel sits just outside the door gap; subsequent panels move
-      // outward toward the corners.
-      const offsetFromDoor = CURTAIN_DOOR_HALF_GAP_M + (i + 0.5) * curtainPanelSpacing
-      const panel = new THREE.Mesh(
-        new THREE.BoxGeometry(curtainPanelWidth, CURTAIN_HEIGHT_M, CURTAIN_PANEL_DEPTH_M),
-        curtainMaterial
-      )
-      panel.position.set(
-        curtainLandmark.position.x + sideSign * offsetFromDoor,
-        curtainBaseY,
-        curtainZ
-      )
-      group.add(panel)
-    }
-  }
-  const curtainRailMaterial = new THREE.MeshStandardMaterial({
-    color: '#c9a23a',
-    emissive: '#3a2c0c',
-    roughness: 0.6
-  })
-  const curtainRailLength = (CURTAIN_DOOR_HALF_GAP_M + CURTAIN_SIDE_WIDTH_M) * 2 + 0.4
-  const curtainRail = new THREE.Mesh(
-    new THREE.BoxGeometry(curtainRailLength, 0.12, 0.18),
-    curtainRailMaterial
-  )
-  curtainRail.position.set(
-    curtainLandmark.position.x,
-    curtainBaseY + CURTAIN_HEIGHT_M / 2 + 0.06,
-    curtainZ
-  )
-  group.add(curtainRail)
-
-  const organLandmark = landmarkForWall('west')!
-  const organPipeMaterial = new THREE.MeshStandardMaterial({
-    color: '#9aa7b4',
-    emissive: '#1a2530',
-    roughness: 0.55,
-    metalness: 0.45
-  })
-  const organBaseMaterial = new THREE.MeshStandardMaterial({
-    color: '#3c2f24',
-    roughness: 0.85
-  })
-  const organCenterZ = organLandmark.position.z
-  const organSurfaceX = organLandmark.position.x + 0.22
-  for (const sideSign of [-1, 1] as const) {
-    for (let i = 0; i < ORGAN_PIPE_HEIGHTS_M.length; i += 1) {
-      const height = ORGAN_PIPE_HEIGHTS_M[i]
-      const offsetFromDoor = ORGAN_DOOR_OFFSET_M + i * ORGAN_PIPE_SPACING_M
-      const pipe = new THREE.Mesh(
-        new THREE.CylinderGeometry(ORGAN_PIPE_RADIUS_M, ORGAN_PIPE_RADIUS_M, height, 14),
-        organPipeMaterial
-      )
-      pipe.position.set(organSurfaceX, height / 2, organCenterZ + sideSign * offsetFromDoor)
-      group.add(pipe)
-    }
-  }
-  for (const sideSign of [-1, 1] as const) {
-    const baseLength = (ORGAN_PIPE_HEIGHTS_M.length - 1) * ORGAN_PIPE_SPACING_M + ORGAN_PIPE_RADIUS_M * 2 + 0.2
-    const baseCenterOffset = ORGAN_DOOR_OFFSET_M + (ORGAN_PIPE_HEIGHTS_M.length - 1) * ORGAN_PIPE_SPACING_M / 2
-    const organBase = new THREE.Mesh(
-      new THREE.BoxGeometry(0.55, 0.32, baseLength),
-      organBaseMaterial
+    // Floor and ceiling planes share one geometry and material; the ceiling
+    // is unlit because the hemisphere ground light barely reaches a
+    // down-facing normal (it rendered as a black void).
+    const floor = new THREE.Mesh(art.chunkPlaneGeo, art.floorMaterial)
+    floor.rotation.x = -Math.PI / 2
+    floor.position.set(
+      chunk.cx * CHUNK_SIZE * CELL_M + (CHUNK_SIZE * CELL_M) / 2,
+      0,
+      chunk.cz * CHUNK_SIZE * CELL_M + (CHUNK_SIZE * CELL_M) / 2
     )
-    organBase.position.set(organSurfaceX, 0.16, organCenterZ + sideSign * baseCenterOffset)
-    group.add(organBase)
+    group.add(floor)
+    const ceiling = new THREE.Mesh(art.chunkPlaneGeo, art.ceilingMaterial)
+    ceiling.rotation.x = Math.PI / 2
+    ceiling.position.set(floor.position.x, WALL_HEIGHT_M, floor.position.z)
+    group.add(ceiling)
+    return group
   }
 
-  addDoorVisual(group, doorSignals, 'north', { x: 0, y: 1.12, z: 9.78 }, new THREE.BoxGeometry(2.25, 1.8, 0.08), doorMaterial)
-  addDoorVisual(group, doorSignals, 'south', { x: 0, y: 1.12, z: -9.78 }, new THREE.BoxGeometry(2.25, 1.8, 0.08), doorMaterial)
-  addDoorVisual(group, doorSignals, 'east', { x: 9.78, y: 1.12, z: 0 }, new THREE.BoxGeometry(0.08, 1.8, 2.25), doorMaterial)
-  addDoorVisual(group, doorSignals, 'west', { x: -9.78, y: 1.12, z: 0 }, new THREE.BoxGeometry(0.08, 1.8, 2.25), doorMaterial)
-
-  // REQ-059 moving cover slab. Dimensions and starting position match
-  // the seed rect appended to ARENA_COVER_RECTS; FlatlineGame's
-  // animate loop drives both the mesh `position.x` and the matching
-  // CoverRect every frame.
-  const movingCoverMaterial = new THREE.MeshStandardMaterial({
-    color: '#3a3d40',
-    roughness: 0.72,
-    metalness: 0.22
-  })
-  const movingCover = new THREE.Mesh(
-    new THREE.BoxGeometry(MOVING_COVER_HALF_W * 2, MOVING_COVER_HEIGHT_M, MOVING_COVER_HALF_L * 2),
-    movingCoverMaterial
-  )
-  movingCover.position.set(-3.5, MOVING_COVER_HEIGHT_M / 2, 4)
-  movingCover.castShadow = true
-  movingCover.receiveShadow = true
-  group.add(movingCover)
-
-  return {
-    group,
-    doorSignals,
-    pickup: { altar, halo: pickupHalo, restY: altarRestY },
-    breakableCrateMeshes,
-    movingCover,
-    pillars,
-    pillarRestY
-  }
-}
-
-function addDoorVisual(
-  group: THREE.Group,
-  doorSignals: Record<string, THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>>,
-  id: string,
-  position: Vec3,
-  geometry: THREE.BoxGeometry,
-  doorMaterial: THREE.MeshStandardMaterial
-) {
-  const panel = new THREE.Mesh(geometry, doorMaterial)
-  panel.position.set(position.x, position.y, position.z)
-  group.add(panel)
-
-  const signal = new THREE.Mesh(
-    geometry.clone(),
-    new THREE.MeshBasicMaterial({
-      color: '#50d1c0',
-      transparent: true,
-      opacity: 0.08,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending
-    })
-  )
-  signal.position.copy(panel.position)
-  signal.scale.set(0.74, 0.58, 0.74)
-  signal.renderOrder = 1
-  group.add(signal)
-  doorSignals[id] = signal
-}
-
-function createHazardMeshes(): Record<HazardKind, THREE.Mesh> {
-  const flameLane = new THREE.Mesh(
-    new THREE.BoxGeometry(1.5, 0.035, 17),
-    new THREE.MeshBasicMaterial({ color: '#f05a4f', transparent: true, opacity: 0 })
-  )
-  flameLane.position.set(0, 0.035, 0)
-
-  const inkPool = new THREE.Mesh(
-    new THREE.CircleGeometry(1.45, 32),
-    new THREE.MeshBasicMaterial({ color: '#50d1c0', transparent: true, opacity: 0 })
-  )
-  inkPool.position.set(2.8, 0.045, -1.8)
-  inkPool.rotation.x = -Math.PI / 2
-
-  const fallingLight = new THREE.Mesh(
-    new THREE.RingGeometry(0.72, 1.1, 32),
-    new THREE.MeshBasicMaterial({ color: '#f4f1e8', transparent: true, opacity: 0 })
-  )
-  fallingLight.position.set(-2.4, 0.055, 2.1)
-  fallingLight.rotation.x = -Math.PI / 2
-
-  const centerSurge = new THREE.Mesh(
-    new THREE.RingGeometry(1.18, 1.65, 40),
-    new THREE.MeshBasicMaterial({ color: '#f05a4f', transparent: true, opacity: 0 })
-  )
-  centerSurge.position.set(0, 0.06, 0)
-  centerSurge.rotation.x = -Math.PI / 2
-
-  return {
-    flameLane,
-    inkPool,
-    fallingLight,
-    centerSurge
-  }
-}
-
-function applyHazardMeshes(runtime: RuntimeRefs, hazards: HazardState[]) {
-  hazards.forEach((hazard) => {
-    const mesh = runtime.hazardMeshes[hazard.kind]
-    const material = mesh.material as THREE.MeshBasicMaterial
-    material.opacity = opacityForHazardPhase(hazard.phase)
-    material.color.set(colorForHazardPhase(hazard.kind, hazard.phase))
-    mesh.visible = hazard.phase !== 'idle'
-    mesh.scale.setScalar(scaleForHazardPhase(hazard.phase))
-  })
-}
-
-function applyDoorSignals(
-  runtime: RuntimeRefs,
-  timers: Record<string, number>,
-  spawnTypes: Record<string, EnemyType>,
-  deltaMs: number
-) {
-  for (const [id, signal] of Object.entries(runtime.doorSignals)) {
-    const elapsedMs = (timers[id] ?? DOOR_TOTAL_MS) + deltaMs
-    timers[id] = Math.min(DOOR_TOTAL_MS, elapsedMs)
-    const visual = doorPhaseVisualAtElapsedMs(elapsedMs)
-    const phase = doorPhaseAtElapsedMs(elapsedMs)
-    const spawnType = spawnTypes[id]
-    // Tint the door to the most recent spawn's enemy type while the
-    // door is still in its bright phases (opening burst + open hold)
-    // so the player can read which enemy just came out by glance.
-    // Cooling and idle stay on the default doorState colors so the
-    // tint fades cleanly back to the resting glow.
-    const color = spawnType !== undefined && (phase === 'opening' || phase === 'open')
-      ? doorEnemyTint(spawnType)
-      : visual.color
-    const material = signal.material
-    material.opacity = visual.opacity
-    material.color.set(color)
-    signal.scale.y = visual.scaleY
-  }
-}
-
-function applyPickupReadability(runtime: RuntimeRefs, elapsedMs: number, ready: boolean) {
-  const { altar, halo, restY } = runtime.pickup
-  altar.position.y = restY + pickupBounceY(elapsedMs, ready)
-  altar.material.emissiveIntensity = pickupGlowIntensity(elapsedMs, ready)
-
-  const haloScale = pickupHaloScale(elapsedMs)
-  halo.scale.set(haloScale, haloScale, 1)
-  halo.material.opacity = pickupHaloOpacity(elapsedMs, ready)
-}
-
-function opacityForHazardPhase(phase: HazardPhase): number {
-  if (phase === 'active') {
-    return 0.72
-  }
-
-  if (phase === 'warning') {
-    return 0.28
-  }
-
-  return 0
-}
-
-function scaleForHazardPhase(phase: HazardPhase): number {
-  if (phase === 'active') {
-    return 1.08
-  }
-
-  if (phase === 'warning') {
-    return 0.9
-  }
-
-  return 1
-}
-
-function colorForHazardPhase(kind: HazardKind, phase: HazardPhase): string {
-  if (phase === 'active') {
-    if (kind === 'centerSurge') {
-      return '#ff3f4f'
-    }
-
-    return kind === 'inkPool' ? '#5be7d6' : '#f05a4f'
-  }
-
-  if (kind === 'fallingLight') {
-    return '#f4f1e8'
-  }
-
-  if (kind === 'inkPool') {
-    return '#50d1c0'
-  }
-
-  if (kind === 'centerSurge') {
-    return '#f0c668'
-  }
-
-  return '#ffb04f'
-}
-
-function spawnShotBolt(
-  runtime: RuntimeRefs,
-  bolts: ShotBolt[],
-  origin: Vec3,
-  direction: Vec3,
-  distance: number,
-  hit: boolean
-) {
-  const start = new THREE.Vector3(origin.x, origin.y - 0.16, origin.z)
-  const travelDirection = new THREE.Vector3(direction.x, direction.y, direction.z).normalize()
-  start.addScaledVector(travelDirection, 0.55)
-
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(hit ? 0.085 : 0.065, 10, 10),
-    new THREE.MeshBasicMaterial({
-      color: hit ? '#f05a4f' : '#50d1c0',
-      transparent: true,
-      opacity: 0.92
-    })
-  )
-  mesh.position.copy(start)
-  mesh.renderOrder = 4
-  runtime.shotGroup.add(mesh)
-  shotBoltsLimit(runtime, bolts)
-  const travelDistance = Math.max(0.35, distance - 0.55)
-  // Bolt step is deltaMs * 0.075, so travelDistance / 0.075 ms hits the impact point.
-  // Add a fade buffer so the visual ring opacity has time to drop after spawn.
-  const travelMs = travelDistance / 0.075
-  const fadeBufferMs = hit ? 120 : 180
-  bolts.push({
-    mesh,
-    direction: travelDirection,
-    remainingDistance: travelDistance,
-    ttlMs: travelMs + fadeBufferMs,
-    hit,
-    impactSpawned: false
-  })
-}
-
-function tickShotBolts(runtime: RuntimeRefs, bolts: ShotBolt[], impacts: ShotImpact[], deltaMs: number) {
-  for (let index = bolts.length - 1; index >= 0; index -= 1) {
-    const bolt = bolts[index]
-    const step = Math.min(bolt.remainingDistance, deltaMs * 0.075)
-    bolt.mesh.position.addScaledVector(bolt.direction, step)
-    bolt.remainingDistance -= step
-    bolt.ttlMs -= deltaMs
-    bolt.mesh.material.opacity = Math.max(0, Math.min(0.92, bolt.ttlMs / 120))
-
-    if (bolt.remainingDistance <= 0 && !bolt.impactSpawned) {
-      bolt.impactSpawned = true
-      spawnShotImpact(runtime, impacts, bolt.mesh.position, bolt.direction, bolt.hit)
-    }
-
-    if (bolt.remainingDistance <= 0 || bolt.ttlMs <= 0) {
-      runtime.shotGroup.remove(bolt.mesh)
-      bolt.mesh.geometry.dispose()
-      bolt.mesh.material.dispose()
-      bolts.splice(index, 1)
-    }
-  }
-}
-
-function spawnShotImpact(
-  runtime: RuntimeRefs,
-  impacts: ShotImpact[],
-  position: THREE.Vector3,
-  direction: THREE.Vector3,
-  hit: boolean
-) {
-  const innerRadius = hit ? 0.04 : 0.03
-  const outerRadius = hit ? 0.16 : 0.1
-  const mesh = new THREE.Mesh(
-    new THREE.RingGeometry(innerRadius, outerRadius, 18),
-    new THREE.MeshBasicMaterial({
-      color: hit ? '#ff6f63' : '#7be0d2',
-      transparent: true,
-      opacity: hit ? 0.95 : 0.7,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    })
-  )
-  mesh.position.copy(position)
-  const lookTarget = new THREE.Vector3().copy(position).addScaledVector(direction, -1)
-  mesh.lookAt(lookTarget)
-  mesh.renderOrder = 5
-  runtime.shotGroup.add(mesh)
-  shotImpactsLimit(runtime, impacts)
-  impacts.push({
-    mesh,
-    ageMs: 0,
-    durationMs: hit ? 220 : 160,
-    startScale: hit ? 0.6 : 0.5,
-    endScale: hit ? 2.4 : 1.6
-  })
-}
-
-function tickShotImpacts(runtime: RuntimeRefs, impacts: ShotImpact[], deltaMs: number) {
-  for (let index = impacts.length - 1; index >= 0; index -= 1) {
-    const impact = impacts[index]
-    impact.ageMs += deltaMs
-    const t = Math.min(1, impact.ageMs / impact.durationMs)
-    const scale = impact.startScale + (impact.endScale - impact.startScale) * t
-    impact.mesh.scale.setScalar(scale)
-    impact.mesh.material.opacity = Math.max(0, impact.mesh.material.opacity * (1 - t * 0.18) - deltaMs * 0.0015)
-
-    if (impact.ageMs >= impact.durationMs) {
-      runtime.shotGroup.remove(impact.mesh)
-      impact.mesh.geometry.dispose()
-      impact.mesh.material.dispose()
-      impacts.splice(index, 1)
-    }
-  }
-}
-
-function shotImpactsLimit(runtime: RuntimeRefs, impacts: ShotImpact[]) {
-  while (impacts.length >= 12) {
-    const impact = impacts.shift()
-
-    if (!impact) {
+  function spawnChunkEntities(chunk: Chunk) {
+    const world = worldRef.current as World
+    const art = artRef.current as Art
+    const three = threeRef.current
+    if (!three) {
       return
     }
-
-    runtime.shotGroup.remove(impact.mesh)
-    impact.mesh.geometry.dispose()
-    impact.mesh.material.dispose()
+    for (const spawn of chunk.enemies) {
+      addEnemy(spawn.kind, { x: cellCenter(spawn.gx), z: cellCenter(spawn.gz) })
+    }
+    for (const spawn of chunk.pickups) {
+      addPickup(spawn.kind, { x: cellCenter(spawn.gx), z: cellCenter(spawn.gz) })
+    }
+    for (const crate of chunk.crates) {
+      const id = world.nextId++
+      const sprite = spriteFor(art.crate[0], 1.1)
+      const pos = { x: cellCenter(crate.gx), z: cellCenter(crate.gz) }
+      sprite.position.set(pos.x, 0.55, pos.z)
+      three.scene.add(sprite)
+      world.crates.set(id, { id, pos, sprite, hp: 20 })
+    }
+    for (const doorSpawn of chunk.doors) {
+      const key = doorKey(doorSpawn.gx, doorSpawn.gz)
+      if (world.doors.has(key)) {
+        continue
+      }
+      const state = createDoor(doorSpawn.gx, doorSpawn.gz, doorSpawn.locked)
+      const geo = new THREE.BoxGeometry(
+        doorSpawn.axis === 'x' ? 0.4 : CELL_M,
+        WALL_HEIGHT_M,
+        doorSpawn.axis === 'x' ? CELL_M : 0.4
+      )
+      const mesh = new THREE.Mesh(
+        geo,
+        new THREE.MeshLambertMaterial({ map: doorSpawn.locked ? art.vaultDoor : art.door })
+      )
+      mesh.position.set(cellCenter(doorSpawn.gx), WALL_HEIGHT_M / 2, cellCenter(doorSpawn.gz))
+      three.scene.add(mesh)
+      world.doors.set(key, { state, mesh, pos: { x: cellCenter(doorSpawn.gx), z: cellCenter(doorSpawn.gz) } })
+    }
   }
-}
 
-function clearShotImpacts(runtime: RuntimeRefs | null, impacts: ShotImpact[]) {
-  while (impacts.length > 0) {
-    const impact = impacts.pop()
-
-    if (!impact) {
+  function addEnemy(kind: EnemyKind, pos: Vec2) {
+    const world = worldRef.current as World
+    const art = artRef.current as Art
+    const three = threeRef.current
+    if (!three) {
       return
     }
-
-    runtime?.shotGroup.remove(impact.mesh)
-    impact.mesh.geometry.dispose()
-    impact.mesh.material.dispose()
+    const enemy = createEnemy(kind, pos)
+    const def = ENEMY_DEFS[kind]
+    const sprite = spriteFor(art.enemyTex[kind].walkA[0], def.heightM * 1.15)
+    sprite.position.set(enemy.pos.x, def.heightM / 2, enemy.pos.z)
+    three.scene.add(sprite)
+    world.enemies.set(enemy.id, { logic: enemy, sprite, boilAt: 0, variant: 0, losUntil: 0, losCached: false })
   }
-}
 
-// Feel pass: spawn a wide warm ring at the position of a freshly
-// killed enemy. The ring lays flat (rotated 90 deg around X) so a
-// horizontal pop is visible from any camera angle even at low
-// ground angles. Slightly larger and warmer than ShotImpact to
-// distinguish "this enemy died" from "this shot landed."
-function spawnEnemyDeathPop(
-  runtime: RuntimeRefs,
-  pops: EnemyDeathPop[],
-  position: { x: number; y: number; z: number }
-) {
-  const mesh = new THREE.Mesh(
-    new THREE.RingGeometry(0.06, 0.22, 28),
-    new THREE.MeshBasicMaterial({
-      color: '#ffc06a',
-      transparent: true,
-      opacity: 0.9,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    })
-  )
-  mesh.position.set(position.x, Math.max(0.05, position.y - 0.5), position.z)
-  // Lay the ring flat so it reads as a ground-level burst.
-  mesh.rotation.x = -Math.PI / 2
-  mesh.renderOrder = 5
-  runtime.shotGroup.add(mesh)
-  enemyDeathPopsLimit(runtime, pops)
-  pops.push({
-    mesh,
-    ageMs: 0,
-    durationMs: 360,
-    startScale: 0.7,
-    endScale: 3.4
-  })
-}
-
-function tickEnemyDeathPops(runtime: RuntimeRefs, pops: EnemyDeathPop[], deltaMs: number) {
-  for (let index = pops.length - 1; index >= 0; index -= 1) {
-    const pop = pops[index]
-    pop.ageMs += deltaMs
-    const t = Math.min(1, pop.ageMs / pop.durationMs)
-    const scale = pop.startScale + (pop.endScale - pop.startScale) * t
-    pop.mesh.scale.setScalar(scale)
-    pop.mesh.material.opacity = Math.max(0, 0.9 * (1 - t))
-
-    if (pop.ageMs >= pop.durationMs) {
-      runtime.shotGroup.remove(pop.mesh)
-      pop.mesh.geometry.dispose()
-      pop.mesh.material.dispose()
-      pops.splice(index, 1)
-    }
-  }
-}
-
-function enemyDeathPopsLimit(runtime: RuntimeRefs, pops: EnemyDeathPop[]) {
-  while (pops.length >= 8) {
-    const pop = pops.shift()
-
-    if (!pop) {
+  function addPickup(kind: PickupKind, pos: Vec2) {
+    const world = worldRef.current as World
+    const art = artRef.current as Art
+    const three = threeRef.current
+    if (!three) {
       return
     }
-
-    runtime.shotGroup.remove(pop.mesh)
-    pop.mesh.geometry.dispose()
-    pop.mesh.material.dispose()
+    const id = world.nextId++
+    const scale = kind === 'coinSmall' ? 0.45 : kind === 'cheeseWheel' || kind === 'coinPile' ? 0.8 : 0.65
+    const sprite = spriteFor(art.pickupTex[kind][0], scale)
+    sprite.position.set(pos.x, scale / 2 + 0.15, pos.z)
+    three.scene.add(sprite)
+    world.pickups.set(id, { id, kind, pos: { ...pos }, sprite, bob: Math.random() * Math.PI * 2 })
   }
-}
 
-// Cap on total live gibs so a peak-of-peak kill flurry does not
-// dump hundreds of meshes into the scene. The oldest gib is
-// recycled first.
-const GIB_LIMIT = 64
-const GIB_SIZE_M = 0.07
-const GIB_SPEED_MIN = 2.4
-const GIB_SPEED_MAX = 4.2
-// Local mirror of GIB_TTL_MS from enemyGibs.ts so the renderer can
-// compute a fade without re-importing the constant.
-const GIB_TTL_MS_LOCAL = 1400
+  function addEffect(textures: THREE.Texture[], pos: Vec2, y: number, scale: number, ttl: number) {
+    const world = worldRef.current as World
+    const three = threeRef.current
+    if (!three) {
+      return
+    }
+    const sprite = spriteFor(textures[0], scale)
+    sprite.position.set(pos.x, y, pos.z)
+    three.scene.add(sprite)
+    world.effects.push({ sprite, ttl, total: ttl, frames: textures })
+  }
 
-function spawnEnemyGibs(
-  runtime: RuntimeRefs,
-  gibs: GibEntry[],
-  type: EnemyType,
-  position: { x: number; y: number; z: number }
-) {
-  const count = gibCountFor(type)
-  const color = gibColorFor(type)
-  const baseY = Math.max(GIB_SIZE_M, position.y - 0.4)
+  function addFloorSplat(pos: Vec2) {
+    const world = worldRef.current as World
+    const art = artRef.current as Art
+    const three = threeRef.current
+    if (!three) {
+      return
+    }
+    const material = art.splatMaterials[Math.floor(Math.random() * art.splatMaterials.length)]
+    const mesh = new THREE.Mesh(art.splatGeo, material)
+    mesh.rotation.x = -Math.PI / 2
+    mesh.rotation.z = Math.random() * Math.PI * 2
+    mesh.position.set(pos.x, 0.02 + world.corpses.length * 0.0004, pos.z)
+    three.scene.add(mesh)
+    world.corpses.push(mesh)
+    if (world.corpses.length > 50) {
+      const old = world.corpses.shift()
+      if (old) {
+        three.scene.remove(old)
+      }
+    }
+  }
 
-  for (let i = 0; i < count; i += 1) {
-    if (gibs.length >= GIB_LIMIT) {
-      const oldest = gibs.shift()
-      if (oldest) {
-        runtime.shotGroup.remove(oldest.mesh)
-        oldest.mesh.geometry.dispose()
-        oldest.mesh.material.dispose()
+  function tryUseDoor() {
+    const world = worldRef.current as World
+    if (!world) {
+      return
+    }
+    const { pos, yaw } = world.player
+    // Check the two cells straight ahead.
+    for (const reach of [1, 2]) {
+      const gx = worldToCell(pos.x + Math.sin(yaw) * reach)
+      const gz = worldToCell(pos.z + Math.cos(yaw) * reach)
+      const door = world.doors.get(doorKey(gx, gz))
+      if (!door) {
+        continue
+      }
+      const hasKey = world.player.hasVaultKey || world.config.skeletonKey
+      const result = operateDoor(door.state, hasKey)
+      if (result === 'opened' || result === 'unlocked') {
+        if (result === 'unlocked' && !world.config.skeletonKey) {
+          // A physical key is spent on the lock it opened.
+          world.player.hasVaultKey = false
+        }
+        sfxRef.current?.doorOpen()
+      } else if (result === 'locked') {
+        sfxRef.current?.doorLocked()
+      }
+      return
+    }
+  }
+
+  function damagePlayer(damage: number, now: number) {
+    const world = worldRef.current as World
+    if (world.player.dead) {
+      return
+    }
+    world.player.vitals = applyPlayerDamage(world.player.vitals, damage)
+    world.player.damageFlash = Math.min(1, world.player.damageFlash + damage / 60)
+    world.player.painUntil = now + 700
+    sfxRef.current?.playerHurt()
+    if (world.player.vitals.hp <= 0) {
+      if (world.config.reviveOnce && !world.player.reviveUsed) {
+        world.player.reviveUsed = true
+        world.player.vitals = { ...world.player.vitals, hp: 50 }
+        world.player.pickupFlash = 1
+        return
+      }
+      killPlayer(now)
+    }
+  }
+
+  function killPlayer(now: number) {
+    const world = worldRef.current as World
+    if (world.player.dead) {
+      return
+    }
+    world.player.dead = true
+    world.player.deathAt = now
+    document.exitPointerLock()
+    window.setTimeout(() => finishDeathRef.current(), 1600)
+  }
+
+  function weaponDamageMult(weapon: WeaponId): number {
+    const world = worldRef.current as World
+    const tier = world.weaponTiers[weapon] ?? 0
+    return world.config.damageMult * (1 + tier * WEAPON_TIER_DAMAGE_PER_TIER)
+  }
+
+  function fireHitscanPellet(
+    origin: Vec2,
+    angle: number,
+    damage: number,
+    fromPlayer: boolean,
+    shooterId: number | null,
+    maxRange = HITSCAN_RANGE
+  ) {
+    const world = worldRef.current as World
+    const art = artRef.current as Art
+    const wallHit = castRay(solidAt, origin, angle, maxRange)
+    const wallDist = wallHit?.distance ?? maxRange
+
+    type Victim = { kind: 'enemy' | 'crate' | 'player'; id: number; along: number; pos: Vec2 }
+    let best: Victim | null = null
+    const consider = (kind: Victim['kind'], id: number, pos: Vec2, radius: number) => {
+      const r = rayPointDistance(origin, angle, pos)
+      if (r && r.lateral < radius && r.along < wallDist && (!best || r.along < best.along)) {
+        best = { kind, id, along: r.along, pos }
+      }
+    }
+    for (const [, entity] of world.enemies) {
+      if (entity.logic.state === 'dead' || entity.logic.state === 'dying') {
+        continue
+      }
+      if (!fromPlayer && shooterId === entity.logic.id) {
+        continue
+      }
+      consider('enemy', entity.logic.id, entity.logic.pos, ENEMY_DEFS[entity.logic.kind].radiusM)
+    }
+    for (const [, crate] of world.crates) {
+      consider('crate', crate.id, crate.pos, 0.55)
+    }
+    if (!fromPlayer) {
+      consider('player', -1, world.player.pos, PLAYER_RADIUS)
+    }
+
+    const victim = best as Victim | null
+    if (victim) {
+      if (victim.kind === 'player') {
+        damagePlayer(damage, performance.now())
+      } else if (victim.kind === 'enemy') {
+        hurtEnemy(victim.id, damage, shooterId)
+        addEffect(art.splat, victim.pos, 1.2 + Math.random() * 0.5, 0.5, 0.25)
+      } else {
+        hurtCrate(victim.id, damage)
+      }
+    } else if (wallHit) {
+      addEffect(art.impact, wallHit.point, 1 + Math.random() * 0.8, 0.4, 0.2)
+    }
+  }
+
+  function hurtEnemy(id: number, damage: number, attackerId: number | null) {
+    const world = worldRef.current as World
+    const entity = world.enemies.get(id)
+    if (!entity) {
+      return
+    }
+    const result = damageEnemy(entity.logic, damage, world.rng, attackerId)
+    if (result === 'pain') {
+      sfxRef.current?.enemyPain()
+    } else if (result === 'died') {
+      sfxRef.current?.enemyDie()
+      onEnemyKilled(entity)
+    }
+  }
+
+  function onEnemyKilled(entity: EnemyEntity) {
+    const world = worldRef.current as World
+    world.player.kills += 1
+    const def = ENEMY_DEFS[entity.logic.kind]
+    const coins = rngInt(world.rng, def.coinDrop.min, def.coinDrop.max) * (world.config.doubleCoins ? 2 : 1)
+    for (let i = 0; i < coins; i++) {
+      const angle = world.rng() * Math.PI * 2
+      const r = 0.3 + world.rng() * 0.8
+      addPickup('coinSmall', { x: entity.logic.pos.x + Math.sin(angle) * r, z: entity.logic.pos.z + Math.cos(angle) * r })
+    }
+    // Luck-based supply drops, doom style.
+    if (world.rng() < 0.18 + world.config.dropLuck) {
+      addPickup(world.rng() < 0.5 ? 'cheeseBit' : 'bullets', entity.logic.pos)
+    }
+    addFloorSplat(entity.logic.pos)
+  }
+
+  function hurtCrate(id: number, damage: number) {
+    const world = worldRef.current as World
+    const crate = world.crates.get(id)
+    if (!crate) {
+      return
+    }
+    crate.hp -= damage
+    if (crate.hp > 0) {
+      return
+    }
+    world.crates.delete(id)
+    threeRef.current?.scene.remove(crate.sprite)
+    explodeAt(crate.pos, { maxDamage: 128, radiusM: 4 })
+    if (world.rng() < 0.4) {
+      addPickup('coinSmall', crate.pos)
+    }
+  }
+
+  function explodeAt(pos: Vec2, splash: { maxDamage: number; radiusM: number }) {
+    const world = worldRef.current as World
+    const art = artRef.current as Art
+    sfxRef.current?.explosion()
+    addEffect(art.explosion, pos, 1.4, 2.8, 0.5)
+    const targets: Array<{ id: TargetRef; pos: Vec2 }> = [{ id: { kind: 'player' }, pos: world.player.pos }]
+    for (const [, e] of world.enemies) {
+      targets.push({ id: { kind: 'enemy', id: e.logic.id }, pos: e.logic.pos })
+    }
+    for (const [, crate] of world.crates) {
+      targets.push({ id: { kind: 'crate', id: crate.id }, pos: crate.pos })
+    }
+    for (const hit of resolveSplash(pos, splash, targets)) {
+      if (hit.targetId.kind === 'player') {
+        damagePlayer(hit.damage, performance.now())
+      } else if (hit.targetId.kind === 'crate') {
+        hurtCrate(hit.targetId.id, hit.damage)
+      } else {
+        hurtEnemy(hit.targetId.id, hit.damage, null)
+      }
+    }
+  }
+
+  function firePlayerWeapon(now: number) {
+    const world = worldRef.current as World
+    const art = artRef.current as Art
+    const player = world.player
+    const def = WEAPONS[player.weapon]
+    if (!canFire(def, player.ammo)) {
+      player.weapon = bestFallbackWeapon(player.owned, player.ammo)
+      return
+    }
+    if (!def.auto && player.firedWhileHeld) {
+      return
+    }
+    const wasFirstShot = !player.firedWhileHeld
+    player.ammo = spendAmmo(def, player.ammo)
+    player.cooldown = def.cycleSec / world.config.fireRateMult
+    player.firedWhileHeld = true
+    player.muzzleUntil = now + 90
+    sfxRef.current?.fire(player.weapon)
+    // Wake nearby enemies: gunfire is loud.
+    for (const [, entity] of world.enemies) {
+      if (dist(entity.logic.pos, player.pos) < 20) {
+        entity.logic.awake = true
+        if (entity.logic.state === 'idle') {
+          entity.logic.state = 'chase'
+        }
+      }
+    }
+    const mult = weaponDamageMult(player.weapon)
+    if (def.melee) {
+      // Punches only reach melee range, not the full hitscan distance.
+      fireHitscanPellet(
+        player.pos,
+        player.yaw,
+        Math.round(rollDamage(world.rng, def.dice) * mult),
+        true,
+        null,
+        def.melee.rangeM
+      )
+      return
+    }
+    if (def.projectile) {
+      const damage = Math.round(rollDamage(world.rng, def.dice) * mult)
+      const kind: ProjectileArt = player.weapon === 'lobber' ? 'tnt' : player.weapon === 'bigcheese' ? 'bigcheese' : 'ray'
+      const origin = {
+        x: player.pos.x + Math.sin(player.yaw) * 0.6,
+        z: player.pos.z + Math.cos(player.yaw) * 0.6
+      }
+      const projectile = createProjectile(
+        kind,
+        origin,
+        player.yaw,
+        def.projectile.speedM,
+        def.projectile.radiusM,
+        damage,
+        true,
+        null,
+        def.projectile.splash
+      )
+      const sprite = spriteFor(art.projTex[kind][0], kind === 'bigcheese' ? 0.9 : 0.5)
+      sprite.position.set(origin.x, 1.2, origin.z)
+      threeRef.current?.scene.add(sprite)
+      world.projectiles.set(projectile.id, { p: projectile, sprite })
+      return
+    }
+    for (let i = 0; i < def.pellets; i++) {
+      // Triangular spread like doom's twin P_Random calls; the pistol and
+      // chatter gun fire their first tapped shot perfectly straight.
+      const accurate = def.accurateFirstShot && wasFirstShot && def.pellets === 1
+      const offset = accurate ? 0 : (world.rng() - world.rng()) * def.spreadRad
+      const damage = Math.round(rollDamage(world.rng, def.dice) * mult)
+      fireHitscanPellet(player.pos, player.yaw + offset, damage, true, null)
+    }
+  }
+
+  function stepWorld(dt: number, now: number) {
+    const world = worldRef.current
+    const three = threeRef.current
+    if (!world || !three) {
+      return
+    }
+    world.time += dt
+    const player = world.player
+
+    // --- Chunk streaming: only when the player crosses a chunk border ---
+    const pcx = cellToChunk(worldToCell(player.pos.x))
+    const pcz = cellToChunk(worldToCell(player.pos.z))
+    const streamKey = chunkKey(pcx, pcz)
+    if (streamKey !== world.lastStreamKey) {
+      world.lastStreamKey = streamKey
+      for (let dz = -ACTIVE_CHUNK_RADIUS; dz <= ACTIVE_CHUNK_RADIUS; dz++) {
+        for (let dx = -ACTIVE_CHUNK_RADIUS; dx <= ACTIVE_CHUNK_RADIUS; dx++) {
+          const chunk = getChunk(pcx + dx, pcz + dz)
+          ensureChunkMesh(pcx + dx, pcz + dz)
+          const key = chunkKey(pcx + dx, pcz + dz)
+          if (!world.spawned.has(key)) {
+            world.spawned.add(key)
+            spawnChunkEntities(chunk)
+          }
+        }
+      }
+      // Drop far chunk meshes (chunk data and entities stay; they are cheap).
+      for (const [, entry] of world.chunks) {
+        const distChunks = Math.max(Math.abs(entry.chunk.cx - pcx), Math.abs(entry.chunk.cz - pcz))
+        if (distChunks > KEEP_CHUNK_RADIUS && entry.group) {
+          three.scene.remove(entry.group)
+          entry.group = null
+        }
+      }
+      player.maxRing = Math.max(player.maxRing, Math.max(Math.abs(pcx), Math.abs(pcz)))
+    }
+
+    // --- Player movement ---
+    if (!player.dead) {
+      const keys = keysRef.current
+      const input = {
+        forward: keys.has('KeyW') || keys.has('ArrowUp'),
+        backward: keys.has('KeyS') || keys.has('ArrowDown'),
+        left: keys.has('KeyA') || keys.has('ArrowLeft'),
+        right: keys.has('KeyD') || keys.has('ArrowRight')
+      }
+      player.momentum = applyThrust(player.momentum, player.yaw, input, dt, world.config.speedMult)
+      player.momentum = applyFriction(player.momentum, dt)
+      const next = moveWithSliding(solidAt, player.pos, player.momentum.x * dt, player.momentum.z * dt, PLAYER_RADIUS)
+      player.pos = next
+
+      // Track explored cells for the automap, once per cell crossed.
+      const pgx = worldToCell(player.pos.x)
+      const pgz = worldToCell(player.pos.z)
+      const visitKey = `${pgx},${pgz}`
+      if (visitKey !== world.lastVisitKey) {
+        world.lastVisitKey = visitKey
+        for (let dz = -3; dz <= 3; dz++) {
+          for (let dx = -3; dx <= 3; dx++) {
+            world.visited.add(`${pgx + dx},${pgz + dz}`)
+          }
+        }
+      }
+
+      // Fire control. A queued click fires as soon as the cycle allows even
+      // if the button was already released; holding keeps autofire going.
+      player.cooldown -= dt
+      if ((player.fireHeld || player.fireQueued) && player.cooldown <= 0) {
+        firePlayerWeapon(now)
+        player.fireQueued = false
+      }
+      if (!player.fireHeld) {
+        player.firedWhileHeld = false
       }
     }
 
-    const azimuth = Math.random() * Math.PI * 2
-    const speed = GIB_SPEED_MIN + Math.random() * (GIB_SPEED_MAX - GIB_SPEED_MIN)
-    const velocity = gibInitialVelocity(azimuth, speed)
+    // --- Doors: closed faraway doors are inert, skip them entirely ---
+    for (const [, door] of world.doors) {
+      const playerDist = dist(door.pos, player.pos)
+      if (door.state.phase === 'closed' && playerDist > 3) {
+        continue
+      }
+      let blocked = playerDist < 1.2
+      if (!blocked) {
+        for (const [, entity] of world.enemies) {
+          if (entity.logic.state !== 'dead' && dist(door.pos, entity.logic.pos) < 1.2) {
+            blocked = true
+            break
+          }
+        }
+      }
+      tickDoor(door.state, dt, WALL_HEIGHT_M, blocked)
+      door.mesh.position.y = WALL_HEIGHT_M / 2 + door.state.openness * (WALL_HEIGHT_M - 0.15)
+      door.mesh.visible = door.state.openness < 0.98
+    }
 
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(GIB_SIZE_M, GIB_SIZE_M, GIB_SIZE_M),
-      new THREE.MeshStandardMaterial({
-        color,
-        emissive: color,
-        emissiveIntensity: 0.35,
-        metalness: 0.05,
-        roughness: 0.6,
-        transparent: true
+    // --- Enemies ---
+    for (const [id, entity] of world.enemies) {
+      const enemy = entity.logic
+      if (enemy.state === 'dead') {
+        world.enemies.delete(id)
+        three.scene.remove(entity.sprite)
+        continue
+      }
+      const distToPlayer = dist(enemy.pos, player.pos)
+      if (distToPlayer > ENEMY_THINK_RADIUS) {
+        continue
+      }
+      // Infighting: chase the last thing that hurt it, if still alive.
+      let target: Vec2 = player.pos
+      let targetIsPlayer = true
+      if (enemy.infightTargetId !== null) {
+        const other = world.enemies.get(enemy.infightTargetId)
+        if (other && other.logic.state !== 'dead' && other.logic.state !== 'dying') {
+          target = other.logic.pos
+          targetIsPlayer = false
+        } else {
+          enemy.infightTargetId = null
+        }
+      }
+      if (targetIsPlayer && player.dead) {
+        continue
+      }
+      // Staggered LOS: a full grid raycast per enemy per frame is the most
+      // expensive AI query; ~150ms staleness is imperceptible.
+      if (world.time > entity.losUntil) {
+        entity.losUntil = world.time + 0.12 + world.rng() * 0.08
+        entity.losCached = distToPlayer < 26 && hasLineOfSight(solidAt, enemy.pos, target)
+      }
+      const canSee = entity.losCached
+      const events = tickEnemy(enemy, { dt, target, canSeeTarget: canSee, rng: world.rng })
+
+      // Movement with door handling: enemies open unlocked doors.
+      const speed = enemyMoveSpeed(enemy)
+      if (speed > 0 && enemy.awake) {
+        const dx = Math.sin(enemy.moveAngle) * speed * dt
+        const dz = Math.cos(enemy.moveAngle) * speed * dt
+        const before = { ...enemy.pos }
+        const moved = moveWithSliding(solidAt, enemy.pos, dx, dz, ENEMY_DEFS[enemy.kind].radiusM)
+        enemy.pos.x = moved.x
+        enemy.pos.z = moved.z
+        if (dist(moved, before) < speed * dt * 0.3) {
+          // Blocked: try a door directly ahead, otherwise re-roll direction.
+          const gx = worldToCell(enemy.pos.x + Math.sin(enemy.moveAngle) * 1.2)
+          const gz = worldToCell(enemy.pos.z + Math.cos(enemy.moveAngle) * 1.2)
+          const door = world.doors.get(doorKey(gx, gz))
+          if (door && !door.state.locked && door.state.phase === 'closed') {
+            operateDoor(door.state, false)
+            sfxRef.current?.doorOpen()
+          } else {
+            enemy.wanderTimer = 0
+          }
+        }
+      }
+
+      // Resolve attack events.
+      const def = ENEMY_DEFS[enemy.kind]
+      for (const event of events) {
+        if (event.type === 'meleeHit') {
+          if (targetIsPlayer) {
+            if (dist(enemy.pos, player.pos) < (def.melee?.rangeM ?? 1.5) + 0.4) {
+              damagePlayer(event.damage, now)
+            }
+          } else if (enemy.infightTargetId !== null) {
+            hurtEnemy(enemy.infightTargetId, event.damage, enemy.id)
+          }
+        } else if (event.type === 'hitscan') {
+          for (let i = 0; i < event.pellets; i++) {
+            const offset = (world.rng() - world.rng()) * event.spreadRad
+            const damage = rollDamage(world.rng, event.dice)
+            fireHitscanPellet(enemy.pos, angleTo(enemy.pos, target) + offset, damage, false, enemy.id)
+          }
+        } else if (event.type === 'projectile') {
+          const art = artRef.current as Art
+          const kind: ProjectileArt = enemy.kind === 'fatcat' ? 'ember' : 'knife'
+          const damage = rollDamage(world.rng, event.dice)
+          const origin = {
+            x: enemy.pos.x + Math.sin(event.angle) * (def.radiusM + 0.3),
+            z: enemy.pos.z + Math.cos(event.angle) * (def.radiusM + 0.3)
+          }
+          const projectile = createProjectile(kind, origin, event.angle, event.speedM, event.radiusM, damage, false, enemy.id)
+          const sprite = spriteFor(art.projTex[kind][0], 0.5)
+          sprite.position.set(origin.x, 1.1, origin.z)
+          three.scene.add(sprite)
+          world.projectiles.set(projectile.id, { p: projectile, sprite })
+        }
+      }
+
+      // Sprite frame selection + boil.
+      let frame: EnemyFrame
+      if (enemy.state === 'dying') {
+        frame = enemy.deathTimer < 0.25 ? 'die1' : enemy.deathTimer < 0.5 ? 'die2' : 'die3'
+      } else if (enemy.state === 'pain') {
+        frame = 'pain'
+      } else if (enemy.state === 'windup') {
+        frame = 'windup'
+      } else if (enemy.state === 'chase') {
+        frame = Math.floor(world.time * 4) % 2 === 0 ? 'walkA' : 'walkB'
+      } else {
+        frame = 'walkA'
+      }
+      if (world.time > entity.boilAt) {
+        entity.boilAt = world.time + 0.1
+        entity.variant = (entity.variant + 1) % 2
+      }
+      const art = artRef.current as Art
+      const texture = art.enemyTex[enemy.kind][frame][entity.variant]
+      if ((entity.sprite.material as THREE.SpriteMaterial).map !== texture) {
+        entity.sprite.material = getSpriteMaterial(texture)
+      }
+      entity.sprite.position.set(enemy.pos.x, def.heightM / 2, enemy.pos.z)
+    }
+
+    // --- Projectiles ---
+    for (const [id, entity] of world.projectiles) {
+      const targets: Array<{ id: TargetRef; pos: Vec2; radiusM: number }> = []
+      if (entity.p.fromPlayer) {
+        for (const [, e] of world.enemies) {
+          if (e.logic.state !== 'dead' && e.logic.state !== 'dying') {
+            targets.push({ id: { kind: 'enemy', id: e.logic.id }, pos: e.logic.pos, radiusM: ENEMY_DEFS[e.logic.kind].radiusM })
+          }
+        }
+        for (const [, crate] of world.crates) {
+          targets.push({ id: { kind: 'crate', id: crate.id }, pos: crate.pos, radiusM: 0.55 })
+        }
+      } else {
+        if (!player.dead) {
+          targets.push({ id: { kind: 'player' }, pos: player.pos, radiusM: PLAYER_RADIUS })
+        }
+        for (const [, e] of world.enemies) {
+          if (e.logic.id !== entity.p.shooterId && e.logic.state !== 'dead' && e.logic.state !== 'dying') {
+            targets.push({ id: { kind: 'enemy', id: e.logic.id }, pos: e.logic.pos, radiusM: ENEMY_DEFS[e.logic.kind].radiusM })
+          }
+        }
+      }
+      const hit = tickProjectile(entity.p, dt, solidAt, targets)
+      entity.sprite.position.set(entity.p.pos.x, entity.p.kind === 'tnt' ? 1.2 - entity.p.ageSec * 0.3 : 1.1, entity.p.pos.z)
+      entity.sprite.material.rotation += dt * (entity.p.kind === 'tnt' ? 6 : 2)
+      if (!hit) {
+        continue
+      }
+      world.projectiles.delete(id)
+      three.scene.remove(entity.sprite)
+      if (hit.type === 'expired') {
+        continue
+      }
+      if (entity.p.splash) {
+        explodeAt(hit.pos, entity.p.splash)
+        continue
+      }
+      if (hit.type === 'target') {
+        if (hit.targetId.kind === 'player') {
+          damagePlayer(entity.p.damage, now)
+        } else if (hit.targetId.kind === 'crate') {
+          hurtCrate(hit.targetId.id, entity.p.damage)
+        } else {
+          const victim = world.enemies.get(hit.targetId.id)
+          // Doom rule: same-species projectiles never damage each other.
+          if (victim && entity.p.shooterId !== null) {
+            const shooter = world.enemies.get(entity.p.shooterId)
+            if (shooter && projectileHarmless(shooter.logic.kind, victim.logic.kind)) {
+              continue
+            }
+          }
+          hurtEnemy(hit.targetId.id, entity.p.damage, entity.p.shooterId)
+          const art = artRef.current as Art
+          addEffect(art.splat, hit.pos, 1.2, 0.5, 0.25)
+        }
+      } else {
+        const art = artRef.current as Art
+        addEffect(art.impact, hit.pos, 1.1, 0.4, 0.2)
+      }
+    }
+
+    // --- Pickups ---
+    if (!player.dead) {
+      for (const [id, pickup] of world.pickups) {
+        pickup.sprite.position.y = 0.45 + Math.sin(world.time * 3 + pickup.bob) * 0.08
+        if (dist(pickup.pos, player.pos) > 0.9) {
+          continue
+        }
+        const pickupState: PickupPlayerState = {
+          vitals: player.vitals,
+          ammo: player.ammo,
+          ammoMax: player.ammoMax,
+          cheddar: player.cheddarRun,
+          hasVaultKey: player.hasVaultKey
+        }
+        const result = applyPickup(pickup.kind, pickupState, world.config.cheddarMult)
+        if (!result.consumed) {
+          continue
+        }
+        player.vitals = result.state.vitals
+        player.ammo = result.state.ammo
+        player.cheddarRun = result.state.cheddar
+        player.hasVaultKey = result.state.hasVaultKey
+        player.pickupFlash = Math.min(1, player.pickupFlash + 0.4)
+        if (pickup.kind === 'coinSmall' || pickup.kind === 'coinPile') {
+          sfxRef.current?.coin()
+        } else if (pickup.kind === 'vaultKey') {
+          sfxRef.current?.keyPickup()
+          player.grinUntil = now + 1200
+        } else {
+          sfxRef.current?.pickup()
+          player.grinUntil = now + 800
+        }
+        world.pickups.delete(id)
+        three.scene.remove(pickup.sprite)
+      }
+    }
+
+    // --- Effects ---
+    world.effects = world.effects.filter((effect) => {
+      effect.ttl -= dt
+      if (effect.ttl <= 0) {
+        three.scene.remove(effect.sprite)
+        return false
+      }
+      if (effect.frames && effect.frames.length > 1 && effect.sprite instanceof THREE.Sprite) {
+        const idx = Math.min(
+          effect.frames.length - 1,
+          Math.floor((1 - effect.ttl / effect.total) * effect.frames.length)
+        )
+        effect.sprite.material = getSpriteMaterial(effect.frames[idx])
+      }
+      return true
+    })
+
+    // Flash decay (doom: damagecount decrements each tic).
+    player.damageFlash = Math.max(0, player.damageFlash - dt * 1.4)
+    player.pickupFlash = Math.max(0, player.pickupFlash - dt * 2.5)
+
+    // --- Camera ---
+    const speed = Math.hypot(player.momentum.x, player.momentum.z)
+    const bob = Math.min(0.5, speed * speed * 0.004)
+    const bobY = player.dead
+      ? Math.max(0.4, EYE_HEIGHT - (now - player.deathAt) / 1000)
+      : EYE_HEIGHT + Math.sin(world.time * 11) * bob * 0.12
+    three.camera.position.set(player.pos.x, bobY, player.pos.z)
+    three.camera.rotation.order = 'YXZ'
+    three.camera.rotation.y = player.yaw + Math.PI
+    three.camera.rotation.x = player.dead ? -0.5 : player.pitch
+    three.camera.rotation.z = player.dead ? 0.4 : 0
+
+    // --- HUD snapshot (throttled) ---
+    if (now - lastHudRef.current > 120) {
+      lastHudRef.current = now
+      const def = WEAPONS[player.weapon]
+      setHud({
+        hp: Math.max(0, Math.round(player.vitals.hp)),
+        armor: Math.round(player.vitals.armor),
+        ammoInWeapon: def.ammoType === 'none' ? null : player.ammo[def.ammoType],
+        weapon: player.weapon,
+        owned: [...player.owned],
+        cheddar: player.cheddarRun,
+        ring: Math.max(Math.abs(pcx), Math.abs(pcz)),
+        hasKey: player.hasVaultKey
       })
-    )
-    mesh.position.set(position.x, baseY, position.z)
-    // Random initial rotation so the gibs do not look like a row of
-    // axis-aligned cubes.
-    mesh.rotation.set(
-      Math.random() * Math.PI * 2,
-      Math.random() * Math.PI * 2,
-      Math.random() * Math.PI * 2
-    )
-    mesh.renderOrder = 5
-    runtime.shotGroup.add(mesh)
-
-    gibs.push({
-      mesh,
-      state: {
-        position: { x: position.x, y: baseY, z: position.z },
-        velocity,
-        ageMs: 0,
-        settled: false
-      }
-    })
-  }
-}
-
-function tickGibs(runtime: RuntimeRefs, gibs: GibEntry[], deltaMs: number) {
-  for (let i = gibs.length - 1; i >= 0; i -= 1) {
-    const entry = gibs[i]
-    const next = tickGibPhysics(entry.state, deltaMs)
-
-    if (next === null) {
-      runtime.shotGroup.remove(entry.mesh)
-      entry.mesh.geometry.dispose()
-      entry.mesh.material.dispose()
-      gibs.splice(i, 1)
-      continue
-    }
-
-    entry.state = next
-    entry.mesh.position.set(next.position.x, next.position.y, next.position.z)
-    if (!next.settled) {
-      // Tumble unsettled gibs so the cubes do not look like static
-      // axis-aligned chunks.
-      entry.mesh.rotation.x += deltaMs * 0.008
-      entry.mesh.rotation.y += deltaMs * 0.006
-    }
-    // Fade out the last 300 ms so the chunk fades rather than
-    // disappearing in a frame.
-    const fade = Math.min(1, Math.max(0, (GIB_TTL_MS_LOCAL - next.ageMs) / 300))
-    entry.mesh.material.opacity = fade
-  }
-}
-
-function clearGibs(runtime: RuntimeRefs | null, gibs: GibEntry[]) {
-  while (gibs.length > 0) {
-    const entry = gibs.pop()
-    if (!entry) {
-      return
-    }
-    runtime?.shotGroup.remove(entry.mesh)
-    entry.mesh.geometry.dispose()
-    entry.mesh.material.dispose()
-  }
-}
-
-// Blood decals on the floor at enemy death positions. Cap the
-// live count so a peak wave cannot turn the floor into a single
-// solid stain; the oldest decal recycles first.
-const BLOOD_DECAL_LIMIT = 32
-const BLOOD_DECAL_Y = 0.02
-
-function spawnBloodDecal(
-  runtime: RuntimeRefs,
-  decals: BloodDecalEntry[],
-  type: EnemyType,
-  position: { x: number; y: number; z: number }
-) {
-  if (decals.length >= BLOOD_DECAL_LIMIT) {
-    const oldest = decals.shift()
-    if (oldest) {
-      runtime.shotGroup.remove(oldest.mesh)
-      oldest.mesh.geometry.dispose()
-      oldest.mesh.material.dispose()
     }
   }
 
-  const radius = bloodDecalRadiusFor(type)
-  const baseAlpha = bloodDecalBaseAlphaFor(type)
-  const color = bloodDecalColorFor(type)
-
-  const mesh = new THREE.Mesh(
-    new THREE.CircleGeometry(radius, 24),
-    new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: baseAlpha,
-      depthWrite: false,
-      side: THREE.DoubleSide
-    })
-  )
-  mesh.position.set(position.x, BLOOD_DECAL_Y, position.z)
-  mesh.rotation.x = -Math.PI / 2
-  // Slight per-decal rotation so a cluster of stains does not look
-  // like a row of identical disks.
-  mesh.rotation.z = Math.random() * Math.PI * 2
-  // renderOrder below the gibs and ammo halos so newer floor
-  // elements draw over the older decals.
-  mesh.renderOrder = 3
-  runtime.shotGroup.add(mesh)
-
-  decals.push({
-    mesh,
-    state: { ageMs: 0, radius, baseAlpha }
-  })
-}
-
-function tickBloodDecals(runtime: RuntimeRefs, decals: BloodDecalEntry[], deltaMs: number) {
-  for (let i = decals.length - 1; i >= 0; i -= 1) {
-    const entry = decals[i]
-    const next = tickBloodDecal(entry.state, deltaMs)
-
-    if (next === null) {
-      runtime.shotGroup.remove(entry.mesh)
-      entry.mesh.geometry.dispose()
-      entry.mesh.material.dispose()
-      decals.splice(i, 1)
-      continue
+  function getSpriteMaterial(texture: THREE.Texture): THREE.SpriteMaterial {
+    let material = spriteMaterialCache.current.get(texture)
+    if (!material) {
+      material = new THREE.SpriteMaterial({ map: texture, alphaTest: 0.1, fog: true })
+      spriteMaterialCache.current.set(texture, material)
     }
-
-    entry.state = next
-    entry.mesh.material.opacity = next.baseAlpha * bloodDecalAlphaScale(next.ageMs)
+    return material
   }
-}
 
-function clearBloodDecals(runtime: RuntimeRefs | null, decals: BloodDecalEntry[]) {
-  while (decals.length > 0) {
-    const entry = decals.pop()
-    if (!entry) {
-      return
-    }
-    runtime?.shotGroup.remove(entry.mesh)
-    entry.mesh.geometry.dispose()
-    entry.mesh.material.dispose()
-  }
-}
-
-const DOOR_SMOKE_LIMIT = 28
-const DOOR_SMOKE_PUFFS_PER_SPAWN = 5
-
-function spawnDoorSmoke(
-  runtime: RuntimeRefs,
-  smokes: DoorSmokeEntry[],
-  doorId: string,
-  position: { x: number; y: number; z: number }
-) {
-  const direction = doorSmokeDirectionFor(doorId)
-  const side = { x: -direction.z, y: 0, z: direction.x }
-
-  for (let i = 0; i < DOOR_SMOKE_PUFFS_PER_SPAWN; i += 1) {
-    while (smokes.length >= DOOR_SMOKE_LIMIT) {
-      const oldest = smokes.shift()
-      if (!oldest) {
-        break
-      }
-      runtime.shotGroup.remove(oldest.mesh)
-      oldest.mesh.geometry.dispose()
-      oldest.mesh.material.dispose()
-    }
-
-    const sideOffset = (i - (DOOR_SMOKE_PUFFS_PER_SPAWN - 1) / 2) * 0.22
-    const depthOffset = 0.08 + Math.random() * 0.22
-    const heightOffset = (Math.random() - 0.5) * 0.18
-    const size = 0.28 + Math.random() * 0.18
-    const state: DoorSmokeState = {
-      ageMs: Math.random() * 90,
-      origin: {
-        x: position.x + direction.x * depthOffset,
-        y: Math.max(0.45, position.y - 0.35),
-        z: position.z + direction.z * depthOffset
-      },
-      direction,
-      lateral: {
-        x: side.x * sideOffset,
-        y: heightOffset,
-        z: side.z * sideOffset
-      },
-      size
-    }
-    const mesh = new THREE.Mesh(
-      new THREE.CircleGeometry(1, 18),
-      new THREE.MeshBasicMaterial({
-        color: '#c8c1ae',
-        transparent: true,
-        opacity: DOOR_SMOKE_START_ALPHA,
-        depthWrite: false,
-        side: THREE.DoubleSide
-      })
-    )
-    const smokePosition = doorSmokePosition(state)
-    mesh.position.set(smokePosition.x, smokePosition.y, smokePosition.z)
-    mesh.quaternion.copy(runtime.camera.quaternion)
-    mesh.scale.setScalar(doorSmokeScale(state))
-    mesh.renderOrder = 4
-    runtime.shotGroup.add(mesh)
-
-    smokes.push({ mesh, state })
-  }
-}
-
-function tickDoorSmokes(runtime: RuntimeRefs, smokes: DoorSmokeEntry[], deltaMs: number) {
-  for (let i = smokes.length - 1; i >= 0; i -= 1) {
-    const entry = smokes[i]
-    const next = tickDoorSmoke(entry.state, deltaMs)
-
-    if (next === null) {
-      runtime.shotGroup.remove(entry.mesh)
-      entry.mesh.geometry.dispose()
-      entry.mesh.material.dispose()
-      smokes.splice(i, 1)
-      continue
-    }
-
-    entry.state = next
-    const position = doorSmokePosition(next)
-    entry.mesh.position.set(position.x, position.y, position.z)
-    entry.mesh.quaternion.copy(runtime.camera.quaternion)
-    entry.mesh.scale.setScalar(doorSmokeScale(next))
-    entry.mesh.material.opacity = DOOR_SMOKE_START_ALPHA * doorSmokeAlphaScale(next.ageMs)
-  }
-}
-
-function clearDoorSmokes(runtime: RuntimeRefs | null, smokes: DoorSmokeEntry[]) {
-  while (smokes.length > 0) {
-    const entry = smokes.pop()
-    if (!entry) {
-      return
-    }
-    runtime?.shotGroup.remove(entry.mesh)
-    entry.mesh.geometry.dispose()
-    entry.mesh.material.dispose()
-  }
-}
-
-function spawnScoreTokenDrop(
-  runtime: RuntimeRefs,
-  drops: ScoreTokenDropEntry[],
-  id: string,
-  position: { x: number; y: number; z: number }
-) {
-  const mesh = new THREE.Mesh(
-    new THREE.TorusGeometry(0.18, 0.045, 12, 24),
-    new THREE.MeshBasicMaterial({
-      color: '#7ff0e0',
-      transparent: true,
-      opacity: 0.95,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide
-    })
-  )
-  mesh.position.set(position.x, scoreTokenBobY(0), position.z)
-  mesh.rotation.x = -Math.PI / 2
-  mesh.renderOrder = 6
-  runtime.shotGroup.add(mesh)
-  drops.push({ id, position: { x: position.x, y: position.y, z: position.z }, ageMs: 0, mesh })
-}
-
-function tickScoreTokenDrops(runtime: RuntimeRefs, drops: ScoreTokenDropEntry[], deltaMs: number) {
-  for (let index = drops.length - 1; index >= 0; index -= 1) {
-    const drop = drops[index]
-    drop.ageMs += deltaMs
-
-    if (drop.ageMs >= SCORE_TOKEN_TTL_MS) {
-      runtime.shotGroup.remove(drop.mesh)
-      drop.mesh.geometry.dispose()
-      drop.mesh.material.dispose()
-      drops.splice(index, 1)
-      continue
-    }
-
-    drop.mesh.position.y = scoreTokenBobY(drop.ageMs)
-    drop.mesh.rotation.z += deltaMs * 0.004
-    const fade = Math.max(0, 1 - drop.ageMs / SCORE_TOKEN_TTL_MS)
-    drop.mesh.material.opacity = 0.55 + 0.4 * fade
-  }
-}
-
-function clearScoreTokenDrops(runtime: RuntimeRefs | null, drops: ScoreTokenDropEntry[]) {
-  while (drops.length > 0) {
-    const drop = drops.pop()
-
-    if (!drop) {
-      return
-    }
-
-    runtime?.shotGroup.remove(drop.mesh)
-    drop.mesh.geometry.dispose()
-    drop.mesh.material.dispose()
-  }
-}
-
-// Doom-style ammo pickup: small emissive box (the body), a thin
-// accent strip on the upper face, and a soft additive halo on the
-// floor so the pickup sits visibly against any lighting phase.
-// Large variants get bigger geometry + a stronger glow so the player
-// reads the rarity by size.
-function spawnAmmoDrop(
-  runtime: RuntimeRefs,
-  drops: AmmoDropEntry[],
-  id: string,
-  kind: AmmoDropKind,
-  position: { x: number; y: number; z: number }
-) {
-  const palette = ammoDropPalette(kind)
-  const isLarge = kind === 'shell-large' || kind === 'cell-large'
-  const w = isLarge ? 0.34 : 0.22
-  const h = isLarge ? 0.22 : 0.16
-  const d = isLarge ? 0.26 : 0.18
-
-  // `transparent: true` is set here (not toggled in the per-frame
-  // tick) so opacity edits below don't force a shader recompile each
-  // time a drop crosses the fade threshold.
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(w, h, d),
-    new THREE.MeshStandardMaterial({
-      color: palette.body,
-      emissive: palette.glow,
-      emissiveIntensity: isLarge ? 0.55 : 0.4,
-      metalness: 0.2,
-      roughness: 0.45,
-      transparent: true
-    })
-  )
-  body.castShadow = false
-  body.receiveShadow = false
-
-  const accent = new THREE.Mesh(
-    new THREE.BoxGeometry(w * 0.96, h * 0.16, d * 0.6),
-    new THREE.MeshStandardMaterial({
-      color: palette.accent,
-      emissive: palette.accent,
-      emissiveIntensity: 0.7,
-      metalness: 0.1,
-      roughness: 0.3,
-      transparent: true
-    })
-  )
-  accent.position.y = h * 0.5 + h * 0.08
-
-  const halo = new THREE.Mesh(
-    new THREE.RingGeometry(isLarge ? 0.32 : 0.24, isLarge ? 0.48 : 0.36, 24),
-    new THREE.MeshBasicMaterial({
-      color: palette.glow,
-      transparent: true,
-      opacity: 0.55,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide
-    })
-  )
-  halo.rotation.x = -Math.PI / 2
-  halo.position.y = -h * 0.45
-
-  const group = new THREE.Group()
-  group.add(body)
-  group.add(accent)
-  group.add(halo)
-  group.position.set(position.x, ammoDropBobY(0), position.z)
-  group.renderOrder = 6
-
-  runtime.shotGroup.add(group)
-
-  drops.push({
-    id,
-    kind,
-    position: { x: position.x, y: position.y, z: position.z },
-    ageMs: 0,
-    group,
-    body,
-    accent,
-    halo
-  })
-}
-
-function tickAmmoDropEntries(runtime: RuntimeRefs, drops: AmmoDropEntry[], deltaMs: number) {
-  for (let index = drops.length - 1; index >= 0; index -= 1) {
-    const drop = drops[index]
-    drop.ageMs += deltaMs
-
-    if (drop.ageMs >= AMMO_DROP_TTL_MS) {
-      runtime.shotGroup.remove(drop.group)
-      drop.body.geometry.dispose()
-      drop.body.material.dispose()
-      drop.accent.geometry.dispose()
-      drop.accent.material.dispose()
-      drop.halo.geometry.dispose()
-      drop.halo.material.dispose()
-      drops.splice(index, 1)
-      continue
-    }
-
-    drop.group.position.y = ammoDropBobY(drop.ageMs)
-    drop.group.rotation.y += deltaMs * 0.0025
-    // Fade the last 600 ms so the box reads as "running out" before
-    // it vanishes (matches the score-token fade contract).
-    const ttlRemaining = Math.max(0, AMMO_DROP_TTL_MS - drop.ageMs)
-    const fade = Math.min(1, ttlRemaining / 600)
-    drop.body.material.opacity = 0.85 + 0.15 * fade
-    drop.accent.material.opacity = 0.95 * fade + 0.05
-    const haloPulse = 0.55 + 0.2 * Math.sin((drop.ageMs / 1000) * 2 * Math.PI * 2.4)
-    drop.halo.material.opacity = haloPulse * fade
-  }
-}
-
-function clearAmmoDrops(runtime: RuntimeRefs | null, drops: AmmoDropEntry[]) {
-  while (drops.length > 0) {
-    const drop = drops.pop()
-
-    if (!drop) {
-      return
-    }
-
-    runtime?.shotGroup.remove(drop.group)
-    drop.body.geometry.dispose()
-    drop.body.material.dispose()
-    drop.accent.geometry.dispose()
-    drop.accent.material.dispose()
-    drop.halo.geometry.dispose()
-    drop.halo.material.dispose()
-  }
-}
-
-// Doom-style medkit pickup: a cream body box with a red cross (built
-// from two emissive bars laid across the upper face), plus a soft
-// additive floor halo. The cross silhouette stays legible against
-// the darkness lighting phase because the cross arms emit their own
-// light rather than relying on the overhead.
-function spawnHealthDrop(
-  runtime: RuntimeRefs,
-  drops: HealthDropEntry[],
-  id: string,
-  kind: HealthDropKind,
-  position: { x: number; y: number; z: number }
-) {
-  const palette = healthDropPalette(kind)
-  const isLarge = kind === 'medkit-large'
-  const w = isLarge ? 0.36 : 0.24
-  const h = isLarge ? 0.24 : 0.18
-  const d = isLarge ? 0.28 : 0.2
-
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(w, h, d),
-    new THREE.MeshStandardMaterial({
-      color: palette.body,
-      emissive: palette.glow,
-      emissiveIntensity: isLarge ? 0.35 : 0.25,
-      metalness: 0.05,
-      roughness: 0.55,
-      transparent: true
-    })
-  )
-
-  const armLength = w * 0.78
-  const armThickness = isLarge ? 0.06 : 0.05
-  const crossMaterial = () =>
-    new THREE.MeshStandardMaterial({
-      color: palette.cross,
-      emissive: palette.cross,
-      emissiveIntensity: isLarge ? 0.95 : 0.8,
-      metalness: 0.1,
-      roughness: 0.4,
-      transparent: true
-    })
-
-  const crossbar = new THREE.Mesh(
-    new THREE.BoxGeometry(armLength, armThickness, armThickness * 1.3),
-    crossMaterial()
-  )
-  crossbar.position.y = h * 0.5 + armThickness * 0.4
-
-  const crosspost = new THREE.Mesh(
-    new THREE.BoxGeometry(armThickness, armThickness, armLength),
-    crossMaterial()
-  )
-  crosspost.position.y = h * 0.5 + armThickness * 0.4
-
-  const halo = new THREE.Mesh(
-    new THREE.RingGeometry(isLarge ? 0.34 : 0.26, isLarge ? 0.5 : 0.38, 24),
-    new THREE.MeshBasicMaterial({
-      color: palette.glow,
-      transparent: true,
-      opacity: 0.6,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide
-    })
-  )
-  halo.rotation.x = -Math.PI / 2
-  halo.position.y = -h * 0.45
-
-  const group = new THREE.Group()
-  group.add(body)
-  group.add(crossbar)
-  group.add(crosspost)
-  group.add(halo)
-  group.position.set(position.x, healthDropBobY(0), position.z)
-  group.renderOrder = 6
-
-  runtime.shotGroup.add(group)
-
-  drops.push({
-    id,
-    kind,
-    position: { x: position.x, y: position.y, z: position.z },
-    ageMs: 0,
-    group,
-    body,
-    crossbar,
-    crosspost,
-    halo
-  })
-}
-
-function tickHealthDropEntries(runtime: RuntimeRefs, drops: HealthDropEntry[], deltaMs: number) {
-  for (let index = drops.length - 1; index >= 0; index -= 1) {
-    const drop = drops[index]
-    drop.ageMs += deltaMs
-
-    if (drop.ageMs >= HEALTH_DROP_TTL_MS) {
-      runtime.shotGroup.remove(drop.group)
-      drop.body.geometry.dispose()
-      drop.body.material.dispose()
-      drop.crossbar.geometry.dispose()
-      drop.crossbar.material.dispose()
-      drop.crosspost.geometry.dispose()
-      drop.crosspost.material.dispose()
-      drop.halo.geometry.dispose()
-      drop.halo.material.dispose()
-      drops.splice(index, 1)
-      continue
-    }
-
-    drop.group.position.y = healthDropBobY(drop.ageMs)
-    // Medkits do not spin around Y the way ammo boxes do; the cross
-    // is a directional silhouette, and a rotating cross reads as
-    // unstable rather than helpful.
-    const ttlRemaining = Math.max(0, HEALTH_DROP_TTL_MS - drop.ageMs)
-    const fade = Math.min(1, ttlRemaining / 600)
-    drop.body.material.opacity = 0.9 + 0.1 * fade
-    drop.crossbar.material.opacity = 0.95 * fade + 0.05
-    drop.crosspost.material.opacity = 0.95 * fade + 0.05
-    const haloPulse = 0.6 + 0.2 * Math.sin((drop.ageMs / 1000) * 2 * Math.PI * 1.6)
-    drop.halo.material.opacity = haloPulse * fade
-  }
-}
-
-function clearHealthDrops(runtime: RuntimeRefs | null, drops: HealthDropEntry[]) {
-  while (drops.length > 0) {
-    const drop = drops.pop()
-
-    if (!drop) {
-      return
-    }
-
-    runtime?.shotGroup.remove(drop.group)
-    drop.body.geometry.dispose()
-    drop.body.material.dispose()
-    drop.crossbar.geometry.dispose()
-    drop.crossbar.material.dispose()
-    drop.crosspost.geometry.dispose()
-    drop.crosspost.material.dispose()
-    drop.halo.geometry.dispose()
-    drop.halo.material.dispose()
-  }
-}
-
-function clearEnemyDeathPops(runtime: RuntimeRefs | null, pops: EnemyDeathPop[]) {
-  while (pops.length > 0) {
-    const pop = pops.pop()
-
-    if (!pop) {
-      return
-    }
-
-    runtime?.shotGroup.remove(pop.mesh)
-    pop.mesh.geometry.dispose()
-    pop.mesh.material.dispose()
-  }
-}
-
-function shotBoltsLimit(runtime: RuntimeRefs, bolts: ShotBolt[]) {
-  while (bolts.length > 20) {
-    const bolt = bolts.shift()
-
-    if (!bolt) {
-      return
-    }
-
-    runtime.shotGroup.remove(bolt.mesh)
-    bolt.mesh.geometry.dispose()
-    bolt.mesh.material.dispose()
-  }
-}
-
-function clearShotBolts(runtime: RuntimeRefs | null, bolts: ShotBolt[]) {
-  while (bolts.length > 0) {
-    const bolt = bolts.pop()
-
-    if (!bolt) {
-      return
-    }
-
-    runtime?.shotGroup.remove(bolt.mesh)
-    bolt.mesh.geometry.dispose()
-    bolt.mesh.material.dispose()
-  }
-}
-
-function spawnInkProjectile(
-  runtime: RuntimeRefs,
-  projectiles: InkProjectile[],
-  origin: Vec3,
-  direction: Vec3,
-  damage: number
-) {
-  const start = new THREE.Vector3(origin.x, origin.y - 0.12, origin.z)
-  const travelDirection = new THREE.Vector3(direction.x, direction.y, direction.z).normalize()
-  start.addScaledVector(travelDirection, 0.65)
-
-  const group = new THREE.Group()
-  const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.18, 16, 16),
-    new THREE.MeshBasicMaterial({
-      color: '#50d1c0',
-      transparent: true,
-      opacity: 0.96
-    })
-  )
-  const halo = new THREE.Mesh(
-    new THREE.SphereGeometry(0.34, 16, 16),
-    new THREE.MeshBasicMaterial({
-      color: '#50d1c0',
-      transparent: true,
-      opacity: 0.24,
-      wireframe: true
-    })
-  )
-  core.renderOrder = 5
-  halo.renderOrder = 4
-  group.add(core, halo)
-  group.position.copy(start)
-  runtime.shotGroup.add(group)
-  projectiles.push({
-    group,
-    core,
-    halo,
-    direction: travelDirection,
-    remainingDistance: 16,
-    damage,
-    splashRadius: 0.95,
-    ageMs: 0
-  })
-}
-
-type InkProjectileHit = {
-  enemyId: string
-  hitDistance: number
-}
-
-type InkProjectileTickResult = {
-  enemyHits: InkProjectileHit[]
-  coverRectHits: number[]
-}
-
-function tickInkProjectiles(
-  runtime: RuntimeRefs,
-  projectiles: InkProjectile[],
-  enemies: EnemyModel[],
-  playerPosition: Vec3,
-  deltaMs: number,
-  coverRects: readonly CoverRect[]
-): InkProjectileTickResult {
-  const enemyHits: InkProjectileHit[] = []
-  const coverRectHits: number[] = []
-
-  for (let index = projectiles.length - 1; index >= 0; index -= 1) {
-    const projectile = projectiles[index]
-    const step = Math.min(projectile.remainingDistance, deltaMs * 0.028)
-    projectile.ageMs += deltaMs
-
-    const startX = projectile.group.position.x
-    const startZ = projectile.group.position.z
-    projectile.group.position.addScaledVector(projectile.direction, step)
-    projectile.remainingDistance -= step
-    const pulse = 1 + Math.sin(projectile.ageMs / 72) * 0.16
-    projectile.halo.scale.setScalar(pulse)
-
-    // Cover-vs-segment test for the just-completed step. If a rect
-    // blocked the step, the projectile is consumed by it (no splash
-    // through cover); the rect index flows back to the caller so a
-    // breakable can be damaged.
-    const coverHit = segmentBlockedByRects(
-      { x: startX, z: startZ },
-      { x: projectile.group.position.x, z: projectile.group.position.z },
-      coverRects
-    )
-    if (coverHit) {
-      coverRectHits.push(coverHit.rectIndex)
-      disposeInkProjectile(runtime, projectile)
-      projectiles.splice(index, 1)
-      continue
-    }
-
-    let hitEnemyId: string | null = null
-
-    for (const candidate of enemies) {
-      if (candidate.state === 'dead') {
-        continue
-      }
-
-      const candidateDistance = Math.hypot(
-        projectile.group.position.x - candidate.position.x,
-        projectile.group.position.z - candidate.position.z
-      )
-
-      if (candidateDistance <= candidate.radius + projectile.splashRadius) {
-        hitEnemyId = candidate.id
-        break
+  // --- 2D overlays: film pass, weapon viewmodel, mugshot, automap ---
+  function drawOverlays(now: number) {
+    const world = worldRef.current
+    const art = artRef.current
+
+    const filmCanvas = filmCanvasRef.current
+    const grain = grainRef.current
+    if (filmCanvas && grain && now - lastFilmDrawRef.current > 80) {
+      lastFilmDrawRef.current = now
+      const ctx = filmCanvas.getContext('2d')
+      if (ctx) {
+        drawFilmFrame(ctx, grain, filmCanvas.width, filmCanvas.height, FILM_PRESETS[filmRef.current])
       }
     }
 
-    if (hitEnemyId !== null) {
-      const target = enemies.find((candidate) => candidate.id === hitEnemyId)
-      const hitDistance = target
-        ? Math.hypot(target.position.x - playerPosition.x, target.position.z - playerPosition.z)
-        : 0
-      enemyHits.push({ enemyId: hitEnemyId, hitDistance })
-    }
-
-    if (hitEnemyId !== null || projectile.remainingDistance <= 0) {
-      disposeInkProjectile(runtime, projectile)
-      projectiles.splice(index, 1)
-    }
-  }
-
-  return { enemyHits, coverRectHits }
-}
-
-function clearInkProjectiles(runtime: RuntimeRefs | null, projectiles: InkProjectile[]) {
-  while (projectiles.length > 0) {
-    const projectile = projectiles.pop()
-
-    if (!projectile) {
+    if (screenRef.current !== 'playing' || !world || !art) {
       return
     }
 
-    disposeInkProjectile(runtime, projectile)
-  }
-}
-
-function disposeInkProjectile(runtime: RuntimeRefs | null, projectile: InkProjectile) {
-  runtime?.shotGroup.remove(projectile.group)
-  projectile.core.geometry.dispose()
-  projectile.core.material.dispose()
-  projectile.halo.geometry.dispose()
-  projectile.halo.material.dispose()
-}
-
-function spawnSpitterProjectile(
-  runtime: RuntimeRefs,
-  projectiles: SpitterProjectileRuntime[],
-  state: SpitterProjectile
-) {
-  const group = new THREE.Group()
-  const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.18, 14, 14),
-    new THREE.MeshBasicMaterial({ color: '#a8e07a', transparent: true, opacity: 0.96 })
-  )
-  const halo = new THREE.Mesh(
-    new THREE.SphereGeometry(0.32, 14, 14),
-    new THREE.MeshBasicMaterial({ color: '#a8e07a', transparent: true, opacity: 0.22, wireframe: true })
-  )
-  core.renderOrder = 5
-  halo.renderOrder = 4
-  group.add(core, halo)
-  group.position.set(state.position.x, state.position.y, state.position.z)
-  runtime.shotGroup.add(group)
-  projectiles.push({ state, group, core, halo })
-}
-
-function tickAndResolveSpitterProjectiles(
-  runtime: RuntimeRefs,
-  projectiles: SpitterProjectileRuntime[],
-  playerPosition: Vec3,
-  playerRadius: number,
-  enemies: EnemyModel[],
-  deltaMs: number,
-  coverRects: readonly CoverRect[],
-  onPlayerHit: (damage: number) => void,
-  onEnemyHit: (enemyId: string, damage: number, sourceEnemyId: string) => void
-) {
-  for (let index = projectiles.length - 1; index >= 0; index -= 1) {
-    const projectile = projectiles[index]
-    projectile.state = tickSpitterProjectile(projectile.state, deltaMs, coverRects)
-    projectile.group.position.set(
-      projectile.state.position.x,
-      projectile.state.position.y,
-      projectile.state.position.z
-    )
-    const pulse = 1 + Math.sin(projectile.state.ageMs / 64) * 0.18
-    projectile.halo.scale.setScalar(pulse)
-
-    // F-023 / REQ-021: a projectile that hit cover this tick is gone;
-    // skip player and enemy hit checks so cover cannot leak damage.
-    if (projectile.state.blockedByCover) {
-      disposeSpitterProjectile(runtime, projectile)
-      projectiles.splice(index, 1)
-      continue
-    }
-
-    if (spitterProjectileHitsPlayer(projectile.state, playerPosition, playerRadius)) {
-      onPlayerHit(projectile.state.damage)
-      disposeSpitterProjectile(runtime, projectile)
-      projectiles.splice(index, 1)
-      continue
-    }
-
-    let crossfireHitId: string | null = null
-
-    for (const candidate of enemies) {
-      if (candidate.state === 'dead') {
-        continue
-      }
-
-      // Skip the spitter that fired the projectile so its own splash
-      // does not blast itself in the back. Now that the projectile
-      // carries sourceEnemyId, exempt only the originating spitter
-      // by id; clustered spitters remain vulnerable to each other.
-      if (candidate.id === projectile.state.sourceEnemyId) {
-        continue
-      }
-
-      const candidateDistance = Math.hypot(
-        projectile.state.position.x - candidate.position.x,
-        projectile.state.position.z - candidate.position.z
-      )
-
-      if (candidateDistance <= candidate.radius + SPITTER_PROJECTILE_RADIUS_M) {
-        crossfireHitId = candidate.id
-        break
+    // Weapon viewmodel with doom bob.
+    const weaponCanvas = weaponCanvasRef.current
+    if (weaponCanvas) {
+      const ctx = weaponCanvas.getContext('2d')
+      if (ctx) {
+        ctx.clearRect(0, 0, VIEW_W, VIEW_H)
+        if (!world.player.dead) {
+          const set = art.viewmodels[world.player.weapon]
+          const firing = now < world.player.muzzleUntil
+          const variant = Math.floor(now / 100) % 2
+          const speed = Math.hypot(world.player.momentum.x, world.player.momentum.z)
+          const bobAmt = Math.min(18, speed * speed * 0.18)
+          const bobX = firing ? 0 : Math.cos(world.time * 3.4) * bobAmt
+          const bobY = firing ? 0 : Math.abs(Math.sin(world.time * 3.4)) * bobAmt * 0.6
+          ctx.drawImage(set[firing ? 'fire' : 'idle'][variant], bobX, bobY + 8)
+        }
       }
     }
 
-    if (crossfireHitId !== null) {
-      const crossfireDamage = Math.max(1, Math.round(projectile.state.damage * INFIGHTING_DAMAGE_SCALE))
-      onEnemyHit(crossfireHitId, crossfireDamage, projectile.state.sourceEnemyId)
-      disposeSpitterProjectile(runtime, projectile)
-      projectiles.splice(index, 1)
-      continue
+    // Mugshot.
+    const mugCanvas = mugCanvasRef.current
+    if (mugCanvas) {
+      const ctx = mugCanvas.getContext('2d')
+      if (ctx) {
+        const player = world.player
+        const tier = mugTierForHp(player.vitals.hp, player.vitals.maxHp)
+        let expression: MugExpression = 'idle'
+        if (player.dead) {
+          expression = 'dead'
+        } else if (now < player.painUntil) {
+          expression = 'pain'
+        } else if (now < player.grinUntil) {
+          expression = 'grin'
+        }
+        const looker = mugLookRef.current
+        if (now > looker.nextAt) {
+          looker.look = [-1, 0, 1][Math.floor(Math.random() * 3)]
+          looker.nextAt = now + 600 + Math.random() * 900
+        }
+        const look = expression === 'idle' ? looker.look : 0
+        const key = `${tier}-${expression}-${look}`
+        let cached = mugCacheRef.current.get(key)
+        if (!cached) {
+          cached = drawMugshot(tier, expression, look)
+          mugCacheRef.current.set(key, cached)
+        }
+        ctx.clearRect(0, 0, mugCanvas.width, mugCanvas.height)
+        ctx.drawImage(cached, 0, 0)
+      }
     }
 
-    if (spitterProjectileExpired(projectile.state)) {
-      disposeSpitterProjectile(runtime, projectile)
-      projectiles.splice(index, 1)
+    // Automap, throttled: cell-grid maps do not need 60Hz.
+    const automap = automapRef.current
+    if (automap) {
+      const show = automapHeldRef.current && !world.player.dead
+      automap.style.display = show ? 'block' : 'none'
+      if (show && now - lastAutomapDrawRef.current > 100) {
+        lastAutomapDrawRef.current = now
+        drawAutomap(automap, world)
+      }
     }
   }
-}
 
-function clearSpitterProjectiles(runtime: RuntimeRefs | null, projectiles: SpitterProjectileRuntime[]) {
-  while (projectiles.length > 0) {
-    const projectile = projectiles.pop()
-
-    if (!projectile) {
+  function drawAutomap(canvas: HTMLCanvasElement, world: World) {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
       return
     }
-
-    disposeSpitterProjectile(runtime, projectile)
-  }
-}
-
-function disposeSpitterProjectile(runtime: RuntimeRefs | null, projectile: SpitterProjectileRuntime) {
-  runtime?.shotGroup.remove(projectile.group)
-  projectile.core.geometry.dispose()
-  projectile.core.material.dispose()
-  projectile.halo.geometry.dispose()
-  projectile.halo.material.dispose()
-}
-
-function startMusicLayer(): {
-  context: AudioContext
-  masterGain: GainNode
-  bass: OscillatorNode
-  throb: OscillatorNode
-  throbGain: GainNode
-  combatLead: OscillatorNode
-  combatGain: GainNode
-  highPressureLead: OscillatorNode
-  highPressureGain: GainNode
-  nearDeathLead: OscillatorNode
-  nearDeathGain: GainNode
-  nearDeathPulse: OscillatorNode
-} | null {
-  if (typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return null
-  }
-
-  const context = new window.AudioContext()
-  const masterGain = context.createGain()
-  masterGain.gain.value = 0
-  masterGain.connect(context.destination)
-
-  const bass = context.createOscillator()
-  bass.type = 'sawtooth'
-  bass.frequency.value = MUSIC_BASS_HZ
-
-  // Throb LFO modulates an inner gain node so the bass tone pulses
-  // at MUSIC_THROB_HZ. The LFO's depth is +/- 0.5 around a 0.5
-  // baseline so the throb modulates between 0 and 1 of the inner
-  // gain. Master gain then sets the audible volume.
-  const throb = context.createOscillator()
-  throb.type = 'sine'
-  throb.frequency.value = MUSIC_THROB_HZ
-  const throbGain = context.createGain()
-  throbGain.gain.value = 0.5
-  const throbDepth = context.createGain()
-  throbDepth.gain.value = 0.5
-  throb.connect(throbDepth)
-  throbDepth.connect(throbGain.gain)
-
-  bass.connect(throbGain)
-  throbGain.connect(masterGain)
-
-  // Layer 2: combat-intensity stem. A detuned square wave that mixes
-  // through its own gain node so the caller can fade it in based on
-  // `combatMusicGain(ratio)` independent of the bass envelope.
-  const combatLead = context.createOscillator()
-  combatLead.type = 'square'
-  combatLead.frequency.value = COMBAT_LEAD_HZ
-  combatLead.detune.value = COMBAT_DETUNE_CENTS
-  const combatGain = context.createGain()
-  combatGain.gain.value = 0
-  combatLead.connect(combatGain)
-  combatGain.connect(context.destination)
-
-  // Layer 3: high-pressure stem. Joins after the combat stem peaks.
-  const highPressureLead = context.createOscillator()
-  highPressureLead.type = 'sawtooth'
-  highPressureLead.frequency.value = HIGH_PRESSURE_LEAD_HZ
-  highPressureLead.detune.value = HIGH_PRESSURE_DETUNE_CENTS
-  const highPressureGain = context.createGain()
-  highPressureGain.gain.value = 0
-  highPressureLead.connect(highPressureGain)
-  highPressureGain.connect(context.destination)
-
-  // Layer 4: near-death stem. Sub-bass sine modulated by a heart-rate
-  // LFO (matches the lighting near-death pulse cadence). Caller fades
-  // gain in via `nearDeathMusicGain(playerHealth)` so the layer is
-  // gated by HP rather than room pressure. The LFO modulates an inner
-  // pulse gain (not the outer fade) so a mute via the outer envelope
-  // cannot be re-opened by the bipolar sine.
-  const nearDeathLead = context.createOscillator()
-  nearDeathLead.type = 'sine'
-  nearDeathLead.frequency.value = NEAR_DEATH_LEAD_HZ
-  const nearDeathPulseGain = context.createGain()
-  nearDeathPulseGain.gain.value = NEAR_DEATH_PULSE_DEPTH
-  const nearDeathGain = context.createGain()
-  nearDeathGain.gain.value = 0
-  nearDeathLead.connect(nearDeathPulseGain)
-  nearDeathPulseGain.connect(nearDeathGain)
-  nearDeathGain.connect(context.destination)
-  const nearDeathPulse = context.createOscillator()
-  nearDeathPulse.type = 'sine'
-  nearDeathPulse.frequency.value = NEAR_DEATH_PULSE_HZ
-  const nearDeathPulseDepth = context.createGain()
-  nearDeathPulseDepth.gain.value = NEAR_DEATH_PULSE_DEPTH
-  nearDeathPulse.connect(nearDeathPulseDepth)
-  nearDeathPulseDepth.connect(nearDeathPulseGain.gain)
-
-  bass.start()
-  throb.start()
-  combatLead.start()
-  highPressureLead.start()
-  nearDeathLead.start()
-  nearDeathPulse.start()
-
-  return {
-    context,
-    masterGain,
-    bass,
-    throb,
-    throbGain,
-    combatLead,
-    combatGain,
-    highPressureLead,
-    highPressureGain,
-    nearDeathLead,
-    nearDeathGain,
-    nearDeathPulse
-  }
-}
-
-function stopMusicLayer(layer: {
-  context: AudioContext
-  masterGain: GainNode
-  bass: OscillatorNode
-  throb: OscillatorNode
-  throbGain: GainNode
-  combatLead: OscillatorNode
-  combatGain: GainNode
-  highPressureLead: OscillatorNode
-  highPressureGain: GainNode
-  nearDeathLead: OscillatorNode
-  nearDeathGain: GainNode
-  nearDeathPulse: OscillatorNode
-} | null) {
-  if (layer === null) {
-    return
-  }
-
-  try {
-    layer.bass.stop()
-  } catch {
-    // already stopped
-  }
-
-  try {
-    layer.throb.stop()
-  } catch {
-    // already stopped
-  }
-
-  try {
-    layer.combatLead.stop()
-  } catch {
-    // already stopped
-  }
-
-  try {
-    layer.highPressureLead.stop()
-  } catch {
-    // already stopped
-  }
-
-  try {
-    layer.nearDeathLead.stop()
-  } catch {
-    // already stopped
-  }
-
-  try {
-    layer.nearDeathPulse.stop()
-  } catch {
-    // already stopped
-  }
-
-  void layer.context.close().catch(() => {
-    // noop
-  })
-}
-
-function startPickupLoopLayer(): {
-  context: AudioContext
-  masterGain: GainNode
-  osc: OscillatorNode
-} | null {
-  if (typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return null
-  }
-
-  const style = pickupLoopStyle()
-  const context = new window.AudioContext()
-  const masterGain = context.createGain()
-  masterGain.gain.value = 0
-  masterGain.connect(context.destination)
-
-  const osc = context.createOscillator()
-  osc.type = 'sine'
-  osc.frequency.value = style.frequencyHz
-  osc.connect(masterGain)
-  osc.start()
-
-  return { context, masterGain, osc }
-}
-
-function stopPickupLoopLayer(layer: {
-  context: AudioContext
-  masterGain: GainNode
-  osc: OscillatorNode
-} | null) {
-  if (layer === null) {
-    return
-  }
-
-  try {
-    layer.osc.stop()
-  } catch {
-    // already stopped
-  }
-
-  void layer.context.close().catch(() => {
-    // noop
-  })
-}
-
-function startRagePulseLayer(): {
-  context: AudioContext
-  masterGain: GainNode
-  bass: OscillatorNode
-  throb: OscillatorNode
-  throbGain: GainNode
-} | null {
-  if (typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return null
-  }
-
-  const context = new window.AudioContext()
-  const masterGain = context.createGain()
-  masterGain.gain.value = 0
-  masterGain.connect(context.destination)
-
-  const bass = context.createOscillator()
-  bass.type = 'square'
-  bass.frequency.value = RAGE_PULSE_BASS_HZ
-
-  const throb = context.createOscillator()
-  throb.type = 'sine'
-  throb.frequency.value = RAGE_PULSE_THROB_HZ
-  const throbGain = context.createGain()
-  throbGain.gain.value = 0.5
-  const throbDepth = context.createGain()
-  throbDepth.gain.value = 0.5
-  throb.connect(throbDepth)
-  throbDepth.connect(throbGain.gain)
-
-  bass.connect(throbGain)
-  throbGain.connect(masterGain)
-
-  bass.start()
-  throb.start()
-
-  return { context, masterGain, bass, throb, throbGain }
-}
-
-function stopRagePulseLayer(layer: {
-  context: AudioContext
-  masterGain: GainNode
-  bass: OscillatorNode
-  throb: OscillatorNode
-  throbGain: GainNode
-} | null) {
-  if (layer === null) {
-    return
-  }
-
-  try {
-    layer.bass.stop()
-  } catch {
-    // already stopped
-  }
-
-  try {
-    layer.throb.stop()
-  } catch {
-    // already stopped
-  }
-
-  void layer.context.close().catch(() => {
-    // noop
-  })
-}
-
-function playScoreTokenCue(enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const tones = [660, 990, 1320]
-  const toneDurationMs = 220 / 3
-  let toneStart = context.currentTime
-  let lastOscillator: OscillatorNode | null = null
-
-  for (const frequency of tones) {
-    const oscillator = context.createOscillator()
-    const gain = context.createGain()
-    oscillator.type = 'sine'
-    oscillator.frequency.value = frequency
-    const stopTime = toneStart + toneDurationMs / 1000
-    gain.gain.setValueAtTime(0, toneStart)
-    gain.gain.linearRampToValueAtTime(0.04, toneStart + 0.012)
-    gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-    oscillator.connect(gain)
-    gain.connect(context.destination)
-    oscillator.start(toneStart)
-    oscillator.stop(stopTime)
-    toneStart = stopTime
-    lastOscillator = oscillator
-  }
-
-  if (lastOscillator !== null) {
-    lastOscillator.addEventListener('ended', () => {
-      context.close()
-    })
-  }
-}
-
-function playWaveHornCue(enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = 'sawtooth'
-  const startTime = context.currentTime
-  const durationMs = 220
-  const stopTime = startTime + durationMs / 1000
-  oscillator.frequency.setValueAtTime(90, startTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(0.05, startTime + 0.02)
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-// Wave lull (recovery) cue. Complement to playWaveHornCue. The horn
-// is a low sawtooth at 90 Hz that says "the peak is here." This cue
-// is a soft sine descending from 220 Hz to 130 Hz over 360 ms,
-// reading as an exhale: "the peak is over, breathe." Distinct timbre
-// (sine vs sawtooth) and longer envelope so the player does not
-// confuse the recovery cue with another horn.
-function playWaveLullCue(enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = 'sine'
-  const startTime = context.currentTime
-  const durationMs = 360
-  const stopTime = startTime + durationMs / 1000
-  oscillator.frequency.setValueAtTime(220, startTime)
-  oscillator.frequency.exponentialRampToValueAtTime(130, stopTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(0.038, startTime + 0.04)
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playRageCue(enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = 'sawtooth'
-  const startTime = context.currentTime
-  const durationMs = 480
-  const stopTime = startTime + durationMs / 1000
-  oscillator.frequency.setValueAtTime(180, startTime)
-  oscillator.frequency.exponentialRampToValueAtTime(360, stopTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(0.06, startTime + 0.05)
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playSpitterFireCue(enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = 'square'
-  const startTime = context.currentTime
-  const durationMs = 140
-  const stopTime = startTime + durationMs / 1000
-  oscillator.frequency.setValueAtTime(620, startTime)
-  oscillator.frequency.exponentialRampToValueAtTime(280, stopTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(0.034, startTime + 0.01)
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function knockEnemyBack(enemy: EnemyModel, direction: Vec3, distance: number): EnemyModel {
-  if (enemy.state === 'dead') {
-    return enemy
-  }
-
-  return {
-    ...enemy,
-    position: {
-      x: clamp(enemy.position.x + direction.x * distance, movementConfig.bounds.minX, movementConfig.bounds.maxX),
-      y: enemy.position.y,
-      z: clamp(enemy.position.z + direction.z * distance, movementConfig.bounds.minZ, movementConfig.bounds.maxZ)
+    const size = 440
+    if (canvas.width !== size) {
+      canvas.width = size
+      canvas.height = size
     }
+    ctx.fillStyle = 'rgba(12, 12, 12, 0.88)'
+    ctx.fillRect(0, 0, size, size)
+    const radius = world.config.automapRadius
+    const scale = size / (radius * 2)
+    const pgx = worldToCell(world.player.pos.x)
+    const pgz = worldToCell(world.player.pos.z)
+    for (let dz = -radius; dz < radius; dz++) {
+      for (let dx = -radius; dx < radius; dx++) {
+        const gx = pgx + dx
+        const gz = pgz + dz
+        if (!world.visited.has(`${gx},${gz}`)) {
+          continue
+        }
+        const cell = cellAtGlobal(getChunk, gx, gz)
+        if (cell === CELL_SOLID) {
+          ctx.fillStyle = '#4a4741'
+        } else if (cell === CELL_DOOR) {
+          ctx.fillStyle = '#8f8a80'
+        } else if (cell === CELL_VAULT_DOOR) {
+          ctx.fillStyle = '#f4f1e8'
+        } else {
+          ctx.fillStyle = '#22211e'
+        }
+        ctx.fillRect((dx + radius) * scale, (dz + radius) * scale, Math.ceil(scale), Math.ceil(scale))
+      }
+    }
+    if (world.config.bloodhound) {
+      ctx.fillStyle = '#f4f1e8'
+      for (const [, pickup] of world.pickups) {
+        const dx = worldToCell(pickup.pos.x) - pgx
+        const dz = worldToCell(pickup.pos.z) - pgz
+        if (Math.abs(dx) < radius && Math.abs(dz) < radius) {
+          ctx.beginPath()
+          ctx.arc((dx + radius) * scale + scale / 2, (dz + radius) * scale + scale / 2, 2, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+    }
+    // Player arrow.
+    ctx.save()
+    ctx.translate(size / 2, size / 2)
+    ctx.rotate(-world.player.yaw)
+    ctx.fillStyle = '#f4f1e8'
+    ctx.beginPath()
+    ctx.moveTo(0, -7)
+    ctx.lineTo(5, 6)
+    ctx.lineTo(-5, 6)
+    ctx.closePath()
+    ctx.fill()
+    ctx.restore()
   }
-}
 
-function selectWeapon(
-  weapon: WeaponId,
-  selectedRef: { current: WeaponId },
-  setSelectedWeapon: (weapon: WeaponId) => void,
-  setStatus: (status: string) => void
-) {
-  selectedRef.current = weapon
-  setSelectedWeapon(weapon)
-  setStatus(`${weaponConfigs[weapon].label} ready.`)
-}
+  // ================= RENDER =================
 
-function SettingsPanel({
-  settings,
-  onChange
-}: {
-  settings: Settings
-  onChange: (settings: Settings) => void
-}) {
-  return (
-    <div className="settings-panel" data-testid="settings-panel">
+  const filmSettings = FILM_PRESETS[film]
+  const world = worldRef.current
+
+  const settingsRow = (
+    <div className="title-settings">
       <label>
-        Sensitivity
-        <input
-          type="range"
-          min="0.5"
-          max="2"
-          step="0.1"
-          value={settings.sensitivity}
-          onChange={(event) => onChange({ ...settings, sensitivity: Number(event.target.value) })}
-        />
-      </label>
-      <label>
-        FOV
-        <input
-          type="range"
-          min="65"
-          max="95"
-          step="1"
-          value={settings.fov}
-          onChange={(event) => onChange({ ...settings, fov: Number(event.target.value) })}
-        />
-      </label>
-      <label className="audio-toggle">
-        <input
-          type="checkbox"
-          checked={settings.audio}
-          onChange={(event) => onChange({ ...settings, audio: event.target.checked })}
-        />
-        Audio
-      </label>
-    </div>
-  )
-}
-
-function PracticePanel({
-  settings,
-  onChange,
-  disabled = false
-}: {
-  settings: PracticeSettings
-  onChange: (settings: PracticeSettings) => void
-  disabled?: boolean
-}) {
-  return (
-    <div className="practice-panel" data-testid="practice-panel">
-      <label>
-        Start weapon
-        <select
-          disabled={disabled}
-          value={settings.startingWeapon}
-          onChange={(event) => onChange({ ...settings, startingWeapon: event.target.value as WeaponId })}
-        >
-          {weaponIdsForSelect.map((weapon) => (
-            <option key={weapon} value={weapon}>
-              {weaponConfigs[weapon].label}
-            </option>
-          ))}
+        Film:{' '}
+        <select value={film} onChange={(e) => changeFilm(e.target.value as FilmPreset)} data-testid="film-select">
+          <option value="studio">Studio Cut</option>
+          <option value="directors">Director&apos;s Cut</option>
+          <option value="vintage">Vintage Cut</option>
         </select>
       </label>
-      <label>
-        Spawn rate
-        <input
-          disabled={disabled}
-          type="range"
-          min="0.5"
-          max="2"
-          step="0.25"
-          value={settings.spawnRate}
-          onChange={(event) => onChange({ ...settings, spawnRate: Number(event.target.value) })}
-        />
-      </label>
-      <fieldset>
-        <legend>Enemies</legend>
-        {enemyTypesForSelect.map((enemyType) => (
-          <label key={enemyType} className="toggle-row">
-            <input
-              disabled={disabled}
-              type="checkbox"
-              checked={settings.enemyTypes.includes(enemyType)}
-              onChange={(event) => {
-                const enemyTypes = event.target.checked
-                  ? [...settings.enemyTypes, enemyType]
-                  : settings.enemyTypes.filter((type) => type !== enemyType)
-                onChange({ ...settings, enemyTypes })
-              }}
-            />
-            {enemyLabel(enemyType)}
-          </label>
-        ))}
-      </fieldset>
-      <label className="toggle-row">
-        <input
-          disabled={disabled}
-          type="checkbox"
-          checked={settings.infiniteAmmo}
-          onChange={(event) => onChange({ ...settings, infiniteAmmo: event.target.checked })}
-        />
-        Infinite ammo
-      </label>
-      <label className="toggle-row">
-        <input
-          disabled={disabled}
-          type="checkbox"
-          checked={settings.damageEnabled}
-          onChange={(event) => onChange({ ...settings, damageEnabled: event.target.checked })}
-        />
-        Damage
-      </label>
-      <label className="toggle-row">
-        <input
-          disabled={disabled}
-          type="checkbox"
-          checked={settings.debugOverlays}
-          onChange={(event) => onChange({ ...settings, debugOverlays: event.target.checked })}
-        />
-        Billboard debug
-      </label>
-      <label className="toggle-row">
-        <input
-          disabled={disabled}
-          type="checkbox"
-          checked={settings.roomStateFrozen}
-          onChange={(event) => onChange({ ...settings, roomStateFrozen: event.target.checked })}
-        />
-        Freeze room
-      </label>
+      <button type="button" className="ghost" onClick={() => setMuted((m) => !m)} aria-pressed={muted}>
+        {muted ? 'Unmute' : 'Mute'}
+      </button>
     </div>
   )
-}
 
-function SharedLeaderboardPanel({
-  entries,
-  scope,
-  status,
-  onScopeChange
-}: {
-  entries: RankedLeaderboardEntry[]
-  scope: LeaderboardScope
-  status: SharedLeaderboardStatus
-  onScopeChange: (scope: LeaderboardScope) => void
-}) {
   return (
-    <div className="shared-leaderboard" data-testid="shared-leaderboard">
-      <div className="leaderboard-tabs">
-        <button
-          className={scope === 'all' ? 'active' : ''}
-          type="button"
-          onClick={() => onScopeChange('all')}
-        >
-          All-time
-        </button>
-        <button
-          className={scope === 'daily' ? 'active' : ''}
-          type="button"
-          onClick={() => onScopeChange('daily')}
-        >
-          Daily
-        </button>
-      </div>
-      {status === 'loading' ? <p>Loading shared board.</p> : null}
-      {status === 'unavailable' ? <p>Shared board unavailable.</p> : null}
-      {status === 'error' ? <p>Shared board failed to load.</p> : null}
-      {status === 'ready' && entries.length === 0 ? <p>No shared scores yet.</p> : null}
-      {entries.length > 0 ? (
-        <ol className="leaderboard">
-          {entries.map((entry) => (
-            <li key={entry.id}>
-              <span className="leaderboard-name">#{entry.rank} {entry.playerInitials}</span>
-              <strong className="leaderboard-score">{entry.score}</strong>
-              <span className="leaderboard-time">{formatTime(entry.survivalMs)}</span>
-              <span className="leaderboard-kills">{entry.kills}k</span>
-              <span className="leaderboard-accuracy">{formatAccuracyPercent(entry.accuracy)}</span>
-            </li>
-          ))}
-        </ol>
-      ) : null}
-    </div>
-  )
-}
+    <div className="game-shell">
+      <div
+        ref={mountRef}
+        className="render-root"
+        data-testid="render-root"
+        style={{ filter: diffusionFilter(filmSettings) }}
+      />
+      <canvas ref={filmCanvasRef} className="film-overlay" data-testid="film-overlay" />
 
-function DailySchedulePanel({ preview, streak }: { preview: DailySchedulePreview; streak: DailyStreakRecord | null }) {
-  return (
-    <div className="daily-schedule" data-testid="daily-schedule">
-      <div className="daily-twist" data-testid="daily-twist">
-        <span>Daily twist</span>
-        <strong>{preview.modifier.label}</strong>
-        <p>{preview.modifier.description}</p>
-      </div>
-      <div className="daily-streak" data-testid="daily-streak">
-        <span>Daily streak</span>
-        <strong>{dailyStreakLabel(streak)}</strong>
-        <p>Best {streak?.bestStreak ?? 0} days. Runs {streak?.totalDailyRuns ?? 0}.</p>
-      </div>
-      <div className="schedule-row">
-        <span>Spawn offset</span>
-        <strong>+{preview.spawnTypeOffset}</strong>
-      </div>
-      <div className="schedule-row">
-        <span>Supply cooldown</span>
-        <strong>{formatTime(preview.supplyCooldownMs)}</strong>
-      </div>
-      <div className="schedule-strip" aria-label="Daily spawn order">
-        {preview.spawnOrder.map((spawn) => (
-          <span key={spawn.spawnNumber}>{enemyLabel(spawn.enemyType)}</span>
-        ))}
-      </div>
-      <ol className="schedule-hazards" aria-label="Daily hazard schedule">
-        {preview.hazards.map((hazard) => (
-          <li key={hazard.kind}>
-            <span>{hazardLabel(hazard.kind)}</span>
-            <strong>{formatTime(hazard.firstWarningMs)}</strong>
-          </li>
-        ))}
-      </ol>
-    </div>
-  )
-}
-
-type UpgradeRowConfig = {
-  id: UpgradeStatId
-  label: string
-  effectLabel: (tiers: UpgradeWallet['tiers']) => string
-  buyLabel: string
-}
-
-const UPGRADE_ROWS: ReadonlyArray<UpgradeRowConfig> = [
-  {
-    id: 'maxHp',
-    label: 'Max HP',
-    effectLabel: (tiers) => `${effectiveMaxHp(tiers)} HP`,
-    buyLabel: `+${MAX_HP_PER_TIER} HP`
-  },
-  {
-    id: 'startingAmmo',
-    label: 'Ammo capacity',
-    effectLabel: (tiers) => `+${effectiveMaxAmmoBonus(tiers)} per weapon`,
-    buyLabel: `+${STARTING_AMMO_PER_TIER} ammo`
-  },
-  {
-    id: 'weaponDamage',
-    label: 'Weapon damage',
-    effectLabel: (tiers) => `${Math.round(effectiveDamageMultiplier(tiers) * 100)}% damage`,
-    buyLabel: `+${Math.round(WEAPON_DAMAGE_PER_TIER * 100)}% damage`
-  },
-  {
-    id: 'moveSpeed',
-    label: 'Move speed',
-    effectLabel: (tiers) => `${Math.round(effectiveMoveSpeedMultiplier(tiers) * 100)}% speed`,
-    buyLabel: `+${Math.round(MOVE_SPEED_PER_TIER * 100)}% speed`
-  }
-]
-
-// `UPGRADE_STAT_IDS` is the source of truth for which stats exist; assert the
-// UI list mirrors it (in the same order) so a future stat addition,
-// duplication, or reorder fails the build until the row config is updated.
-const upgradeRowIds = UPGRADE_ROWS.map((row) => row.id)
-if (
-  upgradeRowIds.length !== UPGRADE_STAT_IDS.length ||
-  upgradeRowIds.some((id, index) => id !== UPGRADE_STAT_IDS[index])
-) {
-  throw new Error('UPGRADE_ROWS is out of sync with UPGRADE_STAT_IDS')
-}
-
-function UpgradePanel({
-  wallet,
-  onPurchase
-}: {
-  wallet: UpgradeWallet
-  onPurchase: (stat: UpgradeStatId) => void
-}) {
-  return (
-    <section className="upgrade-panel" data-testid="upgrade-panel" aria-label="Meta progression">
-      <header className="upgrade-panel-header">
-        <h3>Upgrades</h3>
-        <p className="upgrade-credits" data-testid="upgrade-credits">
-          Credits <strong>{wallet.credits}</strong>
-        </p>
-      </header>
-      <ul className="upgrade-list">
-        {UPGRADE_ROWS.map((row) => {
-          const tier = wallet.tiers[row.id]
-          const cost = nextTierCost(tier)
-          const affordable = canAffordNextTier(wallet.credits, tier)
-          const maxed = tier >= MAX_TIER
-          return (
-            <li className="upgrade-row" key={row.id} data-testid={`upgrade-row-${row.id}`}>
-              <div className="upgrade-row-label">
-                <strong>{row.label}</strong>
-                <span className="upgrade-tier">
-                  Tier {tier}/{MAX_TIER} <span className="upgrade-effect">({row.effectLabel(wallet.tiers)})</span>
+      {screen === 'playing' && (
+        <>
+          <div
+            className="damage-flash"
+            data-testid="damage-flash"
+            style={{ opacity: world ? Math.min(0.75, world.player.damageFlash) : 0 }}
+            hidden={!world || world.player.damageFlash <= 0.01}
+          />
+          <div
+            className="pickup-flash"
+            style={{ opacity: world ? Math.min(0.25, world.player.pickupFlash * 0.25) : 0 }}
+          />
+          <div className="crosshair" data-testid="crosshair" />
+          <canvas ref={weaponCanvasRef} width={VIEW_W} height={VIEW_H} className="weapon-canvas" data-testid="weapon-canvas" />
+          <canvas ref={automapRef} className="automap" data-testid="automap" style={{ display: 'none' }} />
+          {hud && (
+            <div className="hud" data-testid="hud">
+              <div className="hud-cell hud-ammo">
+                <span className="hud-big" data-testid="hud-ammo">
+                  {hud.ammoInWeapon === null ? '-' : hud.ammoInWeapon}
                 </span>
+                <span className="hud-label">AMMO</span>
               </div>
-              <button
-                className="secondary-button upgrade-buy"
-                type="button"
-                disabled={maxed || !affordable}
-                data-testid={`upgrade-buy-${row.id}`}
-                onClick={() => onPurchase(row.id)}
-              >
-                {maxed ? 'Maxed' : `${row.buyLabel} (${cost})`}
+              <div className="hud-cell hud-health">
+                <span className="hud-big" data-testid="hud-health">
+                  {hud.hp}%
+                </span>
+                <span className="hud-label">HEALTH</span>
+              </div>
+              <div className="hud-cell hud-slots">
+                <div className="slot-row">
+                  {WEAPON_ORDER.map((id) => (
+                    <span
+                      key={id}
+                      className={`slot ${hud.owned.includes(id) ? 'owned' : ''} ${hud.weapon === id ? 'current' : ''}`}
+                    >
+                      {WEAPONS[id].slot}
+                    </span>
+                  ))}
+                </div>
+                <span className="hud-label">{WEAPONS[hud.weapon].name}</span>
+              </div>
+              <div className="hud-mug">
+                <canvas ref={mugCanvasRef} width={96} height={96} data-testid="mugshot" />
+              </div>
+              <div className="hud-cell hud-armor">
+                <span className="hud-big" data-testid="hud-armor">
+                  {hud.armor}%
+                </span>
+                <span className="hud-label">ARMOR</span>
+              </div>
+              <div className="hud-cell hud-cheddar">
+                <span className="hud-big" data-testid="hud-cheddar">
+                  {hud.cheddar}
+                </span>
+                <span className="hud-label">CHEDDAR</span>
+              </div>
+              <div className="hud-cell hud-depth">
+                <span className="hud-big" data-testid="hud-depth">
+                  {hud.ring}
+                </span>
+                <span className="hud-label">BLOCKS OUT{hud.hasKey ? ' [KEY]' : ''}</span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {screen === 'title' && (
+        <div className="screen title-screen" data-testid="title-screen">
+          <div className="title-card">
+            <p className="title-over">FLATLINE DETECTIVE AGENCY presents</p>
+            <h1 className="title-main">FLATLINE</h1>
+            <p className="title-sub">a hard-boiled mouse story</p>
+            <p className="title-tag">
+              The city is a maze and every block wants you dead. Go out, get paid, get flattened, get stronger.
+            </p>
+            <div className="title-buttons">
+              <button type="button" className="start-run" onClick={startRun} data-testid="start-run">
+                New Case
               </button>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
+              <button type="button" className="ghost" onClick={() => setScreen('office')} data-testid="go-office">
+                The Office
+              </button>
+            </div>
+            {settingsRow}
+            <p className="controls-hint">
+              WASD move. Mouse aim. Click shoot. E opens doors. Tab holds the map. 1-7 swap iron.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {screen === 'dead' && summary && (
+        <div className="screen death-screen" data-testid="death-screen">
+          <div className="title-card">
+            <h1 className="death-title">FLATLINED</h1>
+            <div className="death-summary" data-testid="run-summary">
+              <div>
+                <span className="hud-big">{summary.ring}</span>
+                <span className="hud-label">blocks out</span>
+              </div>
+              <div>
+                <span className="hud-big">{summary.kills}</span>
+                <span className="hud-label">goons dropped</span>
+              </div>
+              <div>
+                <span className="hud-big">{summary.cheddar}</span>
+                <span className="hud-label">cheddar earned</span>
+              </div>
+              <div>
+                <span className="hud-big">{summary.seconds}s</span>
+                <span className="hud-label">on the case</span>
+              </div>
+            </div>
+            <p className="title-tag">The earnings made it back to the office. You, eventually.</p>
+            <button type="button" className="start-run" onClick={() => setScreen('office')} data-testid="back-to-office">
+              Back to the Office
+            </button>
+          </div>
+        </div>
+      )}
+
+      {screen === 'office' && <OfficeScreen meta={meta} onMetaChange={saveMeta} onStartRun={startRun} />}
+
+      {screen === 'playing' && paused && (
+        <div className="screen pause-screen" data-testid="pause-menu">
+          <div className="title-card">
+            <h1>INTERMISSION</h1>
+            <div className="title-buttons">
+              <button
+                type="button"
+                className="start-run"
+                onClick={() => {
+                  setPaused(false)
+                  mountRef.current?.querySelector('canvas')?.requestPointerLock()
+                }}
+              >
+                Resume
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setPaused(false)
+                  const w = worldRef.current
+                  if (w) {
+                    w.player.vitals = { ...w.player.vitals, hp: 0 }
+                    killPlayer(performance.now())
+                  }
+                }}
+                data-testid="call-it-a-night"
+              >
+                Call It a Night
+              </button>
+            </div>
+            {settingsRow}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
-function LocalLeaderboard({ entries }: { entries: LeaderboardEntry[] }) {
-  return (
-    <ol className="leaderboard" data-testid="leaderboard" aria-label="Local leaderboard">
-      {entries.map((entry, index) => (
-        <li key={`${entry.createdAt}-${index}`}>
-          <span className="leaderboard-name">{entry.playerInitials}</span>
-          <strong className="leaderboard-score">{entry.score}</strong>
-          <span className="leaderboard-time">{formatTime(entry.survivalMs)}</span>
-          <span className="leaderboard-kills">{entry.kills}k</span>
-          <span className="leaderboard-accuracy">{formatAccuracyPercent(entry.accuracy)}</span>
-        </li>
-      ))}
-    </ol>
-  )
-}
-
-function loadInitials(): string {
-  if (typeof window === 'undefined') {
-    return 'YOU'
-  }
-
-  return normalizeClientInitials(window.localStorage.getItem(initialsStorageKey) ?? 'YOU') || 'YOU'
-}
-
-function normalizeClientInitials(value: string): string {
-  return value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3)
-}
-
-function submitButtonLabel(status: SubmitStatus): string {
-  if (status === 'submitting') {
-    return 'Submitting'
-  }
-
-  if (status === 'submitted') {
-    return 'Submitted'
-  }
-
-  if (status === 'unavailable') {
-    return 'Unavailable'
-  }
-
-  return 'Submit score'
-}
-
-function loadInitialSettings(): Settings {
-  return readStorage(settingsStorageKey, SettingsSchema) ?? { sensitivity: 1, fov: 75, audio: true }
-}
-
-function createPracticeSettings(): PracticeSettings {
-  return {
-    startingWeapon: 'peashooter',
-    enemyTypes: ['grunt', 'skitter', 'brute', 'spitter'],
-    spawnRate: 1,
-    infiniteAmmo: false,
-    damageEnabled: true,
-    debugOverlays: true,
-    roomStateFrozen: false
-  }
-}
-
-function normalizePracticeSettings(settings: PracticeSettings): PracticeSettings {
-  const enemyTypes = enemyTypesForSelect.filter((enemyType) => settings.enemyTypes.includes(enemyType))
-
-  return {
-    startingWeapon: weaponIds.includes(settings.startingWeapon) ? settings.startingWeapon : 'peashooter',
-    enemyTypes: enemyTypes.length > 0 ? enemyTypes : ['grunt'],
-    spawnRate: clamp(settings.spawnRate, 0.5, 2),
-    infiniteAmmo: settings.infiniteAmmo,
-    damageEnabled: settings.damageEnabled,
-    debugOverlays: settings.debugOverlays,
-    roomStateFrozen: settings.roomStateFrozen
-  }
-}
-
-function practiceEnemyTypeForSpawn(spawnCount: number, settings: PracticeSettings, isPractice: boolean): EnemyType {
-  if (!isPractice) {
-    return enemyTypeForSpawn(spawnCount)
-  }
-
-  const enemyTypes = normalizePracticeSettings(settings).enemyTypes
-  return enemyTypes[spawnCount % enemyTypes.length]
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
-}
-
-function animationForEnemyState(state: EnemyModel['state']): AnimationName {
-  if (state === 'dead') {
-    return 'death'
-  }
-
-  if (state === 'hurt') {
-    return 'hurt'
-  }
-
-  if (state === 'attackWindup') {
-    return 'attackWindup'
-  }
-
-  if (state === 'attackRelease') {
-    return 'attack'
-  }
-
-  if (state === 'chase') {
-    return 'walk'
-  }
-
-  return 'idle'
-}
-
-function enemyLabel(type: EnemyModel['type']): string {
-  if (type === 'skitter') {
-    return 'Skitter'
-  }
-
-  if (type === 'brute') {
-    return 'Brute'
-  }
-
-  if (type === 'spitter') {
-    return 'Spitter'
-  }
-
-  return 'Grunt'
-}
-
-function hazardLabel(kind: HazardKind): string {
-  if (kind === 'flameLane') {
-    return 'Flame lane'
-  }
-
-  if (kind === 'inkPool') {
-    return 'Ink pool'
-  }
-
-  if (kind === 'centerSurge') {
-    return 'Center surge'
-  }
-
-  return 'Falling light'
-}
-
-function formatTime(ms: number): string {
-  const seconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(seconds / 60).toString()
-  const remainder = (seconds % 60).toString().padStart(2, '0')
-  return `${minutes}:${remainder}`
-}
-
-function hpZone(hp: number, maxHp: number): 'good' | 'warning' | 'critical' {
-  if (!Number.isFinite(maxHp) || maxHp <= 0) {
-    return 'critical'
-  }
-  const ratio = hp / maxHp
-  if (ratio >= 0.6) return 'good'
-  if (ratio >= 0.3) return 'warning'
-  return 'critical'
-}
-
-function formatAccuracyPercent(ratio: number): string {
-  if (!Number.isFinite(ratio) || ratio < 0) return '0%'
-  return `${Math.round(Math.min(1, ratio) * 100)}%`
-}
-
-function playCue(frequency: number, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.frequency.value = frequency
-  gain.gain.value = 0.025
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start()
-  oscillator.stop(context.currentTime + 0.06)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playWindupCue(cue: EnemyWindupCueStyle, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = cue.waveform
-  oscillator.frequency.value = cue.frequency
-  const peak = cue.gain
-  const startTime = context.currentTime
-  const stopTime = startTime + cue.durationMs / 1000
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.02, cue.durationMs / 1000 / 4))
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playRunEndCue(cue: RunEndCueStyle, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  let cursor = context.currentTime
-
-  for (const tone of cue.tones) {
-    const oscillator = context.createOscillator()
-    const gain = context.createGain()
-    oscillator.type = cue.waveform
-    oscillator.frequency.value = tone.frequency
-    const startTime = cursor
-    const stopTime = startTime + tone.durationMs / 1000
-    gain.gain.setValueAtTime(0, startTime)
-    gain.gain.linearRampToValueAtTime(tone.gain, startTime + Math.min(0.02, tone.durationMs / 1000 / 4))
-    gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-    oscillator.connect(gain)
-    gain.connect(context.destination)
-    oscillator.start(startTime)
-    oscillator.stop(stopTime)
-    cursor = stopTime
-  }
-
-  const totalSeconds = cursor - context.currentTime
-
-  window.setTimeout(() => {
-    void context.close().catch(() => {})
-  }, totalSeconds * 1000 + 60)
-}
-
-function playEnemyHurtCue(cue: EnemyHurtCueStyle, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = cue.waveform
-  oscillator.frequency.value = cue.frequency
-  const startTime = context.currentTime
-  const stopTime = startTime + cue.durationMs / 1000
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(cue.gain, startTime + Math.min(0.012, cue.durationMs / 1000 / 4))
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playWeaponFireCue(cue: WeaponFireCueStyle, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = cue.waveform
-  const startTime = context.currentTime
-  const stopTime = startTime + cue.durationMs / 1000
-  oscillator.frequency.setValueAtTime(cue.frequencyStart, startTime)
-  oscillator.frequency.exponentialRampToValueAtTime(Math.max(40, cue.frequencyEnd), stopTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(cue.gain, startTime + Math.min(0.015, cue.durationMs / 1000 / 4))
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playEnemyDeathCue(cue: EnemyDeathCueStyle, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = cue.waveform
-  const startTime = context.currentTime
-  const stopTime = startTime + cue.durationMs / 1000
-  oscillator.frequency.setValueAtTime(cue.frequencyStart, startTime)
-  oscillator.frequency.exponentialRampToValueAtTime(Math.max(40, cue.frequencyEnd), stopTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(cue.gain, startTime + Math.min(0.02, cue.durationMs / 1000 / 4))
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playHazardCountdownCue(cue: HazardCountdownStyle, tick: HazardCountdownTick, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = cue.waveform
-  oscillator.frequency.value = tick.isFinal ? cue.finalFrequency : cue.frequency
-  const peak = tick.isFinal ? cue.finalGain : cue.gain
-  const startTime = context.currentTime
-  const stopTime = startTime + cue.durationMs / 1000
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.01, cue.durationMs / 1000 / 4))
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playPickupCue(cue: PickupCueStyle, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const startTime = context.currentTime
-  const firstStop = startTime + cue.firstDurationMs / 1000
-  const secondStart = firstStop
-  const secondStop = secondStart + cue.secondDurationMs / 1000
-
-  const firstOsc = context.createOscillator()
-  const firstGain = context.createGain()
-  firstOsc.type = cue.waveform
-  firstOsc.frequency.value = cue.firstFrequency
-  firstGain.gain.setValueAtTime(0, startTime)
-  firstGain.gain.linearRampToValueAtTime(cue.gain, startTime + Math.min(0.012, cue.firstDurationMs / 1000 / 5))
-  firstGain.gain.exponentialRampToValueAtTime(0.0001, firstStop)
-  firstOsc.connect(firstGain)
-  firstGain.connect(context.destination)
-  firstOsc.start(startTime)
-  firstOsc.stop(firstStop)
-
-  const secondOsc = context.createOscillator()
-  const secondGain = context.createGain()
-  secondOsc.type = cue.waveform
-  secondOsc.frequency.value = cue.secondFrequency
-  secondGain.gain.setValueAtTime(0, secondStart)
-  secondGain.gain.linearRampToValueAtTime(cue.gain, secondStart + Math.min(0.012, cue.secondDurationMs / 1000 / 5))
-  secondGain.gain.exponentialRampToValueAtTime(0.0001, secondStop)
-  secondOsc.connect(secondGain)
-  secondGain.connect(context.destination)
-  secondOsc.start(secondStart)
-  secondOsc.stop(secondStop)
-
-  secondOsc.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playDoorOpenCue(cue: DoorCueStyle, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = cue.waveform
-  oscillator.frequency.value = cue.frequency
-  const peak = cue.gain
-  const startTime = context.currentTime
-  const stopTime = startTime + cue.durationMs / 1000
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.012, cue.durationMs / 1000 / 5))
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-// Last-ammo warning. Plays a short downward two-tone click when the
-// player has just spent their next-to-last shot of a finite-ammo
-// weapon. Lower pitch than the milestone family so the cue reads as
-// "running dry" rather than "you achieved something." Fires once
-// per transition; not repeated frame after frame while at 1.
-function playLastAmmoCue(enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = 'square'
-  const startTime = context.currentTime
-  const durationMs = 180
-  const stopTime = startTime + durationMs / 1000
-  oscillator.frequency.setValueAtTime(420, startTime)
-  oscillator.frequency.exponentialRampToValueAtTime(220, stopTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(0.04, startTime + 0.012)
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-// Combo milestone callout. Fires when the kill streak crosses 5 / 10
-// / 20. Uses a sawtooth (rougher than the score milestone triangle)
-// with a quick double-tap rise so the cue reads as "you are on a
-// streak" rather than "you crossed a score line." Each tier is
-// pitched a step higher and held a touch longer.
-function playComboIncreaseCue(cue: ComboIncreaseCueStyle, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = cue.waveform
-  oscillator.frequency.value = cue.frequency
-  const startTime = context.currentTime
-  const stopTime = startTime + cue.durationMs / 1000
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(cue.gain, startTime + Math.min(0.008, cue.durationMs / 1000 / 4))
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playComboMilestoneCue(milestone: ComboMilestone, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const tier = milestone === 5 ? 0 : milestone === 10 ? 1 : 2
-  const startHz = 440 + tier * 100
-  const peakHz = startHz * 1.4
-  const durationMs = 260 + tier * 70
-  const gainPeak = 0.05 + tier * 0.012
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = 'sawtooth'
-  const startTime = context.currentTime
-  const stopTime = startTime + durationMs / 1000
-  oscillator.frequency.setValueAtTime(startHz, startTime)
-  oscillator.frequency.exponentialRampToValueAtTime(peakHz, startTime + 0.05)
-  oscillator.frequency.exponentialRampToValueAtTime(peakHz * 0.92, startTime + 0.12)
-  oscillator.frequency.exponentialRampToValueAtTime(peakHz, stopTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(gainPeak, startTime + 0.02)
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-// Personal-best cue. Fires once when the run crosses the player's
-// local best at run start. Pitched higher and held longer than the
-// top-tier score milestone cue, with a small extra ascending step so
-// the moment reads as a personal achievement rather than a generic
-// threshold crossing.
-function playPersonalBestCue(enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = 'triangle'
-  const startTime = context.currentTime
-  const durationMs = 540
-  const stopTime = startTime + durationMs / 1000
-  oscillator.frequency.setValueAtTime(720, startTime)
-  oscillator.frequency.exponentialRampToValueAtTime(1080, startTime + 0.12)
-  oscillator.frequency.exponentialRampToValueAtTime(1440, startTime + 0.28)
-  oscillator.frequency.exponentialRampToValueAtTime(1280, stopTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(0.085, startTime + 0.03)
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-// Score milestone callout. Plays a triumphant two-step rise when the
-// run vaults past 1k / 5k / 10k. Higher tier = higher arrival pitch
-// and slightly longer envelope, so the player can hear a "going
-// further" signal without a HUD popup.
-function playScoreMilestoneCue(milestone: ScoreMilestone, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const tier = milestone === 1000 ? 0 : milestone === 5000 ? 1 : 2
-  const startHz = 520 + tier * 140
-  const peakHz = startHz * 1.5
-  const durationMs = 320 + tier * 60
-  const gainPeak = 0.05 + tier * 0.012
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = 'triangle'
-  const startTime = context.currentTime
-  const stopTime = startTime + durationMs / 1000
-  oscillator.frequency.setValueAtTime(startHz, startTime)
-  oscillator.frequency.exponentialRampToValueAtTime(peakHz, startTime + durationMs / 1000 / 3)
-  oscillator.frequency.exponentialRampToValueAtTime(peakHz * 0.85, stopTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(gainPeak, startTime + 0.025)
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-// F-016 v2 feel pass. Plays a short, low, off-balance two-tone slide
-// when crossfire damage arms a stagger window on the victim. This is
-// the audible signal that an infighting opening just opened, so the
-// player can bias toward the staggered enemy. Distinct from the dash
-// cue (above): higher amplitude envelope opens the channel, then a
-// downward pitch slide reads as "knocked off rhythm" rather than
-// "closing distance."
-function playCrossfireStaggerCue(enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = 'triangle'
-  const startTime = context.currentTime
-  const durationMs = 220
-  const stopTime = startTime + durationMs / 1000
-  // Sweep from a contact-shape mid frequency down to a stumble.
-  oscillator.frequency.setValueAtTime(360, startTime)
-  oscillator.frequency.exponentialRampToValueAtTime(150, stopTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(0.046, startTime + 0.018)
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playDashCue(enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = 'sine'
-  const startTime = context.currentTime
-  const durationMs = 180
-  const stopTime = startTime + durationMs / 1000
-  oscillator.frequency.setValueAtTime(1100, startTime)
-  oscillator.frequency.exponentialRampToValueAtTime(700, stopTime)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(0.038, startTime + 0.012)
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playComboBreakCue(style: ComboBreakCueStyle, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = style.waveform
-  const startTime = context.currentTime
-  const firstSeconds = style.firstDurationMs / 1000
-  const secondSeconds = style.secondDurationMs / 1000
-  const stopTime = startTime + firstSeconds + secondSeconds
-  oscillator.frequency.setValueAtTime(style.firstFrequency, startTime)
-  oscillator.frequency.setValueAtTime(style.secondFrequency, startTime + firstSeconds)
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(style.gain, startTime + 0.008)
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-function playPlayerDamageCue(cue: PlayerDamageCueStyle, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || typeof window.AudioContext !== 'function') {
-    return
-  }
-
-  const context = new window.AudioContext()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-  oscillator.type = cue.waveform
-  oscillator.frequency.value = cue.frequency
-  const peak = cue.gain
-  const startTime = context.currentTime
-  const stopTime = startTime + cue.durationMs / 1000
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(peak, startTime + Math.min(0.015, cue.durationMs / 1000 / 5))
-  gain.gain.exponentialRampToValueAtTime(0.0001, stopTime)
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startTime)
-  oscillator.stop(stopTime)
-  oscillator.addEventListener('ended', () => {
-    context.close()
-  })
-}
-
-async function loadEnemyAtlases(): Promise<Record<EnemyType, EnemyVisualAsset>> {
-  const loadedAssets = await Promise.all(enemyAtlasTypes.map((type) => loadEnemyAtlas(type)))
-
-  return loadedAssets.reduce((assets, [type, asset]) => {
-    assets[type] = asset
-    return assets
-  }, {} as Record<EnemyType, EnemyVisualAsset>)
-}
-
-async function loadEnemyAtlas(type: EnemyType): Promise<[EnemyType, EnemyVisualAsset]> {
-  const atlasResponse = await fetch(`/assets/enemies/${type}/${type}.atlas.json`)
-  const atlas = await atlasResponse.json() as SpriteAtlas
-  assertValidSpriteAtlas(atlas)
-  const texture = await new THREE.TextureLoader().loadAsync(`/assets/enemies/${type}/${atlas.image}`)
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.magFilter = THREE.NearestFilter
-  texture.minFilter = THREE.NearestFilter
-  texture.wrapS = THREE.ClampToEdgeWrapping
-  texture.wrapT = THREE.ClampToEdgeWrapping
-
-  return [type, { atlas, texture }]
-}
-
-function setEnemySlotAsset(slot: EnemyRenderSlot, type: EnemyType, asset: EnemyVisualAsset) {
-  if (slot.textureType === type && slot.texture !== null) {
-    return
-  }
-
-  if (slot.texture !== null) {
-    slot.texture.dispose()
-  }
-
-  const cloned = asset.texture.clone()
-  cloned.needsUpdate = true
-  slot.texture = cloned
-  slot.textureType = type
-  slot.material.map = cloned
-  slot.material.needsUpdate = true
-}
-
-function disposeEnemyAssets(assets: Partial<Record<EnemyType, EnemyVisualAsset>>) {
-  for (const asset of Object.values(assets)) {
-    asset?.texture.dispose()
-  }
-}
-
-function applyEnemyFrame(
-  slot: EnemyRenderSlot,
-  atlas: SpriteAtlas | null,
-  animationName: AnimationName,
-  angle: BillboardAngle,
-  timeMs: number
-) {
-  if (!atlas || !slot.texture) {
-    return
-  }
-
-  // Fall back to idle if the requested clip is missing so a partial atlas
-  // does not crash the renderer.
-  const clip = atlas.clips.find((candidate) => candidate.name === animationName && candidate.angle === angle)
-    ?? selectAnimationClip(atlas, 'idle', angle)
-  const frame = selectSpriteFrame(clip, timeMs)
-  const transform = frameToUvTransform(frame, atlas.imageWidth, atlas.imageHeight)
-  slot.texture.repeat.set(transform.repeatX, transform.repeatY)
-  slot.texture.offset.set(transform.offsetX, transform.offsetY)
-}
-
-function disposeEnemySlots(slots: EnemyRenderSlot[]) {
-  for (const slot of slots) {
-    if (slot.texture !== null) {
-      slot.texture.dispose()
-      slot.texture = null
-      slot.textureType = null
-    }
-    slot.material.dispose()
-    slot.mesh.geometry.dispose()
-  }
-}
-
-function requestPointerLock(canvas: HTMLCanvasElement | undefined) {
-  if (!canvas || typeof canvas.requestPointerLock !== 'function') {
-    return
-  }
-
-  const request = canvas.requestPointerLock()
-
-  if (request instanceof Promise) {
-    request.catch(() => {
-      // Some automated and embedded browsers reject pointer lock. The run still starts.
-    })
-  }
+function setupSceneBasics(scene: THREE.Scene) {
+  scene.background = new THREE.Color(0x0a0a0a)
+  scene.fog = new THREE.Fog(0x0a0a0a, 6, 34)
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x555555, 1.15)
+  scene.add(hemi)
+  const dir = new THREE.DirectionalLight(0xffffff, 0.6)
+  dir.position.set(0.6, 1, 0.35)
+  scene.add(dir)
 }
