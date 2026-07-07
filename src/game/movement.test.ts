@@ -74,4 +74,19 @@ describe('analog thrust axes', () => {
     expect(half).toBeGreaterThan(full * 0.4)
     expect(half).toBeLessThan(full * 0.6)
   })
+
+  // Direction regression: the camera faces yaw + PI, so at yaw 0 forward
+  // is +z and the player's right is -x. Guards against strafe (and
+  // forward) being wired backwards.
+  it('moves forward along +z at yaw 0', () => {
+    const fwd = simulateAxes(1, 0, 0.5)
+    expect(fwd.z).toBeGreaterThan(0)
+    expect(Math.abs(fwd.x)).toBeLessThan(1e-9)
+  })
+
+  it('strafes right toward -x at yaw 0', () => {
+    const right = simulateAxes(0, 1, 0.5)
+    expect(right.x).toBeLessThan(0)
+    expect(Math.abs(right.z)).toBeLessThan(1e-9)
+  })
 })

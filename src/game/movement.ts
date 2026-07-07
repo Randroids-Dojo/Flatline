@@ -27,6 +27,10 @@ export type MoveInput = {
 // Analog form: axes in [-1, 1] scale the thrust, so a half-deflected
 // touch stick walks at half acceleration through the same friction model.
 // Keyboard input maps to full-strength axes below.
+//
+// Positive strafeAxis is the player's right. The camera faces yaw + PI
+// (see the renderer), so at yaw 0 the player looks toward +Z and their
+// right is world -X; hence strafe subtracts along the right-hand basis.
 export function applyThrustAxes(
   momentum: Vec2,
   yaw: number,
@@ -41,8 +45,8 @@ export function applyThrustAxes(
   const fwd = forwardAxis * RUN_FORWARD_THRUST * scale
   const str = strafeAxis * RUN_STRAFE_THRUST * scale
   return {
-    x: momentum.x + sin * fwd + cos * str,
-    z: momentum.z + cos * fwd - sin * str
+    x: momentum.x + sin * fwd - cos * str,
+    z: momentum.z + cos * fwd + sin * str
   }
 }
 
