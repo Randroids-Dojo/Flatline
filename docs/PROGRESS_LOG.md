@@ -18,6 +18,26 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-07-07, Fix reversed strafe direction
+
+- Branch: `claude/doom-roguelike-procedural-8614yx`
+- PR: #174
+- Changed: real-device report caught that strafing left/right was reversed. The shared thrust math had positive strafe pushing +x, but the camera faces yaw + PI so the player's right at yaw 0 is world -x; moving right sent you left on both keyboard and touch. Negated the strafe basis in `applyThrustAxes` (`src/game/movement.ts`) so both input paths strafe correctly; forward unchanged. Added direction-regression tests pinning forward to +z and right to -x at yaw 0.
+- Verification: dash check (clean), `git diff --check`, `npm run verify` green: lint, typecheck, `npm test` (101/101), build, e2e (10 passed, 10 project-scoped skips).
+- Assumptions: none; the fix is confirmed by the camera handedness (screen-right = cross(forward, up)) and the new tests.
+- GDD coverage: `docs/gdd/06-movement.md` build log entry.
+- Followups: none.
+
+## 2026-07-07, Analog touch walking and finer aim response
+
+- Branch: `claude/doom-roguelike-procedural-8614yx`
+- PR: #174
+- Changed: tuning pass after a real-device report that walking felt off on touch. The move stick no longer maps to Doom's digital booleans (which snapped to full run past the deadzone, strafed unexpectedly on angled thumbs, and could exceed max speed on near-rim diagonals). `src/game/movement.ts` gains `applyThrustAxes` for analog axes through the same thrust/friction model with `applyThrust` delegating to it; `src/game/touch.ts` replaces `moveInputFromStick` with `analogVectorFromStick` (radial deadzone 0.15 remapped creep-to-run, exact direction, magnitude cap 1) and gives `lookVectorFromStick` a squared response with max rates 3.0/2.2 rad/s; `stepWorld` sums keyboard and stick axes clamped to [-1, 1]. Keyboard movement unchanged, including the unnormalized-diagonal quirk.
+- Verification: dash check (clean), `git diff --check`, `npm run verify` green: lint, typecheck, `npm test` (99/99), build, e2e (10 passed, 10 project-scoped skips).
+- Assumptions: deadzone 0.15 and aim rates 3.0/2.2 rad/s are feel defaults pending another device pass; the squared aim curve is per-axis (standard controller expo) rather than radial.
+- GDD coverage: `docs/gdd/06-movement.md` text updated for analog touch axes plus a build log entry.
+- Followups: none new.
+
 ## 2026-07-07, Mobile touch controls and phone-width HUD (closes F-025)
 
 - Branch: `claude/doom-roguelike-procedural-8614yx`
