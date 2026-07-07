@@ -13,3 +13,4 @@ Collision is circle vs cell grid with independent axis sliding and sub-stepping 
 ### Build log
 
 - 2026-07-07: momentum, friction, sliding collision, and tests. Files: `src/game/movement.ts`, `src/game/collision.ts`, `src/game/movement.test.ts`, `src/game/collision.test.ts`. PR #172.
+- 2026-07-07: analog touch walking (real-device feel report): radial-deadzone analog axes through applyThrustAxes, squared aim response. Files: `src/game/touch.ts`, `src/game/movement.ts`, `src/components/FlatlineGame.tsx`. PR #174.
