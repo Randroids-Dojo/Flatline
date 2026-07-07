@@ -634,12 +634,27 @@ export function FlatlineGame() {
   // request pointer lock on phones.
   useEffect(() => {
     const sticks = touchSticksRef.current
-    const syncView = () => setTouchView({ move: { ...sticks.move }, look: { ...sticks.look } })
+    // Stick visuals re-render at most once per animation frame, not per
+    // touchmove event.
+    let viewRaf = 0
+    const syncView = () => {
+      if (viewRaf) {
+        return
+      }
+      viewRaf = requestAnimationFrame(() => {
+        viewRaf = 0
+        setTouchView({ move: { ...sticks.move }, look: { ...sticks.look } })
+      })
+    }
     const applySticks = () => {
       touchMoveRef.current = moveInputFromStick(sticks.move)
       touchLookRef.current = lookVectorFromStick(sticks.look)
     }
     const releaseAll = () => {
+      if (viewRaf) {
+        cancelAnimationFrame(viewRaf)
+        viewRaf = 0
+      }
       endJoystick(sticks.move)
       endJoystick(sticks.look)
       applySticks()
@@ -1889,6 +1904,7 @@ export function FlatlineGame() {
                   type="button"
                   className="touch-btn touch-small"
                   data-testid="touch-pause"
+                  aria-label="Pause"
                   onClick={() => setPaused(true)}
                 >
                   ||
