@@ -50,6 +50,7 @@ button {
   display: block;
   width: 100%;
   height: 100%;
+  touch-action: none;
 }
 
 .film-overlay {
@@ -200,11 +201,19 @@ button {
 .hud-slots .slot {
   display: inline-block;
   width: 20px;
+  padding: 0;
   text-align: center;
+  background: transparent;
   color: var(--gray-dark);
   border: 1px solid var(--gray-dark);
   margin: 0 2px;
   font-size: 12px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hud-slots .slot:disabled {
+  cursor: default;
 }
 
 .hud-slots .slot.owned {
@@ -216,6 +225,97 @@ button {
   background: var(--paper);
   color: var(--ink);
   border-color: var(--paper);
+}
+
+/* --- Touch controls --- */
+
+.touch-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 22;
+  pointer-events: none;
+}
+
+.touch-layer button {
+  pointer-events: auto;
+}
+
+/* Stick footprint is 2 * JOYSTICK_RADIUS (64px) from vibekit. */
+.touch-stick {
+  position: absolute;
+  width: 128px;
+  height: 128px;
+  border: 2px dashed rgba(232, 228, 218, 0.55);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.touch-stick span {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(232, 228, 218, 0.55);
+}
+
+.touch-knob {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(232, 228, 218, 0.7);
+  border: 2px solid var(--ink);
+}
+
+.touch-btn {
+  background: rgba(16, 16, 16, 0.55);
+  color: var(--paper);
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  letter-spacing: 1px;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-btn:active,
+.touch-btn[aria-pressed='true'] {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.touch-topbar {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  display: flex;
+  gap: 10px;
+}
+
+.touch-btn.touch-small {
+  width: 52px;
+  height: 44px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.touch-btn.touch-fire {
+  position: absolute;
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(160px + env(safe-area-inset-bottom));
+  width: 88px;
+  height: 88px;
+  font-size: 15px;
+  font-weight: bold;
+}
+
+.touch-btn.touch-use {
+  position: absolute;
+  right: calc(120px + env(safe-area-inset-right));
+  bottom: calc(130px + env(safe-area-inset-bottom));
+  width: 60px;
+  height: 60px;
+  font-size: 11px;
 }
 
 /* --- Full-screen cards (title / death / pause) --- */
@@ -588,6 +688,11 @@ button {
     font-size: 56px;
   }
 
+  .title-card {
+    padding: 24px 18px;
+    margin: 12px;
+  }
+
   .hud-cell {
     min-width: 70px;
     padding: 0 8px;
@@ -595,5 +700,94 @@ button {
 
   .hud-big {
     font-size: 24px;
+  }
+}
+
+/* Phone-width HUD: the single flex row overflows under ~700px, so the
+   status bar reflows onto a two-row grid around a smaller mugshot. */
+@media (max-width: 700px) {
+  .hud {
+    display: grid;
+    grid-template-columns: 1fr 1fr 64px 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    height: auto;
+    gap: 0;
+    padding: 4px 8px calc(4px + env(safe-area-inset-bottom));
+  }
+
+  .hud-cell {
+    min-width: 0;
+    padding: 0 4px;
+    border-right: none;
+    overflow: hidden;
+  }
+
+  .hud-big {
+    font-size: 17px;
+  }
+
+  .hud-label {
+    font-size: 8px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .hud-ammo {
+    grid-area: 1 / 1 / 2 / 2;
+  }
+
+  .hud-health {
+    grid-area: 1 / 2 / 2 / 3;
+  }
+
+  .hud-slots {
+    grid-area: 2 / 1 / 3 / 3;
+  }
+
+  .hud-slots .slot {
+    width: 15px;
+    margin: 0 1px;
+    font-size: 10px;
+  }
+
+  .hud-mug {
+    grid-area: 1 / 3 / 3 / 4;
+    width: 60px;
+    height: 60px;
+    min-width: 0;
+    margin: 0 2px;
+    align-self: center;
+    justify-self: center;
+  }
+
+  .hud-mug canvas {
+    width: 52px;
+    height: 52px;
+  }
+
+  .hud-armor {
+    grid-area: 1 / 4 / 2 / 5;
+  }
+
+  .hud-cheddar {
+    grid-area: 1 / 5 / 2 / 6;
+  }
+
+  .hud-depth {
+    grid-area: 2 / 4 / 3 / 6;
+  }
+
+  .weapon-canvas {
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    transform: translateX(-50%) scale(0.8);
+    transform-origin: bottom center;
+  }
+
+  .automap {
+    width: min(92vw, 440px);
+    height: auto;
   }
 }

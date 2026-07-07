@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-07-07, Mobile touch controls and phone-width HUD (closes F-025)
+
+- Branch: `claude/doom-roguelike-procedural-8614yx`
+- PR: #173
+- Changed: the game is now playable on touch devices. New `src/game/touch.ts` wraps the vibekit virtual joystick with the Flatline mapping: stick deflection past the deadzone becomes Doom-style digital move input, the aim stick keeps analog deflection at fixed turn rates (2.6 yaw / 1.9 pitch rad/s), a quick still release on the aim side counts as a tap, and the phantom (0,0) pointerdown from pre-reboot F-005 rebases onto the first real move. `src/components/FlatlineGame.tsx` adds the dual float-where-you-tap sticks (left half moves, right half aims, tap fires), on-screen FIRE (hold to autofire) / USE / MAP (aria-pressed toggle) / pause buttons on coarse-pointer devices, tappable HUD weapon slot buttons on all input modes, a recent-touch guard so unclaimed HUD taps cannot reach the mousedown fire/pointer-lock path, and stick release on blur or tab-hide. `app/globals.css` reflows the status bar onto a two-row grid around a smaller mugshot under 700px (the flex row previously overflowed with overlapping numbers on phones), adds safe-area insets, clamps the automap to the viewport, and hardens touch-action on the render canvas. `next.config.ts` disables the dev-tools badge that sat over the weapon slots in dev-mode e2e.
+- Verification: dash check (clean), `git diff --check`, `npm run verify` green end to end: lint (0 problems), typecheck, `npm test` (92/92 including 12 new touch tests), build, `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium npx playwright test` (10 passed, 10 project-scoped skips) including 4 new mobile-chromium tests that assert observable player movement and camera turn from stick input (rule 10), ammo spend from FIRE, slot switching by tap, and that the HUD fits the phone viewport. Screenshot verified against the user's device report.
+- Assumptions: tap-to-fire on the aim side plus a hold-to-autofire FIRE button is the one consistent firing rule on touch (no per-weapon variation); vault key consumption and door reach are unchanged, USE simply calls the same `tryUseDoor`.
+- GDD coverage: REQ-102 gains touch refs and a build log entry in `docs/gdd/03-platform-stack.md`; `docs/gdd/16-hud-mugshot.md` gains a build log entry for the phone reflow.
+- Followups: F-025 resolved. No new followups.
+
 ## 2026-07-07, Full reboot: endless-dungeon rubber-hose Doom with RL2 meta progression
 
 - Branch: `claude/doom-roguelike-procedural-8614yx`

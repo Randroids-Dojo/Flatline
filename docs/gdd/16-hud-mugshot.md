@@ -11,3 +11,4 @@ Overlays: center crosshair, damage flash (dark ink vignette scaled by Doom's dam
 ### Build log
 
 - 2026-07-07: status bar, reactive mugshot, flashes, viewmodel bob. Files: `src/components/FlatlineGame.tsx`, `src/art/mugshot.ts`, `app/globals.css`. PR #172.
+- 2026-07-07: phone-width reflow: under 700px the status bar becomes a two-row grid around a smaller mugshot with safe-area insets; weapon slots became buttons. Files: `app/globals.css`, `src/components/FlatlineGame.tsx`. PR #173.

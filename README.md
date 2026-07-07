@@ -7,7 +7,8 @@ This is the 2026-07 reboot. The previous single-arena game is archived under `do
 ## Play
 
 - WASD to move, mouse to aim (click grants pointer lock), click to shoot.
-- 1 to 7 swap weapons, E or Space opens doors, hold Tab for the automap, Escape pauses.
+- 1 to 7 swap weapons (or tap the HUD slots), E or Space opens doors, hold Tab for the automap, Escape pauses.
+- Touch devices: left thumb moves, right thumb aims, tap to shoot, hold FIRE to spray; on-screen USE, MAP, and pause buttons.
 - Death is progress: earnings convert to Case Board ranks, Armory unlocks, and one-run contraband. Unspent cheddar is taken as rent when the next run starts, so spend before you leave.
 
 ## Development

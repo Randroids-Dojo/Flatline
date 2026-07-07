@@ -7,7 +7,7 @@
 // the frame loop, and the screen flow (title -> run -> death -> office).
 // All simulation rules live in src/game; all drawing recipes in src/art.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { z } from 'zod'
 import { drawFilmFrame, diffusionFilter, makeGrainTiles, FILM_PRESETS, type FilmPreset } from '@/art/film'
@@ -72,6 +72,22 @@ import { applyPickup, type PickupPlayerState } from '@/game/pickups'
 import { createProjectile, resolveSplash, tickProjectile, type Projectile } from '@/game/projectiles'
 import { castRay, hasLineOfSight, rayPointDistance } from '@/game/raycast'
 import { hashString, mulberry32, rngInt, type Rng } from '@/game/rng'
+import {
+  JOYSTICK_RADIUS,
+  LOOK_PITCH_RATE,
+  LOOK_YAW_RATE,
+  beginJoystick,
+  createJoystick,
+  endJoystick,
+  isPhantomOrigin,
+  isTapRelease,
+  lookVectorFromStick,
+  moveInputFromStick,
+  moveJoystick,
+  readJoystick,
+  rebaseOriginIfPhantom,
+  type JoystickState
+} from '@/game/touch'
 import { angleTo, clamp, dist, type Vec2 } from '@/game/types'
 import { readStorage, writeStorage } from '@/lib/storage'
 import {
@@ -127,6 +143,8 @@ type ProjectileEntity = { p: Projectile; sprite: THREE.Sprite }
 type EffectEntity = { sprite: THREE.Object3D; ttl: number; total: number; frames?: THREE.Texture[] }
 
 type ChunkEntry = { chunk: Chunk; group: THREE.Group | null }
+
+type TouchSticks = { move: JoystickState; look: JoystickState }
 
 // One identity for everything projectiles and splashes can hurt; the
 // projectile/splash modules treat it as an opaque id.
@@ -331,6 +349,8 @@ export function FlatlineGame() {
   const [hud, setHud] = useState<HudSnapshot | null>(null)
   const [summary, setSummary] = useState<RunSummaryView | null>(null)
   const [booted, setBooted] = useState(false)
+  const [isTouch, setIsTouch] = useState(false)
+  const [mapOn, setMapOn] = useState(false)
 
   const mountRef = useRef<HTMLDivElement>(null)
   const filmCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -348,6 +368,11 @@ export function FlatlineGame() {
   const filmRef = useRef(film)
   const keysRef = useRef(new Set<string>())
   const automapHeldRef = useRef(false)
+  const touchSticksRef = useRef<TouchSticks>({ move: createJoystick(), look: createJoystick() })
+  const touchLookStartAtRef = useRef(0)
+  // The stick layer registers a repaint callback here so stick visuals can
+  // re-render without touching the rest of the component tree.
+  const stickRepaintRef = useRef<(() => void) | null>(null)
   const grainRef = useRef<{ tiles: HTMLCanvasElement[]; frame: number } | null>(null)
   const lastFilmDrawRef = useRef(0)
   const lastAutomapDrawRef = useRef(0)
@@ -373,6 +398,9 @@ export function FlatlineGame() {
       if (savedFilm) {
         setFilm(savedFilm)
       }
+      // Coarse primary pointer only: touchscreen laptops keep the desktop
+      // layout, and per-event pointerType handles their touch input.
+      setIsTouch(window.matchMedia('(pointer: coarse)').matches)
       setBooted(true)
     })
   }, [])
@@ -393,6 +421,46 @@ export function FlatlineGame() {
     return sprite
   }, [])
 
+  // --- Shared input helpers: every input path (keyboard, mouse, touch)
+  // funnels through these so the playable-state rule lives in one place.
+  // They read only refs, so effects with empty deps can close over them.
+
+  const liveWorld = () => {
+    const world = worldRef.current
+    return world && !world.player.dead && screenRef.current === 'playing' && !pausedRef.current ? world : null
+  }
+
+  const startFire = () => {
+    const world = liveWorld()
+    if (!world) {
+      return
+    }
+    world.player.fireHeld = true
+    world.player.fireQueued = true
+    world.player.firedWhileHeld = false
+  }
+
+  const stopFire = () => {
+    const world = worldRef.current
+    if (world) {
+      world.player.fireHeld = false
+    }
+  }
+
+  const switchWeapon = (id: WeaponId) => {
+    const world = liveWorld()
+    if (world && world.player.owned.includes(id)) {
+      world.player.weapon = id
+    }
+  }
+
+  // Single writer for the automap toggle: the ref feeds the render loop,
+  // the state feeds aria-pressed on the MAP button.
+  const setAutomap = (on: boolean) => {
+    automapHeldRef.current = on
+    setMapOn(on)
+  }
+
   // --- Run lifecycle ---
   const startRun = useCallback(() => {
     const currentMeta = metaRef.current
@@ -410,6 +478,7 @@ export function FlatlineGame() {
       setupSceneBasics(three.scene)
     }
     worldRef.current = world
+    setAutomap(false)
     setSummary(null)
     setPaused(false)
     setScreen('playing')
@@ -499,7 +568,7 @@ export function FlatlineGame() {
       keysRef.current.add(e.code)
       if (e.code === 'Tab') {
         e.preventDefault()
-        automapHeldRef.current = true
+        setAutomap(true)
       }
       const world = worldRef.current
       if (screenRef.current === 'playing' && world && !world.player.dead) {
@@ -515,8 +584,8 @@ export function FlatlineGame() {
         const slot = slotKeys[e.code]
         if (slot) {
           const target = WEAPON_ORDER.find((id) => WEAPONS[id].slot === slot)
-          if (target && world.player.owned.includes(target)) {
-            world.player.weapon = target
+          if (target) {
+            switchWeapon(target)
           }
         }
         if (e.code === 'KeyE' || e.code === 'Space') {
@@ -532,7 +601,7 @@ export function FlatlineGame() {
     const onKeyUp = (e: KeyboardEvent) => {
       keysRef.current.delete(e.code)
       if (e.code === 'Tab') {
-        automapHeldRef.current = false
+        setAutomap(false)
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -544,36 +613,32 @@ export function FlatlineGame() {
      
   }, [])
 
+  // Mouse aim and fire. Pointer events carry per-event provenance, so
+  // touch-derived synthetic input never reaches this path: only real mouse
+  // presses fire the weapon or grab pointer lock.
   useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
-      const world = worldRef.current
-      if (!world || screenRef.current !== 'playing' || pausedRef.current || world.player.dead) {
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') {
         return
       }
-      if (document.pointerLockElement) {
+      const world = liveWorld()
+      if (world && document.pointerLockElement) {
         world.player.yaw -= e.movementX * 0.0022
         world.player.pitch = clamp(world.player.pitch - e.movementY * 0.0022, -0.6, 0.6)
       }
     }
-    const onMouseDown = (e: MouseEvent) => {
-      if (e.button !== 0) {
-        return
-      }
-      const world = worldRef.current
-      if (screenRef.current !== 'playing' || !world || world.player.dead || pausedRef.current) {
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || !liveWorld()) {
         return
       }
       if (!document.pointerLockElement) {
         mountRef.current?.querySelector('canvas')?.requestPointerLock()
       }
-      world.player.fireHeld = true
-      world.player.fireQueued = true
-      world.player.firedWhileHeld = false
+      startFire()
     }
-    const onMouseUp = () => {
-      const world = worldRef.current
-      if (world) {
-        world.player.fireHeld = false
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') {
+        stopFire()
       }
     }
     const onLockChange = () => {
@@ -581,15 +646,139 @@ export function FlatlineGame() {
         setPaused(true)
       }
     }
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mousedown', onMouseDown)
-    window.addEventListener('mouseup', onMouseUp)
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('pointerup', onPointerUp)
     document.addEventListener('pointerlockchange', onLockChange)
     return () => {
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mousedown', onMouseDown)
-      window.removeEventListener('mouseup', onMouseUp)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointerup', onPointerUp)
       document.removeEventListener('pointerlockchange', onLockChange)
+    }
+  }, [])
+
+  // Touch: float-where-you-tap dual sticks (vibekit math). The left half
+  // of the screen moves, the right half aims, and a quick still tap on the
+  // aim side fires one shot. The handlers only mutate stick state; the
+  // frame loop derives movement and look from the sticks once per frame.
+  useEffect(() => {
+    const sticks = touchSticksRef.current
+    // Stick visuals repaint at most once per animation frame, not per
+    // touchmove event, and only the stick layer re-renders.
+    let viewRaf = 0
+    const syncView = () => {
+      if (viewRaf) {
+        return
+      }
+      viewRaf = requestAnimationFrame(() => {
+        viewRaf = 0
+        stickRepaintRef.current?.()
+      })
+    }
+    const releaseAll = () => {
+      if (viewRaf) {
+        cancelAnimationFrame(viewRaf)
+        viewRaf = 0
+      }
+      endJoystick(sticks.move)
+      endJoystick(sticks.look)
+      stickRepaintRef.current?.()
+    }
+    const isInteractive = (target: EventTarget | null) =>
+      target instanceof Element && target.closest('button, select, a, .hud') !== null
+
+    const claim = (touch: Touch): boolean => {
+      if (touch.clientX < window.innerWidth / 2) {
+        if (sticks.move.active) {
+          return false
+        }
+        beginJoystick(sticks.move, touch.identifier, touch.clientX, touch.clientY)
+      } else {
+        if (sticks.look.active) {
+          return false
+        }
+        beginJoystick(sticks.look, touch.identifier, touch.clientX, touch.clientY)
+        touchLookStartAtRef.current = performance.now()
+      }
+      return true
+    }
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (!liveWorld() || isInteractive(e.target)) {
+        return
+      }
+      let claimed = false
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        claimed = claim(e.changedTouches[i]) || claimed
+      }
+      if (claimed) {
+        e.preventDefault()
+        syncView()
+      }
+    }
+    const onTouchMove = (e: TouchEvent) => {
+      let claimed = false
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i]
+        const stick =
+          sticks.move.pointerId === touch.identifier
+            ? sticks.move
+            : sticks.look.pointerId === touch.identifier
+              ? sticks.look
+              : null
+        if (!stick) {
+          continue
+        }
+        claimed = true
+        rebaseOriginIfPhantom(stick, touch.clientX, touch.clientY)
+        moveJoystick(stick, touch.clientX, touch.clientY)
+      }
+      if (claimed) {
+        e.preventDefault()
+        syncView()
+      }
+    }
+    const onTouchEnd = (e: TouchEvent) => {
+      let released = false
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i]
+        if (sticks.move.pointerId === touch.identifier) {
+          endJoystick(sticks.move)
+          released = true
+        } else if (sticks.look.pointerId === touch.identifier) {
+          const tap = isTapRelease(sticks.look, performance.now() - touchLookStartAtRef.current)
+          endJoystick(sticks.look)
+          released = true
+          const world = liveWorld()
+          if (tap && world) {
+            world.player.fireQueued = true
+          }
+        }
+      }
+      if (released) {
+        syncView()
+      }
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        releaseAll()
+      }
+    }
+    window.addEventListener('touchstart', onTouchStart, { passive: false })
+    window.addEventListener('touchmove', onTouchMove, { passive: false })
+    window.addEventListener('touchend', onTouchEnd)
+    window.addEventListener('touchcancel', onTouchEnd)
+    window.addEventListener('blur', releaseAll)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchEnd)
+      window.removeEventListener('touchcancel', onTouchEnd)
+      window.removeEventListener('blur', releaseAll)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      releaseAll()
     }
   }, [])
 
@@ -623,10 +812,17 @@ export function FlatlineGame() {
         })
       })
     }
+    // Read-only probe so motion tests can assert the player actually moved.
+    const debugWindow = window as Window & { flatlineDebug?: () => { x: number; z: number; yaw: number } | null }
+    debugWindow.flatlineDebug = () => {
+      const world = worldRef.current
+      return world ? { x: world.player.pos.x, z: world.player.pos.z, yaw: world.player.yaw } : null
+    }
     window.addEventListener('flatline:force-death', forceDeath)
     window.addEventListener('flatline:grant-cheddar', grant)
     window.addEventListener('flatline:spawn-goons', spawnGoons)
     return () => {
+      delete debugWindow.flatlineDebug
       window.removeEventListener('flatline:force-death', forceDeath)
       window.removeEventListener('flatline:grant-cheddar', grant)
       window.removeEventListener('flatline:spawn-goons', spawnGoons)
@@ -1152,12 +1348,22 @@ export function FlatlineGame() {
 
     // --- Player movement ---
     if (!player.dead) {
+      // Touch aim: analog stick deflection turns at a fixed rate. Inputs
+      // derive from the sticks here, once per frame, whatever the touch
+      // event rate was.
+      const sticks = touchSticksRef.current
+      const touchLook = lookVectorFromStick(sticks.look)
+      if (touchLook.x !== 0 || touchLook.y !== 0) {
+        player.yaw -= touchLook.x * LOOK_YAW_RATE * dt
+        player.pitch = clamp(player.pitch - touchLook.y * LOOK_PITCH_RATE * dt, -0.6, 0.6)
+      }
       const keys = keysRef.current
+      const touchMove = moveInputFromStick(sticks.move)
       const input = {
-        forward: keys.has('KeyW') || keys.has('ArrowUp'),
-        backward: keys.has('KeyS') || keys.has('ArrowDown'),
-        left: keys.has('KeyA') || keys.has('ArrowLeft'),
-        right: keys.has('KeyD') || keys.has('ArrowRight')
+        forward: keys.has('KeyW') || keys.has('ArrowUp') || touchMove.forward,
+        backward: keys.has('KeyS') || keys.has('ArrowDown') || touchMove.backward,
+        left: keys.has('KeyA') || keys.has('ArrowLeft') || touchMove.left,
+        right: keys.has('KeyD') || keys.has('ArrowRight') || touchMove.right
       }
       player.momentum = applyThrust(player.momentum, player.yaw, input, dt, world.config.speedMult)
       player.momentum = applyFriction(player.momentum, dt)
@@ -1673,6 +1879,49 @@ export function FlatlineGame() {
           <div className="crosshair" data-testid="crosshair" />
           <canvas ref={weaponCanvasRef} width={VIEW_W} height={VIEW_H} className="weapon-canvas" data-testid="weapon-canvas" />
           <canvas ref={automapRef} className="automap" data-testid="automap" style={{ display: 'none' }} />
+          {isTouch && !paused && (
+            <div className="touch-layer" data-testid="touch-controls">
+              <TouchStickLayer sticks={touchSticksRef.current} repaintRef={stickRepaintRef} />
+              <div className="touch-topbar">
+                <button
+                  type="button"
+                  className="touch-btn touch-small"
+                  aria-pressed={mapOn}
+                  data-testid="touch-map"
+                  onClick={() => setAutomap(!automapHeldRef.current)}
+                >
+                  MAP
+                </button>
+                <button
+                  type="button"
+                  className="touch-btn touch-small"
+                  data-testid="touch-pause"
+                  aria-label="Pause"
+                  onClick={() => setPaused(true)}
+                >
+                  ||
+                </button>
+              </div>
+              <button type="button" className="touch-btn touch-use" data-testid="touch-use" onClick={() => tryUseDoor()}>
+                USE
+              </button>
+              <button
+                type="button"
+                className="touch-btn touch-fire"
+                data-testid="touch-fire"
+                onPointerDown={(e) => {
+                  e.preventDefault()
+                  startFire()
+                }}
+                onPointerUp={stopFire}
+                onPointerLeave={stopFire}
+                onPointerCancel={stopFire}
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                FIRE
+              </button>
+            </div>
+          )}
           {hud && (
             <div className="hud" data-testid="hud">
               <div className="hud-cell hud-ammo">
@@ -1690,12 +1939,16 @@ export function FlatlineGame() {
               <div className="hud-cell hud-slots">
                 <div className="slot-row">
                   {WEAPON_ORDER.map((id) => (
-                    <span
+                    <button
+                      type="button"
                       key={id}
                       className={`slot ${hud.owned.includes(id) ? 'owned' : ''} ${hud.weapon === id ? 'current' : ''}`}
+                      disabled={!hud.owned.includes(id)}
+                      data-testid={`slot-${id}`}
+                      onClick={() => switchWeapon(id)}
                     >
                       {WEAPONS[id].slot}
-                    </span>
+                    </button>
                   ))}
                 </div>
                 <span className="hud-label">{WEAPONS[hud.weapon].name}</span>
@@ -1745,7 +1998,9 @@ export function FlatlineGame() {
             </div>
             {settingsRow}
             <p className="controls-hint">
-              WASD move. Mouse aim. Click shoot. E opens doors. Tab holds the map. 1-7 swap iron.
+              {isTouch
+                ? 'Left thumb moves. Right thumb aims, tap to shoot. Hold FIRE to spray. USE opens doors.'
+                : 'WASD move. Mouse aim. Click shoot. E opens doors. Tab holds the map. 1-7 swap iron.'}
             </p>
           </div>
         </div>
@@ -1791,9 +2046,13 @@ export function FlatlineGame() {
               <button
                 type="button"
                 className="start-run"
-                onClick={() => {
+                onClick={(e) => {
                   setPaused(false)
-                  mountRef.current?.querySelector('canvas')?.requestPointerLock()
+                  // Touch taps resume without pointer lock; mouse and
+                  // keyboard activation re-grab it.
+                  if ((e.nativeEvent as PointerEvent).pointerType !== 'touch') {
+                    mountRef.current?.querySelector('canvas')?.requestPointerLock()
+                  }
                 }}
               >
                 Resume
@@ -1819,6 +2078,57 @@ export function FlatlineGame() {
         </div>
       )}
     </div>
+  )
+}
+
+// Renders the live stick visuals in isolation: the touch handlers poke
+// repaintRef (rAF-coalesced) so drags re-render these two nodes instead of
+// the whole game component.
+function TouchStickLayer({
+  sticks,
+  repaintRef
+}: {
+  sticks: TouchSticks
+  repaintRef: { current: (() => void) | null }
+}) {
+  const [, repaint] = useReducer((n: number) => n + 1, 0)
+  useEffect(() => {
+    repaintRef.current = repaint
+    return () => {
+      repaintRef.current = null
+    }
+  }, [repaintRef])
+  return (
+    <>
+      {sticks.move.active && <StickVisual stick={sticks.move} label="MOVE" />}
+      {sticks.look.active && <StickVisual stick={sticks.look} label="AIM" />}
+    </>
+  )
+}
+
+function StickVisual({ stick, label }: { stick: JoystickState; label: string }) {
+  // Phantom (0, 0) pointerdown guard (pre-reboot F-005): never draw a
+  // stick anchored at the exact screen corner.
+  if (isPhantomOrigin(stick)) {
+    return null
+  }
+  const v = readJoystick(stick)
+  return (
+    <>
+      <div
+        className="touch-stick"
+        style={{ left: stick.originX - JOYSTICK_RADIUS, top: stick.originY - JOYSTICK_RADIUS }}
+      >
+        <span>{label}</span>
+      </div>
+      <div
+        className="touch-knob"
+        style={{
+          left: stick.originX + v.x * JOYSTICK_RADIUS - 20,
+          top: stick.originY + v.y * JOYSTICK_RADIUS - 20
+        }}
+      />
+    </>
   )
 }
 
