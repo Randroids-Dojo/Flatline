@@ -14,7 +14,6 @@ import {
 import type { MoveInput } from './movement'
 
 export {
-  JOYSTICK_DEADZONE,
   JOYSTICK_RADIUS,
   beginJoystick,
   createJoystick,
@@ -22,7 +21,7 @@ export {
   moveJoystick,
   readJoystick
 } from '@randroids-dojo/vibekit'
-export type { JoystickState, JoystickVector } from '@randroids-dojo/vibekit'
+export type { JoystickState } from '@randroids-dojo/vibekit'
 
 // A release counts as a tap (fire once) when the thumb stayed inside this
 // drift radius and lifted quickly; anything longer is aiming.
@@ -64,11 +63,15 @@ export function isTapRelease(stick: JoystickState, heldMs: number): boolean {
 }
 
 // Some mobile Chrome builds deliver the first touch of a session anchored
-// at the exact screen origin (pre-reboot F-005). A stick whose origin is
-// (0, 0) rebases onto the first real move so the knob does not lunge from
-// the corner.
+// at the exact screen origin (pre-reboot F-005).
+export function isPhantomOrigin(stick: JoystickState): boolean {
+  return stick.originX === 0 && stick.originY === 0
+}
+
+// A phantom-origin stick rebases onto the first real move so the knob
+// does not lunge from the corner.
 export function rebaseOriginIfPhantom(stick: JoystickState, x: number, y: number): void {
-  if (stick.originX === 0 && stick.originY === 0 && (x !== 0 || y !== 0)) {
+  if (isPhantomOrigin(stick) && (x !== 0 || y !== 0)) {
     stick.originX = x
     stick.originY = y
     stick.currentX = x

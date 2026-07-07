@@ -208,7 +208,6 @@ button {
   border: 1px solid var(--gray-dark);
   margin: 0 2px;
   font-size: 12px;
-  font-family: var(--body-font);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -273,18 +272,13 @@ button {
   color: var(--paper);
   border: 2px solid var(--paper);
   border-radius: 50%;
-  font-family: var(--body-font);
   letter-spacing: 1px;
   user-select: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-.touch-btn:active {
-  background: var(--paper);
-  color: var(--ink);
-}
-
+.touch-btn:active,
 .touch-btn[aria-pressed='true'] {
   background: var(--paper);
   color: var(--ink);
