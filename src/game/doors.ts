@@ -10,7 +10,6 @@ export type DoorPhase = 'closed' | 'opening' | 'open' | 'closing'
 export type DoorState = {
   gx: number
   gz: number
-  axis: 'x' | 'z'
   locked: boolean
   phase: DoorPhase
   // 0 fully closed, 1 fully open (slid up into the ceiling).
@@ -18,20 +17,28 @@ export type DoorState = {
   holdTimer: number
 }
 
-export function createDoor(gx: number, gz: number, axis: 'x' | 'z', locked: boolean): DoorState {
-  return { gx, gz, axis, locked, phase: 'closed', openness: 0, holdTimer: 0 }
+export function createDoor(gx: number, gz: number, locked: boolean): DoorState {
+  return { gx, gz, locked, phase: 'closed', openness: 0, holdTimer: 0 }
 }
 
-export type UseDoorResult = 'opened' | 'locked' | 'ignored'
+// The lookup contract for door maps keyed by grid cell.
+export function doorKey(gx: number, gz: number): string {
+  return `${gx},${gz}`
+}
+
+// 'unlocked' means a lock was opened this call: the caller should spend a
+// physical key if that is what granted access.
+export type UseDoorResult = 'opened' | 'unlocked' | 'locked' | 'ignored'
 
 export function operateDoor(door: DoorState, hasKey: boolean): UseDoorResult {
   if (door.locked && !hasKey) {
     return 'locked'
   }
   if (door.phase === 'closed' || door.phase === 'closing') {
+    const wasLocked = door.locked
     door.locked = false
     door.phase = 'opening'
-    return 'opened'
+    return wasLocked ? 'unlocked' : 'opened'
   }
   return 'ignored'
 }

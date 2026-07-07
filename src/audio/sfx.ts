@@ -9,6 +9,7 @@ export class Sfx {
   private master: GainNode | null = null
   private crackleSource: AudioBufferSourceNode | null = null
   private bassTimer: number | null = null
+  private noise: AudioBuffer | null = null
   private muted = false
 
   private ensure(): AudioContext | null {
@@ -22,7 +23,8 @@ export class Sfx {
       }
       this.ctx = new Ctor()
       this.master = this.ctx.createGain()
-      this.master.gain.value = 0.5
+      // Respect a mute set before the first sound ever played.
+      this.master.gain.value = this.muted ? 0 : 0.5
       this.master.connect(this.ctx.destination)
     }
     if (this.ctx.state === 'suspended') {
@@ -38,21 +40,21 @@ export class Sfx {
     }
   }
 
-  isMuted(): boolean {
-    return this.muted
-  }
-
-  private noiseBuffer(seconds: number): AudioBuffer | null {
+  // One shared noise buffer for every burst; the envelope shapes the sound
+  // and stop() bounds it, so no per-shot buffer fills.
+  private noiseBuffer(): AudioBuffer | null {
     const ctx = this.ensure()
     if (!ctx) {
       return null
     }
-    const buffer = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * seconds)), ctx.sampleRate)
-    const data = buffer.getChannelData(0)
-    for (let i = 0; i < data.length; i++) {
-      data[i] = Math.random() * 2 - 1
+    if (!this.noise) {
+      this.noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate)
+      const data = this.noise.getChannelData(0)
+      for (let i = 0; i < data.length; i++) {
+        data[i] = Math.random() * 2 - 1
+      }
     }
-    return buffer
+    return this.noise
   }
 
   private burst(duration: number, filterHz: number, gain: number, type: BiquadFilterType = 'lowpass') {
@@ -60,12 +62,13 @@ export class Sfx {
     if (!ctx || !this.master) {
       return
     }
-    const buffer = this.noiseBuffer(duration)
+    const buffer = this.noiseBuffer()
     if (!buffer) {
       return
     }
     const source = ctx.createBufferSource()
     source.buffer = buffer
+    source.loop = true
     const filter = ctx.createBiquadFilter()
     filter.type = type
     filter.frequency.value = filterHz
@@ -74,6 +77,7 @@ export class Sfx {
     env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
     source.connect(filter).connect(env).connect(this.master)
     source.start()
+    source.stop(ctx.currentTime + duration)
   }
 
   private sweep(fromHz: number, toHz: number, duration: number, gain: number, type: OscillatorType = 'square') {

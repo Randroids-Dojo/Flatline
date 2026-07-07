@@ -1,1 +1,1 @@
-../../.claude/rules/gdd-build-log.md
+../../../../.claude/rules/gdd-build-log.md

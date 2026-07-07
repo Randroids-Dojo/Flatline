@@ -2,7 +2,7 @@
 
 import { CELL_M } from './dungeon'
 import type { SolidAt } from './collision'
-import type { Vec2 } from './types'
+import { angleTo, dist, type Vec2 } from './types'
 
 export type RayHit = {
   distance: number
@@ -71,12 +71,11 @@ export function castRay(solidAt: SolidAt, origin: Vec2, angle: number, maxDistan
 }
 
 export function hasLineOfSight(solidAt: SolidAt, from: Vec2, to: Vec2): boolean {
-  const distance = Math.hypot(to.x - from.x, to.z - from.z)
+  const distance = dist(from, to)
   if (distance < 0.001) {
     return true
   }
-  const angle = Math.atan2(to.x - from.x, to.z - from.z)
-  const hit = castRay(solidAt, from, angle, distance)
+  const hit = castRay(solidAt, from, angleTo(from, to), distance)
   return hit === null
 }
 

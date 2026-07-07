@@ -4,18 +4,18 @@
 // damage dice, and the distance-based attack gamble.
 
 import type { EnemyKind } from './dungeon'
-import { rngInt, type Rng } from './rng'
-import { angleTo, dist, type Vec2 } from './types'
+import { rollDice, type Rng } from './rng'
+import { angleTo, clamp, dist, type Vec2 } from './types'
 
 export type EnemyDef = {
   kind: EnemyKind
-  name: string
   hp: number
   speedM: number
   radiusM: number
   // Chance out of 255 that a hit interrupts into the pain state.
   painChance: number
-  attack:
+  // Melee-only goons (the bruiser) have no ranged attack at all.
+  attack?:
     | { type: 'hitscan'; pellets: number; dice: { count: number; sides: number; mult: number }; spreadRad: number }
     | { type: 'projectile'; dice: { count: number; sides: number; mult: number }; speedM: number; radiusM: number }
   melee?: { dice: { count: number; sides: number; mult: number }; rangeM: number }
@@ -29,7 +29,6 @@ export type EnemyDef = {
 export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
   torpedo: {
     kind: 'torpedo',
-    name: 'Torpedo Rat',
     hp: 20,
     speedM: 2.2,
     radiusM: 0.55,
@@ -43,7 +42,6 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
   },
   capo: {
     kind: 'capo',
-    name: 'Scattergun Capo',
     hp: 30,
     speedM: 2.9,
     radiusM: 0.55,
@@ -56,7 +54,6 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
   },
   alleycat: {
     kind: 'alleycat',
-    name: 'Alley Shiv',
     hp: 60,
     speedM: 2.9,
     radiusM: 0.55,
@@ -70,12 +67,10 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
   },
   bruiser: {
     kind: 'bruiser',
-    name: 'Sewer Bruiser',
     hp: 150,
     speedM: 4.6,
     radiusM: 0.65,
     painChance: 180,
-    attack: { type: 'hitscan', pellets: 0, dice: { count: 1, sides: 10, mult: 4 }, spreadRad: 0 },
     melee: { dice: { count: 1, sides: 10, mult: 4 }, rangeM: 1.5 },
     windupSec: 0.4,
     attackCooldownSec: 1.1,
@@ -84,7 +79,6 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
   },
   fatcat: {
     kind: 'fatcat',
-    name: 'Fat Cat',
     hp: 350,
     speedM: 2.4,
     radiusM: 0.8,
@@ -140,7 +134,6 @@ export type EnemyEvent =
   | { type: 'meleeHit'; damage: number }
   | { type: 'hitscan'; pellets: number; dice: { count: number; sides: number; mult: number }; spreadRad: number }
   | { type: 'projectile'; dice: { count: number; sides: number; mult: number }; speedM: number; radiusM: number; angle: number }
-  | { type: 'died' }
 
 export type EnemyTickInput = {
   dt: number
@@ -157,7 +150,7 @@ export function attackChance(distanceM: number, hasMelee: boolean): number {
   if (hasMelee) {
     d -= 128
   }
-  d = Math.min(200, Math.max(0, d))
+  d = clamp(d, 0, 200)
   return (256 - d) / 256
 }
 
@@ -187,10 +180,9 @@ export function tickEnemy(enemy: Enemy, input: EnemyTickInput): EnemyEvent[] {
         enemy.wanderTimer = 0.3 + rng() * 0.6
       }
       const inMelee = def.melee !== undefined && distance <= def.melee.rangeM
-      const canRanged = def.attack.type !== 'hitscan' || def.attack.pellets > 0
       // The gamble runs on a decision clock (~Doom's 0-15 step counter).
       const gamble = rng() < attackChance(distance, def.melee !== undefined) * dt * 2.2
-      if (enemy.attackCooldown <= 0 && (inMelee || (canSeeTarget && canRanged && gamble))) {
+      if (enemy.attackCooldown <= 0 && (inMelee || (canSeeTarget && def.attack !== undefined && gamble))) {
         enemy.state = 'windup'
         enemy.stateTimer = def.windupSec
       }
@@ -201,14 +193,14 @@ export function tickEnemy(enemy: Enemy, input: EnemyTickInput): EnemyEvent[] {
         const inMelee = def.melee !== undefined && distance <= def.melee.rangeM + 0.3
         if (inMelee && def.melee) {
           events.push({ type: 'meleeHit', damage: rollDamage(rng, def.melee.dice) })
-        } else if (def.attack.type === 'hitscan' && def.attack.pellets > 0) {
+        } else if (def.attack?.type === 'hitscan') {
           events.push({
             type: 'hitscan',
             pellets: def.attack.pellets,
             dice: def.attack.dice,
             spreadRad: def.attack.spreadRad
           })
-        } else if (def.attack.type === 'projectile') {
+        } else if (def.attack?.type === 'projectile') {
           events.push({
             type: 'projectile',
             dice: def.attack.dice,
@@ -232,7 +224,6 @@ export function tickEnemy(enemy: Enemy, input: EnemyTickInput): EnemyEvent[] {
       enemy.deathTimer += dt
       if (enemy.deathTimer > 0.7) {
         enemy.state = 'dead'
-        events.push({ type: 'died' })
       }
       break
     }
@@ -260,6 +251,11 @@ export function damageEnemy(enemy: Enemy, damage: number, rng: Rng, attackerId: 
   const def = ENEMY_DEFS[enemy.kind]
   enemy.hp -= damage
   enemy.awake = true
+  // Damage wakes idle monsters even without line of sight (splash around
+  // a corner, infight ricochet).
+  if (enemy.state === 'idle') {
+    enemy.state = 'chase'
+  }
   if (attackerId !== null && attackerId !== enemy.id) {
     enemy.infightTargetId = attackerId
   }
@@ -277,9 +273,11 @@ export function damageEnemy(enemy: Enemy, damage: number, rng: Rng, attackerId: 
 }
 
 export function rollDamage(rng: Rng, dice: { count: number; sides: number; mult: number }): number {
-  let total = 0
-  for (let i = 0; i < dice.count; i++) {
-    total += rngInt(rng, 1, dice.sides)
-  }
-  return total * dice.mult
+  return rollDice(rng, dice.count, dice.sides, dice.mult)
+}
+
+// Doom's friendly-fire rule: projectiles between same-species monsters are
+// harmless (hitscan and melee still hurt and provoke).
+export function projectileHarmless(shooter: EnemyKind, victim: EnemyKind): boolean {
+  return shooter === victim
 }

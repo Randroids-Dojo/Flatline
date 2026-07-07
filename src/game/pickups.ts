@@ -23,7 +23,6 @@ export type PickupResult = {
   // False when the pickup would do nothing (full health etc.); the item
   // stays on the floor, like Doom.
   consumed: boolean
-  label: string
 }
 
 export function applyPickup(kind: PickupKind, state: PickupPlayerState, cheddarMult = 1): PickupResult {
@@ -31,44 +30,42 @@ export function applyPickup(kind: PickupKind, state: PickupPlayerState, cheddarM
   switch (kind) {
     case 'coinSmall': {
       const gain = Math.round(COIN_SMALL_VALUE * cheddarMult)
-      return { state: { ...state, cheddar: state.cheddar + gain }, consumed: true, label: `+${gain} cheddar` }
+      return { state: { ...state, cheddar: state.cheddar + gain }, consumed: true }
     }
     case 'coinPile': {
       const gain = Math.round(COIN_PILE_VALUE * cheddarMult)
-      return { state: { ...state, cheddar: state.cheddar + gain }, consumed: true, label: `+${gain} cheddar` }
+      return { state: { ...state, cheddar: state.cheddar + gain }, consumed: true }
     }
     case 'cheeseBit': {
       if (vitals.hp >= vitals.maxHp) {
-        return { state, consumed: false, label: '' }
+        return { state, consumed: false }
       }
       const hp = Math.min(vitals.maxHp, vitals.hp + 10)
-      return { state: { ...state, vitals: { ...vitals, hp } }, consumed: true, label: 'Cheese bit +10' }
+      return { state: { ...state, vitals: { ...vitals, hp } }, consumed: true }
     }
     case 'cheeseWheel': {
       if (vitals.hp >= vitals.maxHp) {
-        return { state, consumed: false, label: '' }
+        return { state, consumed: false }
       }
       const hp = Math.min(vitals.maxHp, vitals.hp + 25)
-      return { state: { ...state, vitals: { ...vitals, hp } }, consumed: true, label: 'Cheese wheel +25' }
+      return { state: { ...state, vitals: { ...vitals, hp } }, consumed: true }
     }
     case 'vest': {
       if (vitals.armor >= 100) {
-        return { state, consumed: false, label: '' }
+        return { state, consumed: false }
       }
       return {
         state: { ...state, vitals: { ...vitals, armor: 100, armorClass: 'vest' } },
-        consumed: true,
-        label: 'Padded vest'
+        consumed: true
       }
     }
     case 'trenchArmor': {
       if (vitals.armor >= 200) {
-        return { state, consumed: false, label: '' }
+        return { state, consumed: false }
       }
       return {
         state: { ...state, vitals: { ...vitals, armor: 200, armorClass: 'trench' } },
-        consumed: true,
-        label: 'Trench armor'
+        consumed: true
       }
     }
     case 'bullets':
@@ -76,17 +73,16 @@ export function applyPickup(kind: PickupKind, state: PickupPlayerState, cheddarM
     case 'tnt':
     case 'cells': {
       if (ammo[kind] >= ammoMax[kind]) {
-        return { state, consumed: false, label: '' }
+        return { state, consumed: false }
       }
       const next = Math.min(ammoMax[kind], ammo[kind] + AMMO_PICKUPS[kind])
-      const names = { bullets: 'Box of bullets', shells: 'Shells', tnt: 'TNT bundle', cells: 'Ray cell' }
-      return { state: { ...state, ammo: { ...ammo, [kind]: next } }, consumed: true, label: names[kind] }
+      return { state: { ...state, ammo: { ...ammo, [kind]: next } }, consumed: true }
     }
     case 'vaultKey': {
       if (state.hasVaultKey) {
-        return { state, consumed: false, label: '' }
+        return { state, consumed: false }
       }
-      return { state: { ...state, hasVaultKey: true }, consumed: true, label: 'Vault key' }
+      return { state: { ...state, hasVaultKey: true }, consumed: true }
     }
   }
 }

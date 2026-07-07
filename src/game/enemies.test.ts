@@ -55,12 +55,11 @@ describe('tickEnemy', () => {
     expect(melee).toBe(true)
   })
 
-  it('emits a died event after the death animation', () => {
+  it('finishes the death animation in the dead state', () => {
     const enemy = createEnemy('torpedo', { x: 0, z: 0 })
     damageEnemy(enemy, 999, mulberry32(5))
     expect(enemy.state).toBe('dying')
-    const events = tickEnemy(enemy, { dt: 1, target: { x: 5, z: 0 }, canSeeTarget: true, rng: mulberry32(6) })
-    expect(events.some((e) => e.type === 'died')).toBe(true)
+    tickEnemy(enemy, { dt: 1, target: { x: 5, z: 0 }, canSeeTarget: true, rng: mulberry32(6) })
     expect(enemy.state).toBe('dead')
   })
 })

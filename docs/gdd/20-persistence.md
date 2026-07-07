@@ -4,7 +4,7 @@
 
 localStorage via the vibekit storage wrapper with zod validation.
 
-- `flatline.meta.v2`: the meta state (cheddar, node ranks, weapons unlocked, weapon tiers, pending relics, best ring, totals, rent paid), zod-parsed on load; invalid or missing data falls back to a fresh state.
+- `flatline.meta.v2`: the meta state (cheddar, node ranks, weapons unlocked, weapon tiers, relics bought for the next run, best ring, totals, rent paid), zod-parsed on load; invalid or missing data falls back to a fresh state.
 - `flatline.film.v1`: film preset enum.
 
 Run state is never persisted; refreshing mid-run is a death without the summary (earnings are lost). Acceptable for v1, logged as Q-033.

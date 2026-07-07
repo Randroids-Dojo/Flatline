@@ -2,7 +2,7 @@
 // dropped independently so hugging a wall never stops lateral movement.
 
 import { CELL_M } from './dungeon'
-import type { Vec2 } from './types'
+import { clamp, type Vec2 } from './types'
 
 export type SolidAt = (gx: number, gz: number) => boolean
 
@@ -17,8 +17,8 @@ export function circleFits(solidAt: SolidAt, x: number, z: number, radius: numbe
         continue
       }
       // Closest point on the cell to the circle center.
-      const cx = Math.max(gx * CELL_M, Math.min(x, (gx + 1) * CELL_M))
-      const cz = Math.max(gz * CELL_M, Math.min(z, (gz + 1) * CELL_M))
+      const cx = clamp(x, gx * CELL_M, (gx + 1) * CELL_M)
+      const cz = clamp(z, gz * CELL_M, (gz + 1) * CELL_M)
       if ((x - cx) * (x - cx) + (z - cz) * (z - cz) < radius * radius) {
         return false
       }

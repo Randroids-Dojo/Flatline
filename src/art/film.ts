@@ -5,6 +5,7 @@
 // named points.
 
 import { mulberry32 } from '@/game/rng'
+import { makeCanvas } from './ink'
 
 export type FilmPreset = 'studio' | 'directors' | 'vintage'
 
@@ -26,13 +27,7 @@ const GRAIN_TILES = 5
 export function makeGrainTiles(): HTMLCanvasElement[] {
   const tiles: HTMLCanvasElement[] = []
   for (let t = 0; t < GRAIN_TILES; t++) {
-    const canvas = document.createElement('canvas')
-    canvas.width = GRAIN_TILE
-    canvas.height = GRAIN_TILE
-    const ctx = canvas.getContext('2d')
-    if (!ctx) {
-      continue
-    }
+    const { canvas, ctx } = makeCanvas(GRAIN_TILE, GRAIN_TILE)
     const image = ctx.createImageData(GRAIN_TILE, GRAIN_TILE)
     const rng = mulberry32(1000 + t)
     for (let i = 0; i < image.data.length; i += 4) {

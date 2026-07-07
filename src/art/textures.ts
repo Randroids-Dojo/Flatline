@@ -20,14 +20,6 @@ function base(ctx: Ctx, fill: string) {
   ctx.fillRect(0, 0, SIZE, SIZE)
 }
 
-function darken(canvas: HTMLCanvasElement, amount: number): HTMLCanvasElement {
-  const { canvas: out, ctx } = makeCanvas(canvas.width, canvas.height)
-  ctx.drawImage(canvas, 0, 0)
-  ctx.fillStyle = `rgba(10, 10, 10, ${amount})`
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  return out
-}
-
 export function drawBrickWall(seed: number): HTMLCanvasElement {
   const { canvas, ctx } = makeCanvas(SIZE, SIZE)
   const boil = makeBoil(seed)
@@ -97,10 +89,8 @@ export function drawStoneWall(seed: number): HTMLCanvasElement {
   return canvas
 }
 
-export function drawWall(theme: WallTheme, seed: number): { light: HTMLCanvasElement; dark: HTMLCanvasElement } {
-  const light =
-    theme === 'brick' ? drawBrickWall(seed) : theme === 'panel' ? drawPanelWall(seed) : drawStoneWall(seed)
-  return { light, dark: darken(light, 0.22) }
+export function drawWall(theme: WallTheme, seed: number): HTMLCanvasElement {
+  return theme === 'brick' ? drawBrickWall(seed) : theme === 'panel' ? drawPanelWall(seed) : drawStoneWall(seed)
 }
 
 export function drawFloor(seed: number): HTMLCanvasElement {

@@ -10,4 +10,4 @@ Test hooks are window custom events, kept deliberately (they are the only determ
 
 ### Build log
 
-- 2026-07-07: suites shipped with the reboot. Files: `src/game/*.test.ts`, `tests/smoke.spec.ts`, `tests/film-motion.spec.ts`. PR #172.
+- 2026-07-07: suites shipped with the reboot. Files: `src/game/rng.test.ts`, `src/game/dungeon.test.ts`, `src/game/collision.test.ts`, `src/game/raycast.test.ts`, `src/game/movement.test.ts`, `src/game/weapons.test.ts`, `src/game/combat.test.ts`, `src/game/enemies.test.ts`, `src/game/projectiles.test.ts`, `src/game/doors.test.ts`, `src/game/pickups.test.ts`, `src/game/meta.test.ts`, `tests/smoke.spec.ts`, `tests/film-motion.spec.ts`. PR #172.

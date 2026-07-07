@@ -20,7 +20,7 @@ npm run verify     # lint + typecheck + unit tests + build + e2e
 
 E2e uses Playwright. In environments with a preinstalled browser, point at it with `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium npm run test:e2e`.
 
-All art and audio are generated at runtime (canvas 2D + WebAudio); the repo has no binary game assets. No environment variables are required.
+All art and audio are generated at runtime (canvas 2D + WebAudio); the repo has no binary game assets. No game runtime environment variables are required.
 
 ## Project Docs
 

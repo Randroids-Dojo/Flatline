@@ -46,8 +46,17 @@ import {
   type EnemyKind,
   type PickupKind
 } from '@/game/dungeon'
-import { createDoor, doorBlocks, tickDoor, operateDoor, type DoorState } from '@/game/doors'
-import { ENEMY_DEFS, createEnemy, damageEnemy, enemyMoveSpeed, rollDamage, tickEnemy, type Enemy } from '@/game/enemies'
+import { createDoor, doorBlocks, doorKey, operateDoor, tickDoor, type DoorState } from '@/game/doors'
+import {
+  ENEMY_DEFS,
+  createEnemy,
+  damageEnemy,
+  enemyMoveSpeed,
+  projectileHarmless,
+  rollDamage,
+  tickEnemy,
+  type Enemy
+} from '@/game/enemies'
 import {
   WEAPON_TIER_DAMAGE_PER_TIER,
   beginRun,
@@ -92,27 +101,36 @@ type Screen = 'title' | 'playing' | 'dead' | 'office'
 
 type HudSnapshot = {
   hp: number
-  maxHp: number
   armor: number
   ammoInWeapon: number | null
-  ammo: AmmoState
   weapon: WeaponId
   owned: WeaponId[]
   cheddar: number
   ring: number
   hasKey: boolean
-  kills: number
 }
 
 type RunSummaryView = { cheddar: number; kills: number; ring: number; seconds: number }
 
-type EnemyEntity = { logic: Enemy; sprite: THREE.Sprite; frame: EnemyFrame; boilAt: number; variant: number }
+type EnemyEntity = {
+  logic: Enemy
+  sprite: THREE.Sprite
+  boilAt: number
+  variant: number
+  // Line-of-sight rechecks are staggered (~Doom's sight throttling).
+  losUntil: number
+  losCached: boolean
+}
 type PickupEntity = { id: number; kind: PickupKind; pos: Vec2; sprite: THREE.Sprite; bob: number }
 type CrateEntity = { id: number; pos: Vec2; sprite: THREE.Sprite; hp: number }
 type ProjectileEntity = { p: Projectile; sprite: THREE.Sprite }
 type EffectEntity = { sprite: THREE.Object3D; ttl: number; total: number; frames?: THREE.Texture[] }
 
 type ChunkEntry = { chunk: Chunk; group: THREE.Group | null }
+
+// One identity for everything projectiles and splashes can hurt; the
+// projectile/splash modules treat it as an opaque id.
+type TargetRef = { kind: 'player' } | { kind: 'enemy'; id: number } | { kind: 'crate'; id: number }
 
 type Art = ReturnType<typeof buildArt>
 
@@ -150,19 +168,29 @@ function buildArt() {
   for (const kind of Object.keys(projSheets) as ProjectileArt[]) {
     projTex[kind] = projSheets[kind].map((c) => tex(c))
   }
-  const walls: Record<string, { light: THREE.Texture; dark: THREE.Texture }> = {}
+  const wallMaterials: Record<string, THREE.MeshLambertMaterial> = {}
   for (const theme of ['brick', 'panel', 'stone'] as const) {
-    const drawn = drawWall(theme, hashString(`wall-${theme}`))
-    walls[theme] = { light: tex(drawn.light), dark: tex(drawn.dark) }
+    wallMaterials[theme] = new THREE.MeshLambertMaterial({ map: tex(drawWall(theme, hashString(`wall-${theme}`))) })
   }
+  // Shared chunk-building resources: repeat is identical for every chunk,
+  // so cloning textures per chunk only cost redundant GPU uploads.
+  const floorTex = tex(drawFloor(11), true)
+  floorTex.repeat.set(CHUNK_SIZE / 2, CHUNK_SIZE / 2)
+  const ceilTex = tex(drawCeiling(12), true)
+  ceilTex.repeat.set(CHUNK_SIZE / 2, CHUNK_SIZE / 2)
   const viewmodels = {} as Record<WeaponId, ViewmodelSet>
   for (const id of WEAPON_ORDER) {
     viewmodels[id] = drawViewmodel(id)
   }
+  const splatTextures = drawInkSplatSprites().map((c) => tex(c))
   return {
-    walls,
-    floor: tex(drawFloor(11), true),
-    ceiling: tex(drawCeiling(12), true),
+    wallMaterials,
+    wallGeo: new THREE.BoxGeometry(CELL_M, WALL_HEIGHT_M, CELL_M),
+    chunkPlaneGeo: new THREE.PlaneGeometry(CHUNK_SIZE * CELL_M, CHUNK_SIZE * CELL_M),
+    floorMaterial: new THREE.MeshLambertMaterial({ map: floorTex }),
+    ceilingMaterial: new THREE.MeshBasicMaterial({ map: ceilTex, fog: true }),
+    splatGeo: new THREE.PlaneGeometry(1.6, 1.6),
+    splatMaterials: splatTextures.map((t) => new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false })),
     door: tex(drawDoor(false, 21)),
     vaultDoor: tex(drawDoor(true, 22)),
     officeDoor: tex(drawOfficeDoor()),
@@ -172,7 +200,7 @@ function buildArt() {
     crate: drawCrateSprites().map((c) => tex(c)),
     impact: drawImpactStar().map((c) => tex(c)),
     explosion: drawExplosion().map((c) => tex(c)),
-    splat: drawInkSplatSprites().map((c) => tex(c)),
+    splat: splatTextures,
     viewmodels
   }
 }
@@ -181,8 +209,13 @@ type World = {
   seed: number
   rng: Rng
   chunks: Map<string, ChunkEntry>
+  // Hot-path caches: last chunk touched by solidAt, last streamed chunk
+  // coordinate, last visited automap cell.
+  lastChunk: ChunkEntry | null
+  lastStreamKey: string
+  lastVisitKey: string
   spawned: Set<string>
-  doors: Map<string, { state: DoorState; mesh: THREE.Mesh }>
+  doors: Map<string, { state: DoorState; mesh: THREE.Mesh; pos: Vec2 }>
   enemies: Map<number, EnemyEntity>
   pickups: Map<number, PickupEntity>
   crates: Map<number, CrateEntity>
@@ -242,6 +275,9 @@ function createWorld(seed: number, config: RunConfig, meta: MetaState): World {
     seed,
     rng: mulberry32(seed ^ 0x9e3779b9),
     chunks: new Map(),
+    lastChunk: null,
+    lastStreamKey: '',
+    lastVisitKey: '',
     spawned: new Set(),
     doors: new Map(),
     enemies: new Map(),
@@ -314,6 +350,7 @@ export function FlatlineGame() {
   const automapHeldRef = useRef(false)
   const grainRef = useRef<{ tiles: HTMLCanvasElement[]; frame: number } | null>(null)
   const lastFilmDrawRef = useRef(0)
+  const lastAutomapDrawRef = useRef(0)
   const lastHudRef = useRef(0)
   const mugCacheRef = useRef(new Map<string, HTMLCanvasElement>())
   const mugLookRef = useRef({ look: 0, nextAt: 0 })
@@ -351,12 +388,7 @@ export function FlatlineGame() {
   }, [])
 
   const spriteFor = useCallback((texture: THREE.Texture, scale: number): THREE.Sprite => {
-    let material = spriteMaterialCache.current.get(texture)
-    if (!material) {
-      material = new THREE.SpriteMaterial({ map: texture, alphaTest: 0.1, fog: true })
-      spriteMaterialCache.current.set(texture, material)
-    }
-    const sprite = new THREE.Sprite(material)
+    const sprite = new THREE.Sprite(getSpriteMaterial(texture))
     sprite.scale.set(scale, scale, 1)
     return sprite
   }, [])
@@ -561,8 +593,12 @@ export function FlatlineGame() {
     }
   }, [])
 
-  // Test hooks: deterministic ways for e2e to drive the loop.
+  // Test hooks: deterministic ways for e2e to drive the loop. Not wired in
+  // production builds.
   useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      return
+    }
     const forceDeath = () => {
       const world = worldRef.current
       if (world && screenRef.current === 'playing') {
@@ -606,16 +642,22 @@ export function FlatlineGame() {
 
   function getChunk(cx: number, cz: number): Chunk {
     const world = worldRef.current as World
-    const key = chunkKey(cx, cz)
-    const entry = world.chunks.get(key)
-    if (entry) {
-      return entry.chunk
+    // Movement, raycasts, and projectiles hammer the same chunk in bursts;
+    // the one-entry cache skips the string key on almost every call.
+    const last = world.lastChunk
+    if (last && last.chunk.cx === cx && last.chunk.cz === cz) {
+      return last.chunk
     }
-    // Data only: meshes are built lazily by ensureChunkMesh so that a
-    // neighbor lookup during mesh building cannot recurse outward forever.
-    const chunk = generateChunk(world.seed, cx, cz)
-    world.chunks.set(key, { chunk, group: null })
-    return chunk
+    const key = chunkKey(cx, cz)
+    let entry = world.chunks.get(key)
+    if (!entry) {
+      // Data only: meshes are built lazily by ensureChunkMesh so that a
+      // neighbor lookup during mesh building cannot recurse outward forever.
+      entry = { chunk: generateChunk(world.seed, cx, cz), group: null }
+      world.chunks.set(key, entry)
+    }
+    world.lastChunk = entry
+    return entry.chunk
   }
 
   function ensureChunkMesh(cx: number, cz: number) {
@@ -636,7 +678,7 @@ export function FlatlineGame() {
       return true
     }
     if (cell === CELL_DOOR || cell === CELL_VAULT_DOOR) {
-      const door = world.doors.get(`${gx},${gz}`)
+      const door = world.doors.get(doorKey(gx, gz))
       return door ? doorBlocks(door.state) : true
     }
     return false
@@ -646,7 +688,6 @@ export function FlatlineGame() {
     const art = artRef.current as Art
     const group = new THREE.Group()
     const theme = themeForRing(chunk.ring)
-    const wallTex = art.walls[theme].light
 
     // Visible wall cells: solid with at least one walkable neighbor.
     const instances: Array<[number, number]> = []
@@ -674,9 +715,7 @@ export function FlatlineGame() {
         }
       }
     }
-    const box = new THREE.BoxGeometry(CELL_M, WALL_HEIGHT_M, CELL_M)
-    const material = new THREE.MeshLambertMaterial({ map: wallTex })
-    const mesh = new THREE.InstancedMesh(box, material, instances.length)
+    const mesh = new THREE.InstancedMesh(art.wallGeo, art.wallMaterials[theme], instances.length)
     const matrix = new THREE.Matrix4()
     instances.forEach(([gx, gz], i) => {
       matrix.setPosition(cellCenter(gx), WALL_HEIGHT_M / 2, cellCenter(gz))
@@ -685,12 +724,10 @@ export function FlatlineGame() {
     mesh.instanceMatrix.needsUpdate = true
     group.add(mesh)
 
-    // Floor and ceiling planes.
-    const planeGeo = new THREE.PlaneGeometry(CHUNK_SIZE * CELL_M, CHUNK_SIZE * CELL_M)
-    const floorTex = art.floor.clone()
-    floorTex.repeat.set(CHUNK_SIZE / 2, CHUNK_SIZE / 2)
-    floorTex.needsUpdate = true
-    const floor = new THREE.Mesh(planeGeo, new THREE.MeshLambertMaterial({ map: floorTex }))
+    // Floor and ceiling planes share one geometry and material; the ceiling
+    // is unlit because the hemisphere ground light barely reaches a
+    // down-facing normal (it rendered as a black void).
+    const floor = new THREE.Mesh(art.chunkPlaneGeo, art.floorMaterial)
     floor.rotation.x = -Math.PI / 2
     floor.position.set(
       chunk.cx * CHUNK_SIZE * CELL_M + (CHUNK_SIZE * CELL_M) / 2,
@@ -698,12 +735,7 @@ export function FlatlineGame() {
       chunk.cz * CHUNK_SIZE * CELL_M + (CHUNK_SIZE * CELL_M) / 2
     )
     group.add(floor)
-    const ceilTex = art.ceiling.clone()
-    ceilTex.repeat.set(CHUNK_SIZE / 2, CHUNK_SIZE / 2)
-    ceilTex.needsUpdate = true
-    // Unlit: the hemisphere ground light barely reaches a down-facing
-    // normal, which rendered the ceiling as a black void.
-    const ceiling = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({ map: ceilTex, fog: true }))
+    const ceiling = new THREE.Mesh(art.chunkPlaneGeo, art.ceilingMaterial)
     ceiling.rotation.x = Math.PI / 2
     ceiling.position.set(floor.position.x, WALL_HEIGHT_M, floor.position.z)
     group.add(ceiling)
@@ -732,11 +764,11 @@ export function FlatlineGame() {
       world.crates.set(id, { id, pos, sprite, hp: 20 })
     }
     for (const doorSpawn of chunk.doors) {
-      const key = `${doorSpawn.gx},${doorSpawn.gz}`
+      const key = doorKey(doorSpawn.gx, doorSpawn.gz)
       if (world.doors.has(key)) {
         continue
       }
-      const state = createDoor(doorSpawn.gx, doorSpawn.gz, doorSpawn.axis, doorSpawn.locked)
+      const state = createDoor(doorSpawn.gx, doorSpawn.gz, doorSpawn.locked)
       const geo = new THREE.BoxGeometry(
         doorSpawn.axis === 'x' ? 0.4 : CELL_M,
         WALL_HEIGHT_M,
@@ -748,7 +780,7 @@ export function FlatlineGame() {
       )
       mesh.position.set(cellCenter(doorSpawn.gx), WALL_HEIGHT_M / 2, cellCenter(doorSpawn.gz))
       three.scene.add(mesh)
-      world.doors.set(key, { state, mesh })
+      world.doors.set(key, { state, mesh, pos: { x: cellCenter(doorSpawn.gx), z: cellCenter(doorSpawn.gz) } })
     }
   }
 
@@ -764,7 +796,7 @@ export function FlatlineGame() {
     const sprite = spriteFor(art.enemyTex[kind].walkA[0], def.heightM * 1.15)
     sprite.position.set(enemy.pos.x, def.heightM / 2, enemy.pos.z)
     three.scene.add(sprite)
-    world.enemies.set(enemy.id, { logic: enemy, sprite, frame: 'walkA', boilAt: 0, variant: 0 })
+    world.enemies.set(enemy.id, { logic: enemy, sprite, boilAt: 0, variant: 0, losUntil: 0, losCached: false })
   }
 
   function addPickup(kind: PickupKind, pos: Vec2) {
@@ -801,11 +833,8 @@ export function FlatlineGame() {
     if (!three) {
       return
     }
-    const texture = art.splat[Math.floor(Math.random() * art.splat.length)]
-    const mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.6, 1.6),
-      new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false })
-    )
+    const material = art.splatMaterials[Math.floor(Math.random() * art.splatMaterials.length)]
+    const mesh = new THREE.Mesh(art.splatGeo, material)
     mesh.rotation.x = -Math.PI / 2
     mesh.rotation.z = Math.random() * Math.PI * 2
     mesh.position.set(pos.x, 0.02 + world.corpses.length * 0.0004, pos.z)
@@ -829,15 +858,14 @@ export function FlatlineGame() {
     for (const reach of [1, 2]) {
       const gx = worldToCell(pos.x + Math.sin(yaw) * reach)
       const gz = worldToCell(pos.z + Math.cos(yaw) * reach)
-      const door = world.doors.get(`${gx},${gz}`)
+      const door = world.doors.get(doorKey(gx, gz))
       if (!door) {
         continue
       }
-      const wasLocked = door.state.locked
       const hasKey = world.player.hasVaultKey || world.config.skeletonKey
       const result = operateDoor(door.state, hasKey)
-      if (result === 'opened') {
-        if (wasLocked && !world.config.skeletonKey) {
+      if (result === 'opened' || result === 'unlocked') {
+        if (result === 'unlocked' && !world.config.skeletonKey) {
           // A physical key is spent on the lock it opened.
           world.player.hasVaultKey = false
         }
@@ -886,11 +914,18 @@ export function FlatlineGame() {
     return world.config.damageMult * (1 + tier * WEAPON_TIER_DAMAGE_PER_TIER)
   }
 
-  function fireHitscanPellet(origin: Vec2, angle: number, damage: number, fromPlayer: boolean, shooterId: number | null) {
+  function fireHitscanPellet(
+    origin: Vec2,
+    angle: number,
+    damage: number,
+    fromPlayer: boolean,
+    shooterId: number | null,
+    maxRange = HITSCAN_RANGE
+  ) {
     const world = worldRef.current as World
     const art = artRef.current as Art
-    const wallHit = castRay(solidAt, origin, angle, HITSCAN_RANGE)
-    const wallDist = wallHit?.distance ?? HITSCAN_RANGE
+    const wallHit = castRay(solidAt, origin, angle, maxRange)
+    const wallDist = wallHit?.distance ?? maxRange
 
     type Victim = { kind: 'enemy' | 'crate' | 'player'; id: number; along: number; pos: Vec2 }
     let best: Victim | null = null
@@ -965,7 +1000,6 @@ export function FlatlineGame() {
 
   function hurtCrate(id: number, damage: number) {
     const world = worldRef.current as World
-    const art = artRef.current as Art
     const crate = world.crates.get(id)
     if (!crate) {
       return
@@ -976,52 +1010,33 @@ export function FlatlineGame() {
     }
     world.crates.delete(id)
     threeRef.current?.scene.remove(crate.sprite)
-    sfxRef.current?.explosion()
-    addEffect(art.explosion, crate.pos, 1.2, 2.4, 0.45)
-    const splash = { maxDamage: 128, radiusM: 4 }
-    const targets: Array<{ id: number | 'player'; pos: Vec2 }> = [{ id: 'player', pos: world.player.pos }]
-    for (const [, e] of world.enemies) {
-      targets.push({ id: e.logic.id, pos: e.logic.pos })
-    }
-    for (const [, other] of world.crates) {
-      targets.push({ id: -other.id - 10, pos: other.pos })
-    }
-    for (const hit of resolveSplash(crate.pos, splash, targets)) {
-      if (hit.targetId === 'player') {
-        damagePlayer(hit.damage, performance.now())
-      } else if (typeof hit.targetId === 'number' && hit.targetId <= -10) {
-        hurtCrate(-(hit.targetId + 10), hit.damage)
-      } else if (typeof hit.targetId === 'number') {
-        hurtEnemy(hit.targetId, hit.damage, null)
-      }
-    }
+    explodeAt(crate.pos, { maxDamage: 128, radiusM: 4 })
     if (world.rng() < 0.4) {
       addPickup('coinSmall', crate.pos)
     }
   }
 
-  function explodeAt(pos: Vec2, splash: { maxDamage: number; radiusM: number }, sourceIsPlayer: boolean) {
+  function explodeAt(pos: Vec2, splash: { maxDamage: number; radiusM: number }) {
     const world = worldRef.current as World
     const art = artRef.current as Art
     sfxRef.current?.explosion()
     addEffect(art.explosion, pos, 1.4, 2.8, 0.5)
-    const targets: Array<{ id: number | 'player'; pos: Vec2 }> = [{ id: 'player', pos: world.player.pos }]
+    const targets: Array<{ id: TargetRef; pos: Vec2 }> = [{ id: { kind: 'player' }, pos: world.player.pos }]
     for (const [, e] of world.enemies) {
-      targets.push({ id: e.logic.id, pos: e.logic.pos })
+      targets.push({ id: { kind: 'enemy', id: e.logic.id }, pos: e.logic.pos })
     }
     for (const [, crate] of world.crates) {
-      targets.push({ id: -crate.id - 10, pos: crate.pos })
+      targets.push({ id: { kind: 'crate', id: crate.id }, pos: crate.pos })
     }
     for (const hit of resolveSplash(pos, splash, targets)) {
-      if (hit.targetId === 'player') {
+      if (hit.targetId.kind === 'player') {
         damagePlayer(hit.damage, performance.now())
-      } else if (typeof hit.targetId === 'number' && hit.targetId <= -10) {
-        hurtCrate(-(hit.targetId + 10), hit.damage)
-      } else if (typeof hit.targetId === 'number') {
-        hurtEnemy(hit.targetId, hit.damage, null)
+      } else if (hit.targetId.kind === 'crate') {
+        hurtCrate(hit.targetId.id, hit.damage)
+      } else {
+        hurtEnemy(hit.targetId.id, hit.damage, null)
       }
     }
-    void sourceIsPlayer
   }
 
   function firePlayerWeapon(now: number) {
@@ -1053,8 +1068,15 @@ export function FlatlineGame() {
     }
     const mult = weaponDamageMult(player.weapon)
     if (def.melee) {
-      // Short-range punch.
-      fireHitscanPellet(player.pos, player.yaw, Math.round(rollDamage(world.rng, def.dice) * mult), true, null)
+      // Punches only reach melee range, not the full hitscan distance.
+      fireHitscanPellet(
+        player.pos,
+        player.yaw,
+        Math.round(rollDamage(world.rng, def.dice) * mult),
+        true,
+        null,
+        def.melee.rangeM
+      )
       return
     }
     if (def.projectile) {
@@ -1100,29 +1122,33 @@ export function FlatlineGame() {
     world.time += dt
     const player = world.player
 
-    // --- Chunk streaming ---
+    // --- Chunk streaming: only when the player crosses a chunk border ---
     const pcx = cellToChunk(worldToCell(player.pos.x))
     const pcz = cellToChunk(worldToCell(player.pos.z))
-    for (let dz = -ACTIVE_CHUNK_RADIUS; dz <= ACTIVE_CHUNK_RADIUS; dz++) {
-      for (let dx = -ACTIVE_CHUNK_RADIUS; dx <= ACTIVE_CHUNK_RADIUS; dx++) {
-        const chunk = getChunk(pcx + dx, pcz + dz)
-        ensureChunkMesh(pcx + dx, pcz + dz)
-        const key = chunkKey(pcx + dx, pcz + dz)
-        if (!world.spawned.has(key)) {
-          world.spawned.add(key)
-          spawnChunkEntities(chunk)
+    const streamKey = chunkKey(pcx, pcz)
+    if (streamKey !== world.lastStreamKey) {
+      world.lastStreamKey = streamKey
+      for (let dz = -ACTIVE_CHUNK_RADIUS; dz <= ACTIVE_CHUNK_RADIUS; dz++) {
+        for (let dx = -ACTIVE_CHUNK_RADIUS; dx <= ACTIVE_CHUNK_RADIUS; dx++) {
+          const chunk = getChunk(pcx + dx, pcz + dz)
+          ensureChunkMesh(pcx + dx, pcz + dz)
+          const key = chunkKey(pcx + dx, pcz + dz)
+          if (!world.spawned.has(key)) {
+            world.spawned.add(key)
+            spawnChunkEntities(chunk)
+          }
         }
       }
-    }
-    // Drop far chunk meshes (chunk data and entities stay; they are cheap).
-    for (const [, entry] of world.chunks) {
-      const distChunks = Math.max(Math.abs(entry.chunk.cx - pcx), Math.abs(entry.chunk.cz - pcz))
-      if (distChunks > KEEP_CHUNK_RADIUS && entry.group) {
-        three.scene.remove(entry.group)
-        entry.group = null
+      // Drop far chunk meshes (chunk data and entities stay; they are cheap).
+      for (const [, entry] of world.chunks) {
+        const distChunks = Math.max(Math.abs(entry.chunk.cx - pcx), Math.abs(entry.chunk.cz - pcz))
+        if (distChunks > KEEP_CHUNK_RADIUS && entry.group) {
+          three.scene.remove(entry.group)
+          entry.group = null
+        }
       }
+      player.maxRing = Math.max(player.maxRing, Math.max(Math.abs(pcx), Math.abs(pcz)))
     }
-    player.maxRing = Math.max(player.maxRing, Math.max(Math.abs(pcx), Math.abs(pcz)))
 
     // --- Player movement ---
     if (!player.dead) {
@@ -1138,12 +1164,16 @@ export function FlatlineGame() {
       const next = moveWithSliding(solidAt, player.pos, player.momentum.x * dt, player.momentum.z * dt, PLAYER_RADIUS)
       player.pos = next
 
-      // Track explored cells for the automap.
+      // Track explored cells for the automap, once per cell crossed.
       const pgx = worldToCell(player.pos.x)
       const pgz = worldToCell(player.pos.z)
-      for (let dz = -3; dz <= 3; dz++) {
-        for (let dx = -3; dx <= 3; dx++) {
-          world.visited.add(`${pgx + dx},${pgz + dz}`)
+      const visitKey = `${pgx},${pgz}`
+      if (visitKey !== world.lastVisitKey) {
+        world.lastVisitKey = visitKey
+        for (let dz = -3; dz <= 3; dz++) {
+          for (let dx = -3; dx <= 3; dx++) {
+            world.visited.add(`${pgx + dx},${pgz + dz}`)
+          }
         }
       }
 
@@ -1159,16 +1189,16 @@ export function FlatlineGame() {
       }
     }
 
-    // --- Doors ---
+    // --- Doors: closed faraway doors are inert, skip them entirely ---
     for (const [, door] of world.doors) {
-      const doorPos = { x: cellCenter(door.state.gx), z: cellCenter(door.state.gz) }
-      if (dist(doorPos, player.pos) > 40) {
+      const playerDist = dist(door.pos, player.pos)
+      if (door.state.phase === 'closed' && playerDist > 3) {
         continue
       }
-      let blocked = dist(doorPos, player.pos) < 1.2
+      let blocked = playerDist < 1.2
       if (!blocked) {
         for (const [, entity] of world.enemies) {
-          if (entity.logic.state !== 'dead' && dist(doorPos, entity.logic.pos) < 1.2) {
+          if (entity.logic.state !== 'dead' && dist(door.pos, entity.logic.pos) < 1.2) {
             blocked = true
             break
           }
@@ -1206,7 +1236,13 @@ export function FlatlineGame() {
       if (targetIsPlayer && player.dead) {
         continue
       }
-      const canSee = distToPlayer < 26 && hasLineOfSight(solidAt, enemy.pos, target)
+      // Staggered LOS: a full grid raycast per enemy per frame is the most
+      // expensive AI query; ~150ms staleness is imperceptible.
+      if (world.time > entity.losUntil) {
+        entity.losUntil = world.time + 0.12 + world.rng() * 0.08
+        entity.losCached = distToPlayer < 26 && hasLineOfSight(solidAt, enemy.pos, target)
+      }
+      const canSee = entity.losCached
       const events = tickEnemy(enemy, { dt, target, canSeeTarget: canSee, rng: world.rng })
 
       // Movement with door handling: enemies open unlocked doors.
@@ -1218,11 +1254,11 @@ export function FlatlineGame() {
         const moved = moveWithSliding(solidAt, enemy.pos, dx, dz, ENEMY_DEFS[enemy.kind].radiusM)
         enemy.pos.x = moved.x
         enemy.pos.z = moved.z
-        if (Math.hypot(moved.x - before.x, moved.z - before.z) < speed * dt * 0.3) {
+        if (dist(moved, before) < speed * dt * 0.3) {
           // Blocked: try a door directly ahead, otherwise re-roll direction.
           const gx = worldToCell(enemy.pos.x + Math.sin(enemy.moveAngle) * 1.2)
           const gz = worldToCell(enemy.pos.z + Math.cos(enemy.moveAngle) * 1.2)
-          const door = world.doors.get(`${gx},${gz}`)
+          const door = world.doors.get(doorKey(gx, gz))
           if (door && !door.state.locked && door.state.phase === 'closed') {
             operateDoor(door.state, false)
             sfxRef.current?.doorOpen()
@@ -1287,29 +1323,28 @@ export function FlatlineGame() {
       if ((entity.sprite.material as THREE.SpriteMaterial).map !== texture) {
         entity.sprite.material = getSpriteMaterial(texture)
       }
-      entity.frame = frame
       entity.sprite.position.set(enemy.pos.x, def.heightM / 2, enemy.pos.z)
     }
 
     // --- Projectiles ---
     for (const [id, entity] of world.projectiles) {
-      const targets: Array<{ id: number; pos: Vec2; radiusM: number }> = []
+      const targets: Array<{ id: TargetRef; pos: Vec2; radiusM: number }> = []
       if (entity.p.fromPlayer) {
         for (const [, e] of world.enemies) {
           if (e.logic.state !== 'dead' && e.logic.state !== 'dying') {
-            targets.push({ id: e.logic.id, pos: e.logic.pos, radiusM: ENEMY_DEFS[e.logic.kind].radiusM })
+            targets.push({ id: { kind: 'enemy', id: e.logic.id }, pos: e.logic.pos, radiusM: ENEMY_DEFS[e.logic.kind].radiusM })
           }
         }
         for (const [, crate] of world.crates) {
-          targets.push({ id: -crate.id - 10, pos: crate.pos, radiusM: 0.55 })
+          targets.push({ id: { kind: 'crate', id: crate.id }, pos: crate.pos, radiusM: 0.55 })
         }
       } else {
         if (!player.dead) {
-          targets.push({ id: -1, pos: player.pos, radiusM: PLAYER_RADIUS })
+          targets.push({ id: { kind: 'player' }, pos: player.pos, radiusM: PLAYER_RADIUS })
         }
         for (const [, e] of world.enemies) {
           if (e.logic.id !== entity.p.shooterId && e.logic.state !== 'dead' && e.logic.state !== 'dying') {
-            targets.push({ id: e.logic.id, pos: e.logic.pos, radiusM: ENEMY_DEFS[e.logic.kind].radiusM })
+            targets.push({ id: { kind: 'enemy', id: e.logic.id }, pos: e.logic.pos, radiusM: ENEMY_DEFS[e.logic.kind].radiusM })
           }
         }
       }
@@ -1325,24 +1360,24 @@ export function FlatlineGame() {
         continue
       }
       if (entity.p.splash) {
-        explodeAt(hit.pos, entity.p.splash, entity.p.fromPlayer)
+        explodeAt(hit.pos, entity.p.splash)
         continue
       }
       if (hit.type === 'target') {
-        if (hit.targetId === -1) {
+        if (hit.targetId.kind === 'player') {
           damagePlayer(entity.p.damage, now)
-        } else if (hit.targetId <= -10) {
-          hurtCrate(-(hit.targetId + 10), entity.p.damage)
+        } else if (hit.targetId.kind === 'crate') {
+          hurtCrate(hit.targetId.id, entity.p.damage)
         } else {
-          const victim = world.enemies.get(hit.targetId)
+          const victim = world.enemies.get(hit.targetId.id)
           // Doom rule: same-species projectiles never damage each other.
           if (victim && entity.p.shooterId !== null) {
             const shooter = world.enemies.get(entity.p.shooterId)
-            if (shooter && shooter.logic.kind === victim.logic.kind) {
+            if (shooter && projectileHarmless(shooter.logic.kind, victim.logic.kind)) {
               continue
             }
           }
-          hurtEnemy(hit.targetId, entity.p.damage, entity.p.shooterId)
+          hurtEnemy(hit.targetId.id, entity.p.damage, entity.p.shooterId)
           const art = artRef.current as Art
           addEffect(art.splat, hit.pos, 1.2, 0.5, 0.25)
         }
@@ -1428,16 +1463,13 @@ export function FlatlineGame() {
       const def = WEAPONS[player.weapon]
       setHud({
         hp: Math.max(0, Math.round(player.vitals.hp)),
-        maxHp: player.vitals.maxHp,
         armor: Math.round(player.vitals.armor),
         ammoInWeapon: def.ammoType === 'none' ? null : player.ammo[def.ammoType],
-        ammo: { ...player.ammo },
         weapon: player.weapon,
         owned: [...player.owned],
         cheddar: player.cheddarRun,
         ring: Math.max(Math.abs(pcx), Math.abs(pcz)),
-        hasKey: player.hasVaultKey,
-        kills: player.kills
+        hasKey: player.hasVaultKey
       })
     }
   }
@@ -1521,12 +1553,13 @@ export function FlatlineGame() {
       }
     }
 
-    // Automap.
+    // Automap, throttled: cell-grid maps do not need 60Hz.
     const automap = automapRef.current
     if (automap) {
       const show = automapHeldRef.current && !world.player.dead
       automap.style.display = show ? 'block' : 'none'
-      if (show) {
+      if (show && now - lastAutomapDrawRef.current > 100) {
+        lastAutomapDrawRef.current = now
         drawAutomap(automap, world)
       }
     }
@@ -1538,8 +1571,10 @@ export function FlatlineGame() {
       return
     }
     const size = 440
-    canvas.width = size
-    canvas.height = size
+    if (canvas.width !== size) {
+      canvas.width = size
+      canvas.height = size
+    }
     ctx.fillStyle = 'rgba(12, 12, 12, 0.88)'
     ctx.fillRect(0, 0, size, size)
     const radius = world.config.automapRadius
@@ -1596,6 +1631,22 @@ export function FlatlineGame() {
 
   const filmSettings = FILM_PRESETS[film]
   const world = worldRef.current
+
+  const settingsRow = (
+    <div className="title-settings">
+      <label>
+        Film:{' '}
+        <select value={film} onChange={(e) => changeFilm(e.target.value as FilmPreset)} data-testid="film-select">
+          <option value="studio">Studio Cut</option>
+          <option value="directors">Director&apos;s Cut</option>
+          <option value="vintage">Vintage Cut</option>
+        </select>
+      </label>
+      <button type="button" className="ghost" onClick={() => setMuted((m) => !m)} aria-pressed={muted}>
+        {muted ? 'Unmute' : 'Mute'}
+      </button>
+    </div>
+  )
 
   return (
     <div className="game-shell">
@@ -1685,26 +1736,14 @@ export function FlatlineGame() {
               The city is a maze and every block wants you dead. Go out, get paid, get flattened, get stronger.
             </p>
             <div className="title-buttons">
-              <button className="start-run" onClick={startRun} data-testid="start-run">
+              <button type="button" className="start-run" onClick={startRun} data-testid="start-run">
                 New Case
               </button>
-              <button className="ghost" onClick={() => setScreen('office')} data-testid="go-office">
+              <button type="button" className="ghost" onClick={() => setScreen('office')} data-testid="go-office">
                 The Office
               </button>
             </div>
-            <div className="title-settings">
-              <label>
-                Film:{' '}
-                <select value={film} onChange={(e) => changeFilm(e.target.value as FilmPreset)} data-testid="film-select">
-                  <option value="studio">Studio Cut</option>
-                  <option value="directors">Director&apos;s Cut</option>
-                  <option value="vintage">Vintage Cut</option>
-                </select>
-              </label>
-              <button className="ghost" onClick={() => setMuted((m) => !m)} aria-pressed={muted}>
-                {muted ? 'Unmute' : 'Mute'}
-              </button>
-            </div>
+            {settingsRow}
             <p className="controls-hint">
               WASD move. Mouse aim. Click shoot. E opens doors. Tab holds the map. 1-7 swap iron.
             </p>
@@ -1735,7 +1774,7 @@ export function FlatlineGame() {
               </div>
             </div>
             <p className="title-tag">The earnings made it back to the office. You, eventually.</p>
-            <button className="start-run" onClick={() => setScreen('office')} data-testid="back-to-office">
+            <button type="button" className="start-run" onClick={() => setScreen('office')} data-testid="back-to-office">
               Back to the Office
             </button>
           </div>
@@ -1750,6 +1789,7 @@ export function FlatlineGame() {
             <h1>INTERMISSION</h1>
             <div className="title-buttons">
               <button
+                type="button"
                 className="start-run"
                 onClick={() => {
                   setPaused(false)
@@ -1759,6 +1799,7 @@ export function FlatlineGame() {
                 Resume
               </button>
               <button
+                type="button"
                 className="ghost"
                 onClick={() => {
                   setPaused(false)
@@ -1773,19 +1814,7 @@ export function FlatlineGame() {
                 Call It a Night
               </button>
             </div>
-            <div className="title-settings">
-              <label>
-                Film:{' '}
-                <select value={film} onChange={(e) => changeFilm(e.target.value as FilmPreset)}>
-                  <option value="studio">Studio Cut</option>
-                  <option value="directors">Director&apos;s Cut</option>
-                  <option value="vintage">Vintage Cut</option>
-                </select>
-              </label>
-              <button className="ghost" onClick={() => setMuted((m) => !m)} aria-pressed={muted}>
-                {muted ? 'Unmute' : 'Mute'}
-              </button>
-            </div>
+            {settingsRow}
           </div>
         </div>
       )}

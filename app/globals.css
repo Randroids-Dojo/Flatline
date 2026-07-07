@@ -6,8 +6,8 @@
   --gray-mid: #8f8a80;
   --gray-dark: #4a4741;
   --panel: rgba(16, 16, 16, 0.9);
-  --title-font: Georgia, 'Times New Roman', serif;
-  --body-font: 'Courier New', Courier, monospace;
+  --title-font: georgia, 'Times New Roman', serif;
+  --body-font: 'Courier New', courier, monospace;
 }
 
 * {

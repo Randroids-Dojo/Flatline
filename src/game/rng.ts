@@ -38,10 +38,6 @@ export function rngInt(rng: Rng, min: number, max: number): number {
   return min + Math.floor(rng() * (max - min + 1))
 }
 
-export function rngPick<T>(rng: Rng, items: readonly T[]): T {
-  return items[Math.min(items.length - 1, Math.floor(rng() * items.length))]
-}
-
 // Doom-style dice: count rolls of 1..sides, summed, times multiplier.
 export function rollDice(rng: Rng, count: number, sides: number, multiplier = 1): number {
   let total = 0

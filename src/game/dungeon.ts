@@ -24,7 +24,6 @@ export type Room = {
   z: number
   w: number
   h: number
-  vault: boolean
 }
 
 export type DoorSpawn = {
@@ -60,7 +59,6 @@ export type Chunk = {
   cz: number
   ring: number
   cells: Uint8Array
-  rooms: Room[]
   doors: DoorSpawn[]
   enemies: EnemySpawn[]
   pickups: PickupSpawn[]
@@ -105,7 +103,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
   if (isOrigin) {
     // The starting room: the detective's office stairwell. Always centered,
     // always safe.
-    rooms.push({ x: 8, z: 8, w: 8, h: 8, vault: false })
+    rooms.push({ x: 8, z: 8, w: 8, h: 8 })
   }
 
   const attempts = 14
@@ -114,13 +112,13 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
     const h = rngInt(rng, 4, 8)
     const x = rngInt(rng, 2, CHUNK_SIZE - 2 - w)
     const z = rngInt(rng, 2, CHUNK_SIZE - 2 - h)
-    const candidate = { x, z, w, h, vault: false }
+    const candidate = { x, z, w, h }
     if (!rooms.some((r) => rectsTouch(r, candidate))) {
       rooms.push(candidate)
     }
   }
   if (rooms.length < 2) {
-    rooms.push({ x: 4, z: 4, w: 6, h: 6, vault: false })
+    rooms.push({ x: 4, z: 4, w: 6, h: 6 })
   }
 
   for (const room of rooms) {
@@ -149,7 +147,6 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
   let vaultRoom: Room | null = null
   if (!isOrigin && rooms.length >= 3 && rng() < 0.35) {
     vaultRoom = rooms.reduce((smallest, room) => (room.w * room.h < smallest.w * smallest.h ? room : smallest))
-    vaultRoom.vault = true
   }
 
   const doors: DoorSpawn[] = []
@@ -160,7 +157,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
   const crates: { gx: number; gz: number }[] = []
   populate(rng, rooms, ring, isOrigin, cx, cz, cells, enemies, pickups, crates, vaultRoom)
 
-  return { cx, cz, ring, cells, rooms, doors, enemies, pickups, crates }
+  return { cx, cz, ring, cells, doors, enemies, pickups, crates }
 }
 
 export function cellAtLocal(chunk: Chunk, lx: number, lz: number): number {
@@ -281,11 +278,15 @@ function placeDoors(
       } else if (solidEW && floorNS) {
         axis = 'z'
       }
+      const isVaultEntrance = vaultRoom !== null && isRoomEdgeCell(vaultRoom, lx, lz)
+      if (isVaultEntrance && !axis) {
+        // Corridors may have widened the vault opening past the narrow
+        // pinch shape; seal it anyway so no vault is ever left open.
+        axis = solidNS || floorEW ? 'x' : 'z'
+      }
       if (!axis) {
         continue
       }
-
-      const isVaultEntrance = vaultRoom !== null && isRoomEdgeCell(vaultRoom, lx, lz)
       if (!isVaultEntrance && (doors.length >= 5 || rng() >= 0.35)) {
         continue
       }

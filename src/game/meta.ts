@@ -86,11 +86,17 @@ export const WEAPON_UNLOCK_COSTS: Record<ArmoryWeapon, number> = {
 export const WEAPON_TIER_MAX = 3
 export const WEAPON_TIER_DAMAGE_PER_TIER = 0.2
 
+// Meta-aware prices so the shop UI and the purchase functions can never
+// drift: both read the same number, labor inflation included.
+export function weaponUnlockCost(meta: MetaState, weapon: ArmoryWeapon): number {
+  return WEAPON_UNLOCK_COSTS[weapon] + laborCost(meta)
+}
+
 // Tier prices follow RL2's blacksmith multiplier feel: each tier costs a
 // growing multiple of the weapon's unlock price.
-export function weaponTierCost(weapon: WeaponId, tier: number): number {
+export function weaponTierCost(meta: MetaState, weapon: WeaponId, tier: number): number {
   const base = weapon === 'snub' ? 150 : WEAPON_UNLOCK_COSTS[weapon as ArmoryWeapon] ?? 150
-  return Math.round(base * 0.5 * (tier + 1))
+  return Math.round(base * 0.5 * (tier + 1)) + laborCost(meta)
 }
 
 // --- Relics (one-run contraband) ---
@@ -216,7 +222,7 @@ export function purchaseWeapon(meta: MetaState, weapon: ArmoryWeapon): MetaState
   if (!armoryUnlocked(meta) || meta.weaponsUnlocked.includes(weapon)) {
     return null
   }
-  const cost = WEAPON_UNLOCK_COSTS[weapon] + laborCost(meta)
+  const cost = weaponUnlockCost(meta, weapon)
   if (meta.cheddar < cost) {
     return null
   }
@@ -231,7 +237,7 @@ export function purchaseWeaponTier(meta: MetaState, weapon: WeaponId): MetaState
   if (tier >= WEAPON_TIER_MAX) {
     return null
   }
-  const cost = weaponTierCost(weapon, tier) + laborCost(meta)
+  const cost = weaponTierCost(meta, weapon, tier)
   if (meta.cheddar < cost) {
     return null
   }
@@ -272,7 +278,6 @@ export type RunConfig = {
   doubleCoins: boolean
   skeletonKey: boolean
   bloodhound: boolean
-  relics: RelicId[]
 }
 
 function statTotal(meta: MetaState, stat: NodeEffect['stat']): number {
@@ -306,8 +311,7 @@ export function deriveRunConfig(meta: MetaState): RunConfig {
     reviveOnce: relics.includes('rabbitsfoot'),
     doubleCoins: relics.includes('loadeddice'),
     skeletonKey: relics.includes('skeletonkey'),
-    bloodhound: relics.includes('bloodhound'),
-    relics
+    bloodhound: relics.includes('bloodhound')
   }
 }
 

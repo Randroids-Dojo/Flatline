@@ -126,7 +126,9 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   }
 }
 
-export const WEAPON_ORDER: WeaponId[] = ['paws', 'snub', 'scattergun', 'chatter', 'lobber', 'raygun', 'bigcheese']
+export const WEAPON_ORDER: WeaponId[] = (Object.keys(WEAPONS) as WeaponId[]).sort(
+  (a, b) => WEAPONS[a].slot - WEAPONS[b].slot
+)
 
 export type AmmoState = Record<Exclude<AmmoType, 'none'>, number>
 
@@ -154,6 +156,9 @@ export function spendAmmo(weapon: WeaponDef, ammo: AmmoState): AmmoState {
 }
 
 // The best weapon that has ammo, used when the current gun runs dry.
+// The Big Cheese is deliberately excluded: auto-switching into a 40-cell
+// shot would waste the player's ultimate (Doom's auto-switch shuns the
+// BFG for the same reason).
 export function bestFallbackWeapon(owned: WeaponId[], ammo: AmmoState): WeaponId {
   const preference: WeaponId[] = ['chatter', 'scattergun', 'raygun', 'snub', 'lobber', 'paws']
   for (const id of preference) {

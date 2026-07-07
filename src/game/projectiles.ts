@@ -3,6 +3,7 @@
 
 import type { SolidAt } from './collision'
 import { splashDamage } from './combat'
+import { worldToCell } from './dungeon'
 import { dist, type Vec2 } from './types'
 
 export type ProjectileKind = 'tnt' | 'ray' | 'bigcheese' | 'knife' | 'ember'
@@ -38,20 +39,22 @@ export function createProjectile(
   return { id: nextProjectileId++, kind, pos: { ...pos }, angle, speedM, radiusM, damage, splash, fromPlayer, shooterId, ageSec: 0 }
 }
 
-export type ProjectileTarget = { id: number; pos: Vec2; radiusM: number }
+// Targets carry an opaque id chosen by the caller (a number, or a typed
+// ref); it is echoed back untouched in the hit result.
+export type ProjectileTarget<TId> = { id: TId; pos: Vec2; radiusM: number }
 
-export type ProjectileHit =
+export type ProjectileHit<TId> =
   | { type: 'wall'; pos: Vec2 }
-  | { type: 'target'; targetId: number; pos: Vec2 }
+  | { type: 'target'; targetId: TId; pos: Vec2 }
   | { type: 'expired' }
 
 // Advance one projectile. Returns a hit description or null while in flight.
-export function tickProjectile(
+export function tickProjectile<TId>(
   projectile: Projectile,
   dt: number,
   solidAt: SolidAt,
-  targets: ProjectileTarget[]
-): ProjectileHit | null {
+  targets: ProjectileTarget<TId>[]
+): ProjectileHit<TId> | null {
   projectile.ageSec += dt
   if (projectile.ageSec > 8) {
     return { type: 'expired' }
@@ -66,9 +69,7 @@ export function tickProjectile(
     projectile.pos.x += stepX
     projectile.pos.z += stepZ
 
-    const gx = Math.floor(projectile.pos.x / 2)
-    const gz = Math.floor(projectile.pos.z / 2)
-    if (solidAt(gx, gz)) {
+    if (solidAt(worldToCell(projectile.pos.x), worldToCell(projectile.pos.z))) {
       return { type: 'wall', pos: { ...projectile.pos } }
     }
     for (const target of targets) {
@@ -80,14 +81,14 @@ export function tickProjectile(
   return null
 }
 
-export type SplashResult = { targetId: number | 'player'; damage: number }
+export type SplashResult<TId> = { targetId: TId; damage: number }
 
-export function resolveSplash(
+export function resolveSplash<TId>(
   center: Vec2,
   splash: { maxDamage: number; radiusM: number },
-  targets: Array<{ id: number | 'player'; pos: Vec2 }>
-): SplashResult[] {
-  const results: SplashResult[] = []
+  targets: Array<{ id: TId; pos: Vec2 }>
+): SplashResult<TId>[] {
+  const results: SplashResult<TId>[] = []
   for (const target of targets) {
     const damage = splashDamage(splash.maxDamage, splash.radiusM, dist(center, target.pos))
     if (damage > 0) {

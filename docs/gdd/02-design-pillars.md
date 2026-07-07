@@ -9,4 +9,4 @@
 
 ### Build log
 
-- 2026-07-07: pillars established in the reboot implementation. Files: `src/game/*`, `src/art/ink.ts`. PR #172.
+- 2026-07-07: pillars established in the reboot implementation. Files: `src/game/movement.ts`, `src/game/weapons.ts`, `src/game/dungeon.ts`, `src/game/meta.ts`, `src/art/ink.ts`, `src/art/film.ts`. PR #172.

@@ -39,15 +39,14 @@ type CharacterSpec = {
   hat: 'fedora' | 'bowler' | 'none'
   bulk: number
   weapon: 'revolver' | 'shotgun' | 'knife' | 'none' | 'cigar'
-  tail: boolean
 }
 
 const SPECS: Record<EnemyKind, CharacterSpec> = {
-  torpedo: { scale: 0.82, suit: GRAY_DARK, ears: 'rat', hat: 'fedora', bulk: 0.85, weapon: 'revolver', tail: true },
-  capo: { scale: 0.88, suit: GRAY_MID, ears: 'rat', hat: 'bowler', bulk: 1.1, weapon: 'shotgun', tail: true },
-  alleycat: { scale: 0.92, suit: GRAY_DARK, ears: 'shrew', hat: 'none', bulk: 0.75, weapon: 'knife', tail: true },
-  bruiser: { scale: 1, suit: GRAY_MID, ears: 'rat', hat: 'none', bulk: 1.45, weapon: 'none', tail: true },
-  fatcat: { scale: 1.1, suit: GRAY_DARK, ears: 'cat', hat: 'fedora', bulk: 1.6, weapon: 'cigar', tail: true }
+  torpedo: { scale: 0.82, suit: GRAY_DARK, ears: 'rat', hat: 'fedora', bulk: 0.85, weapon: 'revolver' },
+  capo: { scale: 0.88, suit: GRAY_MID, ears: 'rat', hat: 'bowler', bulk: 1.1, weapon: 'shotgun' },
+  alleycat: { scale: 0.92, suit: GRAY_DARK, ears: 'shrew', hat: 'none', bulk: 0.75, weapon: 'knife' },
+  bruiser: { scale: 1, suit: GRAY_MID, ears: 'rat', hat: 'none', bulk: 1.45, weapon: 'none' },
+  fatcat: { scale: 1.1, suit: GRAY_DARK, ears: 'cat', hat: 'fedora', bulk: 1.6, weapon: 'cigar' }
 }
 
 type Pose = {
@@ -109,15 +108,13 @@ function drawCharacter(ctx: Ctx, spec: CharacterSpec, pose: Pose, boil: Boil) {
   }
 
   // Tail first, behind everything.
-  if (spec.tail) {
-    ctx.save()
-    inkStyle(ctx, 4)
-    ctx.beginPath()
-    ctx.moveTo(bodyW * 0.5, bodyY + bodyH * 0.4)
-    ctx.quadraticCurveTo(bodyW * 1.6 + boil(3), bodyY + 10 + boil(3), bodyW * 1.3 + boil(3), bodyY - 24 + boil(3))
-    ctx.stroke()
-    ctx.restore()
-  }
+  ctx.save()
+  inkStyle(ctx, 4)
+  ctx.beginPath()
+  ctx.moveTo(bodyW * 0.5, bodyY + bodyH * 0.4)
+  ctx.quadraticCurveTo(bodyW * 1.6 + boil(3), bodyY + 10 + boil(3), bodyW * 1.3 + boil(3), bodyY - 24 + boil(3))
+  ctx.stroke()
+  ctx.restore()
 
   // Legs: noodles with big shoes.
   const legLift = pose.legSwing * 7
@@ -371,17 +368,17 @@ function drawKey(ctx: Ctx, boil: Boil) {
 
 export function drawPickupSprites(): Record<PickupKind, HTMLCanvasElement[]> {
   return {
-    coinSmall: pickupCanvas((ctx, boil) => drawCoin(ctx, boil), 'coin'),
-    coinPile: pickupCanvas((ctx, boil) => drawCoinPile(ctx, boil), 'coinpile'),
+    coinSmall: pickupCanvas(drawCoin, 'coin'),
+    coinPile: pickupCanvas(drawCoinPile, 'coinpile'),
     cheeseBit: pickupCanvas((ctx, boil) => drawCheese(ctx, boil, false), 'cheesebit'),
     cheeseWheel: pickupCanvas((ctx, boil) => drawCheese(ctx, boil, true), 'cheesewheel'),
     vest: pickupCanvas((ctx, boil) => drawVest(ctx, boil, false), 'vest'),
     trenchArmor: pickupCanvas((ctx, boil) => drawVest(ctx, boil, true), 'trench'),
     bullets: pickupCanvas((ctx, boil) => drawAmmoBox(ctx, boil, 'BULLETS'), 'bullets'),
     shells: pickupCanvas((ctx, boil) => drawAmmoBox(ctx, boil, 'SHELLS'), 'shells'),
-    tnt: pickupCanvas((ctx, boil) => drawTntBundle(ctx, boil), 'tntammo'),
+    tnt: pickupCanvas(drawTntBundle, 'tntammo'),
     cells: pickupCanvas((ctx, boil) => drawAmmoBox(ctx, boil, 'CELLS'), 'cells'),
-    vaultKey: pickupCanvas((ctx, boil) => drawKey(ctx, boil), 'key')
+    vaultKey: pickupCanvas(drawKey, 'key')
   }
 }
 

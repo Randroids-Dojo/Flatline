@@ -8,13 +8,13 @@ import { useMemo, useState } from 'react'
 import {
   BOARD_NODES,
   RELICS,
+  WEAPON_TIER_DAMAGE_PER_TIER,
   WEAPON_TIER_MAX,
-  WEAPON_UNLOCK_COSTS,
   armoryUnlocked,
   fenceUnlocked,
   keepFraction,
-  laborCost,
   nodeCost,
+  nodeNeighbors,
   nodeRank,
   purchaseNode,
   purchaseRelic,
@@ -22,11 +22,12 @@ import {
   purchaseWeaponTier,
   visibleNodes,
   weaponTierCost,
+  weaponUnlockCost,
   type ArmoryWeapon,
   type MetaState,
   type RelicId
 } from '@/game/meta'
-import { WEAPONS, WEAPON_ORDER, type WeaponId } from '@/game/weapons'
+import { WEAPONS, WEAPON_ORDER } from '@/game/weapons'
 
 type Tab = 'board' | 'armory' | 'fence'
 
@@ -43,10 +44,9 @@ export function OfficeScreen({ meta, onMetaChange, onStartRun }: OfficeScreenPro
   const [tab, setTab] = useState<Tab>('board')
   const visible = useMemo(() => visibleNodes(meta), [meta])
   const keep = keepFraction(meta)
-  const inflation = laborCost(meta)
 
-  const buyNode = (id: string) => {
-    const next = purchaseNode(meta, id)
+  // Apply a purchase result; null means refused (hidden or unaffordable).
+  const apply = (next: MetaState | null) => {
     if (next) {
       onMetaChange(next)
     }
@@ -66,10 +66,11 @@ export function OfficeScreen({ meta, onMetaChange, onStartRun }: OfficeScreenPro
       </header>
 
       <nav className="office-tabs">
-        <button className={tab === 'board' ? 'tab active' : 'tab'} onClick={() => setTab('board')}>
+        <button type="button" className={tab === 'board' ? 'tab active' : 'tab'} onClick={() => setTab('board')}>
           Case Board
         </button>
         <button
+          type="button"
           className={tab === 'armory' ? 'tab active' : 'tab'}
           onClick={() => setTab('armory')}
           data-testid="tab-armory"
@@ -77,6 +78,7 @@ export function OfficeScreen({ meta, onMetaChange, onStartRun }: OfficeScreenPro
           Armory {armoryUnlocked(meta) ? '' : '(locked)'}
         </button>
         <button
+          type="button"
           className={tab === 'fence' ? 'tab active' : 'tab'}
           onClick={() => setTab('fence')}
           data-testid="tab-fence"
@@ -90,13 +92,12 @@ export function OfficeScreen({ meta, onMetaChange, onStartRun }: OfficeScreenPro
           <div className="case-board" data-testid="case-board">
             <svg className="board-strings" width={5 * (CELL + GAP)} height={4 * (CELL + GAP)}>
               {BOARD_NODES.flatMap((node) =>
-                BOARD_NODES.filter(
-                  (other) =>
-                    Math.abs(other.x - node.x) + Math.abs(other.y - node.y) === 1 &&
-                    (other.x > node.x || other.y > node.y) &&
-                    visible.has(node.id) &&
-                    visible.has(other.id)
-                ).map((other) => (
+                nodeNeighbors(node)
+                  .filter(
+                    (other) =>
+                      (other.x > node.x || other.y > node.y) && visible.has(node.id) && visible.has(other.id)
+                  )
+                  .map((other) => (
                   <line
                     key={`${node.id}-${other.id}`}
                     x1={node.x * (CELL + GAP) + CELL / 2}
@@ -105,7 +106,7 @@ export function OfficeScreen({ meta, onMetaChange, onStartRun }: OfficeScreenPro
                     y2={other.y * (CELL + GAP) + CELL / 2}
                     className="board-string"
                   />
-                ))
+                  ))
               )}
             </svg>
             {BOARD_NODES.map((node) => {
@@ -137,9 +138,10 @@ export function OfficeScreen({ meta, onMetaChange, onStartRun }: OfficeScreenPro
                   </div>
                   {!maxed && (
                     <button
+                      type="button"
                       className="buy"
                       disabled={!affordable}
-                      onClick={() => buyNode(node.id)}
+                      onClick={() => apply(purchaseNode(meta, node.id))}
                       data-testid={`buy-${node.id}`}
                     >
                       {cost}
@@ -159,22 +161,18 @@ export function OfficeScreen({ meta, onMetaChange, onStartRun }: OfficeScreenPro
                 const def = WEAPONS[id]
                 const owned = meta.weaponsUnlocked.includes(id)
                 const tier = meta.weaponTiers[id] ?? 0
-                const unlockCost = id === 'snub' ? null : WEAPON_UNLOCK_COSTS[id as ArmoryWeapon] + inflation
-                const tCost = tier < WEAPON_TIER_MAX ? weaponTierCost(id as WeaponId, tier) + inflation : null
+                const unlockCost = id === 'snub' ? null : weaponUnlockCost(meta, id as ArmoryWeapon)
+                const tCost = tier < WEAPON_TIER_MAX ? weaponTierCost(meta, id, tier) : null
                 return (
                   <div key={id} className={`shop-card ${owned ? 'owned' : ''}`}>
                     <h3>{def.name}</h3>
                     <p className="card-sub">Slot {def.slot}</p>
                     {!owned && unlockCost !== null && (
                       <button
+                        type="button"
                         className="buy"
                         disabled={meta.cheddar < unlockCost}
-                        onClick={() => {
-                          const next = purchaseWeapon(meta, id as ArmoryWeapon)
-                          if (next) {
-                            onMetaChange(next)
-                          }
-                        }}
+                        onClick={() => apply(purchaseWeapon(meta, id as ArmoryWeapon))}
                         data-testid={`unlock-${id}`}
                       >
                         Unlock {unlockCost}
@@ -185,16 +183,12 @@ export function OfficeScreen({ meta, onMetaChange, onStartRun }: OfficeScreenPro
                         <div className="node-rank">Tier {tier}/{WEAPON_TIER_MAX}</div>
                         {tCost !== null ? (
                           <button
+                            type="button"
                             className="buy"
                             disabled={meta.cheddar < tCost}
-                            onClick={() => {
-                              const next = purchaseWeaponTier(meta, id)
-                              if (next) {
-                                onMetaChange(next)
-                              }
-                            }}
+                            onClick={() => apply(purchaseWeaponTier(meta, id))}
                           >
-                            +20% damage: {tCost}
+                            +{Math.round(WEAPON_TIER_DAMAGE_PER_TIER * 100)}% damage: {tCost}
                           </button>
                         ) : (
                           <div className="node-maxed">MAX</div>
@@ -222,14 +216,10 @@ export function OfficeScreen({ meta, onMetaChange, onStartRun }: OfficeScreenPro
                       <div className="node-maxed">PACKED</div>
                     ) : (
                       <button
+                        type="button"
                         className="buy"
                         disabled={meta.cheddar < relic.cost}
-                        onClick={() => {
-                          const next = purchaseRelic(meta, relic.id as RelicId)
-                          if (next) {
-                            onMetaChange(next)
-                          }
-                        }}
+                        onClick={() => apply(purchaseRelic(meta, relic.id as RelicId))}
                         data-testid={`relic-${relic.id}`}
                       >
                         {relic.cost}
@@ -253,7 +243,7 @@ export function OfficeScreen({ meta, onMetaChange, onStartRun }: OfficeScreenPro
               ? `The rent collector waits outside. You bank ${Math.round(keep * 100)}% of unspent cheddar when you leave.`
               : 'The rent collector waits outside. Unspent cheddar is GONE when you hit the streets. Spend it.'}
         </div>
-        <button className="start-run" onClick={onStartRun} data-testid="hit-the-streets">
+        <button type="button" className="start-run" onClick={onStartRun} data-testid="hit-the-streets">
           Hit the Streets
         </button>
       </footer>

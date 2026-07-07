@@ -35,7 +35,7 @@ describe('tickProjectile', () => {
 
 describe('resolveSplash', () => {
   it('damages targets by distance and skips ones out of range', () => {
-    const results = resolveSplash({ x: 0, z: 0 }, { maxDamage: 128, radiusM: 4 }, [
+    const results = resolveSplash<number | 'player'>({ x: 0, z: 0 }, { maxDamage: 128, radiusM: 4 }, [
       { id: 1, pos: { x: 0, z: 0 } },
       { id: 2, pos: { x: 0, z: 2 } },
       { id: 'player', pos: { x: 0, z: 10 } }
