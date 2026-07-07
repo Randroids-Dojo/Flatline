@@ -24,15 +24,17 @@ export type MoveInput = {
   right: boolean
 }
 
-export function applyThrust(
+// Analog form: axes in [-1, 1] scale the thrust, so a half-deflected
+// touch stick walks at half acceleration through the same friction model.
+// Keyboard input maps to full-strength axes below.
+export function applyThrustAxes(
   momentum: Vec2,
   yaw: number,
-  input: MoveInput,
+  forwardAxis: number,
+  strafeAxis: number,
   dt: number,
   speedMultiplier: number
 ): Vec2 {
-  const forwardAxis = Number(input.forward) - Number(input.backward)
-  const strafeAxis = Number(input.right) - Number(input.left)
   const sin = Math.sin(yaw)
   const cos = Math.cos(yaw)
   const scale = SPEED_SCALE * speedMultiplier * dt
@@ -42,6 +44,23 @@ export function applyThrust(
     x: momentum.x + sin * fwd + cos * str,
     z: momentum.z + cos * fwd - sin * str
   }
+}
+
+export function applyThrust(
+  momentum: Vec2,
+  yaw: number,
+  input: MoveInput,
+  dt: number,
+  speedMultiplier: number
+): Vec2 {
+  return applyThrustAxes(
+    momentum,
+    yaw,
+    Number(input.forward) - Number(input.backward),
+    Number(input.right) - Number(input.left),
+    dt,
+    speedMultiplier
+  )
 }
 
 export function applyFriction(momentum: Vec2, dt: number): Vec2 {

@@ -6,6 +6,8 @@ Doom's momentum model converted from tics to seconds: thrust accumulates into mo
 
 Kept quirks: diagonal movement is not normalized (forward+strafe really is faster), and there is no jumping, crouching, or vertical aim.
 
+Touch sticks feed the same thrust model through analog axes: a radial deadzone (0.15) remaps deflection so walking speed ramps smoothly from a creep to full run, direction follows the thumb exactly (no per-axis snapping), and the axis magnitude caps at 1 so a stick diagonal cannot out-run the rim. The keyboard keeps full-strength Doom axes, including the diagonal quirk.
+
 Collision is circle vs cell grid with independent axis sliding and sub-stepping so high speeds cannot tunnel. Player radius 0.45m, eye height 1.5m, view bob scales with speed squared.
 
 ### Build log
