@@ -35,6 +35,8 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 - Context: the reboot is desktop pointer-lock first; mobile currently gets the title screen only. The pre-reboot game had dual virtual sticks via vibekit that could be re-adapted.
 - Blocker (if any): none.
 - Unblock condition: desktop loop validated as fun.
+- Status: done
+- Resolved: PR #173. New `src/game/touch.ts` wraps the vibekit joystick (deadzone-to-digital move mapping, analog look vector, tap classification, phantom (0,0) rebase from pre-reboot F-005). `src/components/FlatlineGame.tsx` adds dual float sticks, FIRE/USE/MAP/pause touch buttons, tappable HUD weapon slots, and synthetic-mouse suppression; `app/globals.css` reflows the status bar onto a two-row grid under 700px. Covered by `src/game/touch.test.ts` and `tests/mobile.spec.ts`.
 
 ### F-026: Dispose GPU resources between runs and audit long-session memory
 
