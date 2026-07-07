@@ -29,7 +29,33 @@ Use `###` (h3) for entries so they nest under the priority section headers (`## 
 
 ## Nice To Have
 
-(none yet)
+### F-025: Mobile touch controls for the reboot
+
+- Priority: nice-to-have
+- Context: the reboot is desktop pointer-lock first; mobile currently gets the title screen only. The pre-reboot game had dual virtual sticks via vibekit that could be re-adapted.
+- Blocker (if any): none.
+- Unblock condition: desktop loop validated as fun.
+
+### F-026: Dispose GPU resources between runs and audit long-session memory
+
+- Priority: nice-to-have
+- Context: `startRun` clears the scene but does not dispose geometries or cloned chunk textures, and sprite materials cache for the component lifetime. Fine for normal sessions, unmeasured for marathon ones.
+- Blocker (if any): none.
+- Unblock condition: none.
+
+### F-027: Cap the live enemy population on marathon runs
+
+- Priority: nice-to-have
+- Context: enemies spawn per visited chunk and persist for the whole run; AI freezes beyond 30m but entities accumulate. Distant sleeping enemies should be culled or pooled past a few hundred.
+- Blocker (if any): none.
+- Unblock condition: none.
+
+### F-028: Degrade audio with the film preset
+
+- Priority: polish
+- Context: the reference game ties audio degradation (vinyl quality) to the visual film presets; our presets currently only change visuals while the crackle loop is constant.
+- Blocker (if any): none.
+- Unblock condition: none.
 
 ## Polish
 

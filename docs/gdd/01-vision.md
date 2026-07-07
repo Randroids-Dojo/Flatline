@@ -2,23 +2,12 @@
 
 **Status:** done
 
-Flatline is a fast, arcade-style, single-room first-person shooter built for the web.
+Flatline is a desktop web FPS that plays like 1993 Doom and looks like a 1934 cartoon. You are a mouse detective in a monochrome city that generates itself forever in every direction. Runs end in death by design: every flatline sends your earnings back to the office, where permanent upgrades, weapon unlocks, and one-run contraband bend the next run in your favor, in the Rogue Legacy tradition.
 
-The player is trapped in one strange room. Enemies keep spawning. Weapons, ammo, health, and hazards cycle in. The room gradually mutates through lighting, props, doors, traps, fog, and enemy pressure. The goal is not to beat the game. The goal is to survive longer, score higher, and master the room.
+One sentence pitch: Doom's combat, Mouse: P.I. for Hire's rubber-hose ink look, Rogue Legacy 2's death economy, endless procedural dungeon.
 
-The visual hook is a 3D world filled with flat, hand-drawn 2D animated enemies. Characters always face the player like cartoon cutouts, but swap between different hand-drawn angles so they feel like they belong in 3D space.
-
-Reference shape:
-
-- Doom-style movement and shooting
-- One-room survival arena
-- Rubber-hose / hand-drawn billboard enemies
-- Web-first, instant play
-- Score chasing
-- Strong mood, strong silhouettes, readable chaos
-
-Tagline: Drawn flat. Killed fast.
+What it is NOT: a story game, a mobile-first game, a multiplayer game, or a faithful level-based Doom campaign.
 
 ### Build log
 
-- 2026-05-03: Vision split out of monolithic `GDD.md` into this file. Pre-spiral implementation: the playable build at `app/page.tsx` and `src/components/FlatlineGame.tsx` realizes the room-survival shape.
+- 2026-07-07: full reboot shipped: new game replacing the arena shooter. Files: `src/game/*`, `src/art/*`, `src/components/FlatlineGame.tsx`. PR #pending.

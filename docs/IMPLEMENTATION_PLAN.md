@@ -2,6 +2,8 @@
 
 This document is the main operating loop for Flatline implementation. Agents must keep working continuously until the planned scope is complete.
 
+> **2026-07-07 reboot.** The game was rebuilt from scratch by explicit user directive: Doom-mechanics FPS, endless generated dungeon, rubber-hose noir art, Rogue Legacy 2 meta progression. The GDD under `docs/gdd/` was rewritten (old one archived under `docs/_archive/2026-07-07-pre-reboot/`), `docs/GDD_COVERAGE.json` rows REQ-001..REQ-066 are `out_of_scope`, and the live requirement set is REQ-100 and up. References below to arena systems, PLAYTEST.md, or FUN_FACTOR_AUDIT.md describe the archived game; slice selection now draws from REQ-100+, `docs/FOLLOWUPS.md` F-025 and up, and `docs/OPEN_QUESTIONS.md` Q-032 and up. The loop contract, verification rules, and dependency gate below still govern.
+
 ## Loop Contract
 
 Every slice follows the same loop:

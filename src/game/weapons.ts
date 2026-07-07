@@ -1,121 +1,165 @@
-export const weaponIds = ['peashooter', 'boomstick', 'inkblaster'] as const
+// The arsenal. Numbers follow original Doom's weapon tables (damage dice,
+// cycle times in 35-tic seconds, pellet counts, spread) with 32 map units
+// to the meter, re-themed for a 1930s cartoon noir.
 
-export type WeaponId = (typeof weaponIds)[number]
+export type WeaponId = 'paws' | 'snub' | 'scattergun' | 'chatter' | 'lobber' | 'raygun' | 'bigcheese'
 
-export type WeaponConfig = {
+export type AmmoType = 'none' | 'bullets' | 'shells' | 'tnt' | 'cells'
+
+export type WeaponDef = {
   id: WeaponId
-  label: string
-  damage: number
-  fireIntervalMs: number
+  name: string
+  slot: number
+  ammoType: AmmoType
   ammoPerShot: number
-  maxAmmo: number | null
-  spreadRadians: readonly number[]
+  // Seconds between shots (Doom tics / 35).
+  cycleSec: number
+  pellets: number
+  // Damage dice per pellet/projectile: multiplier * (count d sides).
+  dice: { count: number; sides: number; mult: number }
+  // Horizontal spread half-angle in radians. Doom hitscan spread is ~5.6 deg.
+  spreadRad: number
+  // First shot of a burst is perfectly accurate (pistol/chaingun rule).
+  accurateFirstShot: boolean
+  auto: boolean
+  melee?: { rangeM: number }
+  projectile?: { speedM: number; radiusM: number; splash?: { maxDamage: number; radiusM: number } }
 }
 
-export type WeaponAmmoState = {
-  boomstick: number
-  inkblaster: number
-}
+const SPREAD = 0.0977 // 5.6 degrees, Doom's hitscan spread half-angle
 
-export type WeaponCooldownState = Record<WeaponId, number>
-
-export const weaponConfigs: Record<WeaponId, WeaponConfig> = {
-  peashooter: {
-    id: 'peashooter',
-    label: 'Peashooter',
-    damage: 1,
-    fireIntervalMs: 220,
+export const WEAPONS: Record<WeaponId, WeaponDef> = {
+  paws: {
+    id: 'paws',
+    name: 'Bare Paws',
+    slot: 1,
+    ammoType: 'none',
     ammoPerShot: 0,
-    maxAmmo: null,
-    spreadRadians: [0]
+    cycleSec: 0.46,
+    pellets: 1,
+    dice: { count: 1, sides: 10, mult: 2 },
+    spreadRad: 0,
+    accurateFirstShot: true,
+    auto: true,
+    melee: { rangeM: 2 }
   },
-  boomstick: {
-    id: 'boomstick',
-    label: 'Boomstick',
-    damage: 1,
-    fireIntervalMs: 760,
+  snub: {
+    id: 'snub',
+    name: 'Snubnose',
+    slot: 2,
+    ammoType: 'bullets',
     ammoPerShot: 1,
-    maxAmmo: 6,
-    spreadRadians: [-0.09, -0.05, -0.02, 0.02, 0.05, 0.09]
+    cycleSec: 0.4,
+    pellets: 1,
+    dice: { count: 1, sides: 3, mult: 5 },
+    spreadRad: SPREAD,
+    accurateFirstShot: true,
+    auto: true
   },
-  inkblaster: {
-    id: 'inkblaster',
-    label: 'Inkblaster',
-    damage: 2,
-    fireIntervalMs: 680,
+  scattergun: {
+    id: 'scattergun',
+    name: 'Scattergun',
+    slot: 3,
+    ammoType: 'shells',
     ammoPerShot: 1,
-    maxAmmo: 4,
-    spreadRadians: [0]
+    cycleSec: 1.06,
+    pellets: 7,
+    dice: { count: 1, sides: 3, mult: 5 },
+    spreadRad: SPREAD,
+    accurateFirstShot: false,
+    auto: true
+  },
+  chatter: {
+    id: 'chatter',
+    name: 'Chatter Gun',
+    slot: 4,
+    ammoType: 'bullets',
+    ammoPerShot: 1,
+    cycleSec: 0.114,
+    pellets: 1,
+    dice: { count: 1, sides: 3, mult: 5 },
+    spreadRad: SPREAD,
+    accurateFirstShot: true,
+    auto: true
+  },
+  lobber: {
+    id: 'lobber',
+    name: 'TNT Lobber',
+    slot: 5,
+    ammoType: 'tnt',
+    ammoPerShot: 1,
+    cycleSec: 0.57,
+    pellets: 1,
+    dice: { count: 1, sides: 8, mult: 20 },
+    spreadRad: 0,
+    accurateFirstShot: true,
+    auto: false,
+    projectile: { speedM: 21.9, radiusM: 0.3, splash: { maxDamage: 128, radiusM: 4 } }
+  },
+  raygun: {
+    id: 'raygun',
+    name: 'Ray-O-Matic',
+    slot: 6,
+    ammoType: 'cells',
+    ammoPerShot: 1,
+    cycleSec: 0.086,
+    pellets: 1,
+    dice: { count: 1, sides: 8, mult: 5 },
+    spreadRad: 0,
+    accurateFirstShot: true,
+    auto: true,
+    projectile: { speedM: 27.3, radiusM: 0.25 }
+  },
+  bigcheese: {
+    id: 'bigcheese',
+    name: 'Big Cheese',
+    slot: 7,
+    ammoType: 'cells',
+    ammoPerShot: 40,
+    cycleSec: 1.71,
+    pellets: 1,
+    dice: { count: 1, sides: 8, mult: 100 },
+    spreadRad: 0,
+    accurateFirstShot: true,
+    auto: false,
+    projectile: { speedM: 27.3, radiusM: 0.5, splash: { maxDamage: 300, radiusM: 6 } }
   }
 }
 
-export function createWeaponCooldownState(): WeaponCooldownState {
-  return {
-    peashooter: Number.NEGATIVE_INFINITY,
-    boomstick: Number.NEGATIVE_INFINITY,
-    inkblaster: Number.NEGATIVE_INFINITY
-  }
+export const WEAPON_ORDER: WeaponId[] = ['paws', 'snub', 'scattergun', 'chatter', 'lobber', 'raygun', 'bigcheese']
+
+export type AmmoState = Record<Exclude<AmmoType, 'none'>, number>
+
+export const AMMO_MAX_BASE: AmmoState = { bullets: 200, shells: 50, tnt: 50, cells: 300 }
+
+export const AMMO_PICKUPS: Record<'bullets' | 'shells' | 'tnt' | 'cells', number> = {
+  bullets: 50,
+  shells: 8,
+  tnt: 3,
+  cells: 40
 }
 
-export function createWeaponAmmo(maxAmmoBonus = 0): WeaponAmmoState {
-  return {
-    boomstick: (weaponConfigs.boomstick.maxAmmo ?? 0) + maxAmmoBonus,
-    inkblaster: (weaponConfigs.inkblaster.maxAmmo ?? 0) + maxAmmoBonus
-  }
-}
-
-export function weaponAmmoLabel(weapon: WeaponId, ammo: WeaponAmmoState): string {
-  if (weapon === 'peashooter') {
-    return 'Inf'
-  }
-
-  return String(ammo[weapon])
-}
-
-export function canFireWeapon(weapon: WeaponId, ammo: WeaponAmmoState): boolean {
-  const config = weaponConfigs[weapon]
-
-  if (weapon === 'peashooter' || config.maxAmmo === null) {
+export function canFire(weapon: WeaponDef, ammo: AmmoState): boolean {
+  if (weapon.ammoType === 'none') {
     return true
   }
-
-  return ammo[weapon] >= config.ammoPerShot
+  return ammo[weapon.ammoType] >= weapon.ammoPerShot
 }
 
-export function spendWeaponAmmo(weapon: WeaponId, ammo: WeaponAmmoState): WeaponAmmoState {
-  const config = weaponConfigs[weapon]
-
-  if (weapon === 'peashooter' || config.maxAmmo === null) {
+export function spendAmmo(weapon: WeaponDef, ammo: AmmoState): AmmoState {
+  if (weapon.ammoType === 'none') {
     return ammo
   }
+  return { ...ammo, [weapon.ammoType]: ammo[weapon.ammoType] - weapon.ammoPerShot }
+}
 
-  return {
-    ...ammo,
-    [weapon]: Math.max(0, ammo[weapon] - config.ammoPerShot)
+// The best weapon that has ammo, used when the current gun runs dry.
+export function bestFallbackWeapon(owned: WeaponId[], ammo: AmmoState): WeaponId {
+  const preference: WeaponId[] = ['chatter', 'scattergun', 'raygun', 'snub', 'lobber', 'paws']
+  for (const id of preference) {
+    if (owned.includes(id) && canFire(WEAPONS[id], ammo)) {
+      return id
+    }
   }
-}
-
-export function weaponCooldownRemainingMs(weapon: WeaponId, lastFiredAtMs: number, nowMs: number): number {
-  return Math.max(0, weaponConfigs[weapon].fireIntervalMs - (nowMs - lastFiredAtMs))
-}
-
-export function canFireWeaponAt(weapon: WeaponId, lastFiredAtMs: number, nowMs: number): boolean {
-  return weaponCooldownRemainingMs(weapon, lastFiredAtMs, nowMs) === 0
-}
-
-export function collectWeaponAmmo(
-  ammo: WeaponAmmoState,
-  boomstick = 2,
-  inkblaster = 1,
-  maxAmmoBonus = 0
-): WeaponAmmoState {
-  return {
-    boomstick: Math.min((weaponConfigs.boomstick.maxAmmo ?? 0) + maxAmmoBonus, ammo.boomstick + boomstick),
-    inkblaster: Math.min((weaponConfigs.inkblaster.maxAmmo ?? 0) + maxAmmoBonus, ammo.inkblaster + inkblaster)
-  }
-}
-
-export function nextWeapon(current: WeaponId): WeaponId {
-  const index = weaponIds.indexOf(current)
-  return weaponIds[(index + 1) % weaponIds.length]
+  return 'paws'
 }

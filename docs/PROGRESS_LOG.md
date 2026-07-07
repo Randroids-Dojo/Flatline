@@ -18,6 +18,16 @@ Format for each slice:
 
 Pre-spiral history (94 commits across 2026-04-30 to 2026-05-02) is preserved in `docs/_archive/2026-05-03-pre-spiral/PROGRESS_LOG.md`. New entries are append-only from this slice.
 
+## 2026-07-07, Full reboot: endless-dungeon rubber-hose Doom with RL2 meta progression
+
+- Branch: `claude/doom-roguelike-procedural-8614yx`
+- PR: #pending
+- Changed: the entire game was rebuilt per an explicit user directive ("completely redo this game, delete everything you want"). The arena wave shooter is gone; Flatline is now a first-person Doom-mechanics shooter in an endless on-the-fly generated dungeon, drawn as a strict-grayscale 1930s rubber-hose cartoon (Mouse: P.I. for Hire style), with Rogue Legacy 2 style meta progression on death. New pure-logic layer in `src/game/` (rng, dungeon, movement, collision, raycast, weapons, combat, enemies, projectiles, doors, pickups, meta), procedural canvas art in `src/art/` (ink primitives, textures, character rig, viewmodels, mugshot, film grain), WebAudio synthesis in `src/audio/sfx.ts`, and a rebuilt `src/components/FlatlineGame.tsx` (Three.js renderer, frame loop, screens) plus `src/components/OfficeScreen.tsx` (Case Board / Armory / Fence). Old game code, arena routes, leaderboard and upgrade-wallet APIs, generated PNG assets, and asset scripts were deleted; the old GDD and playtest docs moved to `docs/_archive/2026-07-07-pre-reboot/`. `@upstash/redis` dependency removed with the leaderboard. New GDD written under `docs/gdd/` (23 sections). Playwright config gains `PLAYWRIGHT_CHROMIUM_PATH` support for the container's preinstalled browser.
+- Verification: dash check (clean), `git diff --check`, `npm run lint` (0 problems), `npm run typecheck`, `npm test` (79/79), `npm run build`, `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium npx playwright test` (6 passed, 6 project-scoped skips). Manual scripted playthrough screenshots verified dungeon rendering, enemy combat, coin drops, mugshot damage tiers, death card, and office purchases.
+- Assumptions: player speed scaled to 0.62 of Doom's run speed for 2m corridors (Q-032); mid-run refresh loses the run (Q-033); simple radius wake instead of Doom sound propagation (documented out of scope); test hooks stay as window events.
+- GDD coverage: REQ-001..REQ-066 flipped to `out_of_scope` (reboot note added); REQ-100..REQ-122 appended, all `done` except REQ-117 and REQ-121 `partial`.
+- Followups: F-025 (mobile touch controls), F-026 (texture disposal / long-session memory), F-027 (enemy population cap), F-028 (audio degradation tied to film preset).
+
 ## 2026-05-14, Center zone hazard surge
 
 - Branch: `main` direct push

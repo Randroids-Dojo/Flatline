@@ -1,10 +1,30 @@
 # Flatline
 
-An endless single-room Doom-like shooter where hand-drawn flat enemies swarm you from every angle.
+A hard-boiled mouse story. First-person Doom mechanics in an endless on-the-fly generated dungeon, drawn like a 1934 rubber-hose cartoon, with Rogue Legacy style meta progression: die, bank your cheddar, buy permanent upgrades at the office, hit the streets again.
+
+This is the 2026-07 reboot. The previous single-arena game is archived under `docs/_archive/2026-07-07-pre-reboot/`.
+
+## Play
+
+- WASD to move, mouse to aim (click grants pointer lock), click to shoot.
+- 1 to 7 swap weapons, E or Space opens doors, hold Tab for the automap, Escape pauses.
+- Death is progress: earnings convert to Case Board ranks, Armory unlocks, and one-run contraband. Unspent cheddar is taken as rent when the next run starts, so spend before you leave.
+
+## Development
+
+```bash
+npm install
+npm run dev        # http://127.0.0.1:3000
+npm run verify     # lint + typecheck + unit tests + build + e2e
+```
+
+E2e uses Playwright. In environments with a preinstalled browser, point at it with `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium npm run test:e2e`.
+
+All art and audio are generated at runtime (canvas 2D + WebAudio); the repo has no binary game assets. No environment variables are required.
 
 ## Project Docs
 
-- `docs/gdd/`: canonical requirement-granular game design document.
+- `docs/gdd/`: canonical requirement-granular game design document (start at `docs/gdd/README.md`).
 - `AGENTS.md`: required operating rules for agentic coding tools.
 - `docs/IMPLEMENTATION_PLAN.md`: backlog shape, slice order, loop rules, and definitions of done.
 - `docs/WORKING_AGREEMENT.md`: branch, commit, PR, review, CI, and deploy rules.
@@ -12,28 +32,11 @@ An endless single-room Doom-like shooter where hand-drawn flat enemies swarm you
 - `docs/OPEN_QUESTIONS.md`: durable design and technical decisions.
 - `docs/FOLLOWUPS.md`: deferred work that should survive context loss.
 - `docs/GDD_COVERAGE.json`: maps GDD requirements to implementation, tests, and remaining gaps.
-- `docs/ART_PIPELINE.md`: implementation-ready visual asset pipeline and first polished art specs.
 
-## Loop Quickstart
+## Source Layout
 
-```bash
-dot ls
-dot ready
-```
-
-Pick one ready task, turn it on with `dot on <id>`, complete it on a branch, then close it with `dot off <id> -r "<reason>"` after the PR is merged and verified.
-
-The loop is continuous. After a merge, sync `main`, verify CI and production, close the dot with evidence, then immediately restart selection from `dot ready`, `docs/FOLLOWUPS.md`, and `docs/GDD_COVERAGE.json`. Stop only when the backlog is empty or blocked by a documented user decision.
-
-## Shared Leaderboard Setup
-
-Flatline can use Vercel KV through Upstash Redis for shared all-time and daily leaderboards.
-
-Required Vercel environment variables:
-
-```bash
-KV_REST_API_URL=
-KV_REST_API_TOKEN=
-```
-
-Create or attach a Vercel KV store in the Vercel dashboard, confirm those variables exist for Production and Preview, then redeploy. If KV is not configured, the game still runs and keeps the local browser leaderboard.
+- `src/game/`: pure simulation logic (dungeon generation, movement, combat, enemies, doors, pickups, meta progression), each module unit-tested.
+- `src/art/`: procedural rubber-hose drawing (ink primitives, textures, sprites, viewmodels, mugshot, film grain).
+- `src/audio/`: synthesized sound.
+- `src/components/`: the Three.js game component and the Office screen.
+- `tests/`: Playwright e2e (full loop, pause, persistence, film-motion QA).

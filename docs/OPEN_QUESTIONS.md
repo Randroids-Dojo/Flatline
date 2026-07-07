@@ -25,7 +25,37 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 
 ## Open
 
-(none)
+### Q-032: How fast should the player move in the tighter dungeon?
+
+- Context: Doom's true run speed is 18.2 m/s, tuned for arenas with 4m to 8m corridors. The reboot's dungeon uses 2m cells and 2m-wide corridors, where full Doom speed feels like teleporting into walls.
+- Options:
+  - A. Full Doom speed, widen all corridors to 2 cells.
+  - B. Scale speed to 0.62 (about 11 m/s) and keep the tight noir corridors.
+  - C. Expose a speed slider.
+- Recommended default: B. Keeps the claustrophobic noir feel and still reads as doom-fast; the scale constant is one number (`SPEED_SCALE` in `src/game/movement.ts`) if the dev overrides.
+- Status: open
+- Resolution: (pending)
+
+### Q-033: Should a mid-run page refresh preserve the run?
+
+- Context: run state (position, enemies, inventory, run cheddar) lives only in memory; refreshing loses the run and its unbanked earnings without a death summary.
+- Options:
+  - A. Accept the loss (roguelike-appropriate).
+  - B. Snapshot run earnings to localStorage periodically so a refresh at least banks cheddar.
+  - C. Full run serialization.
+- Recommended default: A for v1; B is a small followup if players complain about lost earnings.
+- Status: open
+- Resolution: (pending)
+
+### Q-034: Was cutting the shared leaderboard acceptable?
+
+- Context: the reboot removed the Upstash-backed leaderboard and its API routes because the new score (best ring) is personal-progression flavored, and the user asked for a full redo. The `@upstash/redis` dependency was removed with it.
+- Options:
+  - A. Keep it cut.
+  - B. Re-add a best-ring leaderboard on Vercel KV later.
+- Recommended default: A for v1, revisit after the loop proves fun; re-adding is an isolated slice since vibekit's server helpers still exist.
+- Status: open
+- Resolution: (pending)
 
 ## Resolved
 

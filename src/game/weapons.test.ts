@@ -1,49 +1,32 @@
 import { describe, expect, it } from 'vitest'
-import {
-  canFireWeaponAt,
-  canFireWeapon,
-  collectWeaponAmmo,
-  createWeaponCooldownState,
-  createWeaponAmmo,
-  nextWeapon,
-  spendWeaponAmmo,
-  weaponCooldownRemainingMs,
-  weaponAmmoLabel
-} from './weapons'
+import { AMMO_MAX_BASE, bestFallbackWeapon, canFire, spendAmmo, WEAPONS, WEAPON_ORDER } from './weapons'
 
-describe('weapon ammo', () => {
-  it('starts limited weapons at their caps', () => {
-    expect(createWeaponAmmo()).toEqual({ boomstick: 6, inkblaster: 4 })
+describe('weapons table', () => {
+  it('covers seven slots in order', () => {
+    expect(WEAPON_ORDER.map((id) => WEAPONS[id].slot)).toEqual([1, 2, 3, 4, 5, 6, 7])
   })
 
-  it('lets the peashooter fire without ammo', () => {
-    expect(canFireWeapon('peashooter', { boomstick: 0, inkblaster: 0 })).toBe(true)
-    expect(weaponAmmoLabel('peashooter', { boomstick: 0, inkblaster: 0 })).toBe('Inf')
+  it('melee weapons never need ammo', () => {
+    expect(canFire(WEAPONS.paws, { bullets: 0, shells: 0, tnt: 0, cells: 0 })).toBe(true)
   })
 
-  it('spends limited ammo and blocks empty weapons', () => {
-    const spent = spendWeaponAmmo('boomstick', { boomstick: 1, inkblaster: 0 })
-
-    expect(spent).toEqual({ boomstick: 0, inkblaster: 0 })
-    expect(canFireWeapon('boomstick', spent)).toBe(false)
+  it('guns need ammo and spend it', () => {
+    const ammo = { ...AMMO_MAX_BASE, bullets: 1 }
+    expect(canFire(WEAPONS.snub, ammo)).toBe(true)
+    const after = spendAmmo(WEAPONS.snub, ammo)
+    expect(after.bullets).toBe(0)
+    expect(canFire(WEAPONS.snub, after)).toBe(false)
   })
 
-  it('refills limited weapons without exceeding caps', () => {
-    expect(collectWeaponAmmo({ boomstick: 5, inkblaster: 4 })).toEqual({ boomstick: 6, inkblaster: 4 })
+  it('big cheese drinks 40 cells per shot', () => {
+    expect(canFire(WEAPONS.bigcheese, { bullets: 0, shells: 0, tnt: 0, cells: 39 })).toBe(false)
+    expect(canFire(WEAPONS.bigcheese, { bullets: 0, shells: 0, tnt: 0, cells: 40 })).toBe(true)
   })
 
-  it('cycles weapons in hud order', () => {
-    expect(nextWeapon('peashooter')).toBe('boomstick')
-    expect(nextWeapon('boomstick')).toBe('inkblaster')
-    expect(nextWeapon('inkblaster')).toBe('peashooter')
-  })
-
-  it('tracks per-weapon fire cadence', () => {
-    const cooldowns = createWeaponCooldownState()
-
-    expect(canFireWeaponAt('boomstick', cooldowns.boomstick, 1000)).toBe(true)
-    expect(canFireWeaponAt('boomstick', 1000, 1200)).toBe(false)
-    expect(weaponCooldownRemainingMs('boomstick', 1000, 1200)).toBe(560)
-    expect(canFireWeaponAt('boomstick', 1000, 1760)).toBe(true)
+  it('falls back to the best owned weapon with ammo', () => {
+    expect(bestFallbackWeapon(['paws', 'snub', 'scattergun'], { bullets: 0, shells: 5, tnt: 0, cells: 0 })).toBe(
+      'scattergun'
+    )
+    expect(bestFallbackWeapon(['paws', 'snub'], { bullets: 0, shells: 0, tnt: 0, cells: 0 })).toBe('paws')
   })
 })
